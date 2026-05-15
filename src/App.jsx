@@ -147,6 +147,88 @@ const REST_OPTIONS = [
 const WEEKLY_VOLUME = [18400, 12200, 22100, 19800, 0, 24600, 16300];
 const DAYS_SHORT = ["M","T","W","T","F","S","S"];
 
+const EXERCISE_MUSCLE_MAP = {
+  "Barbell Bench Press":      { chest:1.0, front_delt:0.5, tricep:0.4 },
+  "Incline Dumbbell Press":   { chest:0.85, front_delt:0.65, tricep:0.3 },
+  "Cable Flyes":              { chest:0.95, front_delt:0.15 },
+  "Dumbbell Flyes":           { chest:0.95, front_delt:0.15 },
+  "Barbell Deadlift":         { lower_back:0.9, glute:0.8, hamstring:0.75, trap:0.6, lat:0.5, quad:0.4 },
+  "Romanian Deadlift":        { hamstring:1.0, glute:0.85, lower_back:0.7 },
+  "Barbell Row":              { lat:1.0, mid_back:0.9, rear_delt:0.6, bicep:0.5, trap:0.4 },
+  "Lat Pulldown":             { lat:0.95, mid_back:0.6, bicep:0.55, rear_delt:0.4 },
+  "Pull-Ups":                 { lat:1.0, mid_back:0.65, bicep:0.6, rear_delt:0.4 },
+  "Barbell Squat":            { quad:1.0, glute:0.8, hamstring:0.5, lower_back:0.4 },
+  "Hack Squat":               { quad:1.0, glute:0.6, hamstring:0.35 },
+  "Leg Press":                { quad:0.9, glute:0.7, hamstring:0.3 },
+  "Bulgarian Split Squat":    { quad:0.95, glute:0.9, hamstring:0.45 },
+  "Leg Curl":                 { hamstring:1.0, glute:0.3 },
+  "Barbell Overhead Press":   { front_delt:1.0, mid_delt:0.65, tricep:0.6, trap:0.35 },
+  "Arnold Press":             { front_delt:0.85, mid_delt:0.85, rear_delt:0.4, tricep:0.5 },
+  "Lateral Raises":           { mid_delt:1.0, rear_delt:0.3, trap:0.2 },
+  "Rear Delt Flyes":          { rear_delt:1.0, mid_back:0.45, trap:0.3 },
+  "Barbell Curl":             { bicep:1.0, forearm:0.4 },
+  "Hammer Curl":              { bicep:0.85, forearm:0.8 },
+  "Preacher Curl":            { bicep:1.0, forearm:0.25 },
+  "Tricep Pushdown":          { tricep:1.0, forearm:0.2 },
+  "Skull Crushers":           { tricep:1.0 },
+  "Plank":                    { upper_abs:0.8, lower_abs:0.65, oblique:0.6, lower_back:0.45 },
+  "Ab Wheel":                 { upper_abs:0.95, lower_abs:0.9, oblique:0.5, lower_back:0.3 },
+  "Hanging Leg Raises":       { lower_abs:1.0, hip_flexor:0.85, upper_abs:0.5 },
+  "Russian Twists":           { oblique:1.0, upper_abs:0.5 },
+  "Kettlebell Swing":         { glute:0.95, hamstring:0.8, lower_back:0.7, quad:0.4 },
+  "Box Jumps":                { quad:0.8, glute:0.8, calf:0.65, hamstring:0.45 },
+  "Jump Rope":                { calf:1.0, quad:0.4, forearm:0.25 },
+  "Assault Bike":             { quad:0.75, glute:0.5, front_delt:0.35, upper_abs:0.35 },
+};
+
+const MUSCLE_LABELS = {
+  chest:"Chest", front_delt:"Front Delts", mid_delt:"Side Delts", rear_delt:"Rear Delts",
+  bicep:"Biceps", tricep:"Triceps", forearm:"Forearms", trap:"Traps",
+  lat:"Lats", mid_back:"Mid Back", lower_back:"Lower Back",
+  upper_abs:"Upper Abs", lower_abs:"Lower Abs", oblique:"Obliques", hip_flexor:"Hip Flexors",
+  quad:"Quads", hamstring:"Hamstrings", glute:"Glutes", calf:"Calves",
+};
+
+function lerpColor(a, b, t) {
+  const ah = parseInt(a.slice(1),16), bh = parseInt(b.slice(1),16);
+  const ar=(ah>>16)&255,ag=(ah>>8)&255,ab=ah&255;
+  const br=(bh>>16)&255,bg=(bh>>8)&255,bb=bh&255;
+  return `rgb(${Math.round(ar+(br-ar)*t)},${Math.round(ag+(bg-ag)*t)},${Math.round(ab+(bb-ab)*t)})`;
+}
+
+function getHeatColor(score) {
+  if (score <= 0)  return "#0A1628";
+  if (score <= 30) return lerpColor("#1B4FBF","#4DA6FF", score/30);
+  if (score <= 60) return lerpColor("#4DA6FF","#FFD700",(score-30)/30);
+  if (score <= 85) return lerpColor("#FFD700","#FF6B00",(score-60)/25);
+  return lerpColor("#FF6B00","#FF1744",(score-85)/15);
+}
+
+function getHeatGlow(score, color) {
+  if (score < 10) return "none";
+  const r = Math.round(2 + score * 0.25);
+  return `drop-shadow(0 0 ${r}px ${color}CC)`;
+}
+
+function calcMuscleScores(sessions) {
+  const raw = {};
+  for (const sess of sessions) {
+    for (const ex of (sess.exs || [])) {
+      const map = EXERCISE_MUSCLE_MAP[ex.name];
+      if (!map) continue;
+      const sets = ex.sets.filter(s => s.r && s.w).length || 1;
+      const vol  = ex.sets.reduce((s,set) => s + (parseFloat(set.w)||0)*(parseInt(set.r)||0), 0);
+      for (const [muscle, factor] of Object.entries(map)) {
+        raw[muscle] = (raw[muscle]||0) + (sets*12 + vol*0.04) * factor;
+      }
+    }
+  }
+  const max = Math.max(...Object.values(raw), 1);
+  const out = {};
+  for (const [k,v] of Object.entries(raw)) out[k] = Math.min(100, (v/max)*100);
+  return out;
+}
+
 function GlowDot({ color = G.gold, size = 8 }) {
   return (
     <div style={{
@@ -642,7 +724,343 @@ function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart }) {
   );
 }
 
-function ProgressScreen({ showToast }) {
+// ─── Muscle Heat Map ────────────────────────────────────────────────────────
+
+const MUSCLE_SUGGEST = {
+  chest:"Barbell Bench Press", front_delt:"Barbell Overhead Press", mid_delt:"Lateral Raises",
+  rear_delt:"Rear Delt Flyes", bicep:"Barbell Curl", tricep:"Skull Crushers",
+  forearm:"Hammer Curl", trap:"Barbell Deadlift", lat:"Pull-Ups",
+  mid_back:"Barbell Row", lower_back:"Romanian Deadlift", upper_abs:"Ab Wheel",
+  lower_abs:"Hanging Leg Raises", oblique:"Russian Twists", hip_flexor:"Hanging Leg Raises",
+  quad:"Barbell Squat", hamstring:"Leg Curl", glute:"Bulgarian Split Squat", calf:"Jump Rope",
+};
+
+// Body silhouette shapes shared by front+back
+function BodyBase() {
+  const c = "#0D0B1E";
+  return (
+    <>
+      <circle cx="100" cy="34" r="21" fill={c}/>
+      <rect x="93" y="53" width="14" height="20" rx="5" fill={c}/>
+      <rect x="45" y="70" width="110" height="30" rx="15" fill={c}/>
+      <rect x="66" y="88" width="68" height="72" rx="11" fill={c}/>
+      <rect x="70" y="154" width="60" height="50" rx="9" fill={c}/>
+      <rect x="67" y="197" width="66" height="48" rx="15" fill={c}/>
+      <rect x="38" y="80" width="23" height="90" rx="11" fill={c}/>
+      <rect x="139" y="80" width="23" height="90" rx="11" fill={c}/>
+      <rect x="30" y="167" width="21" height="68" rx="10" fill={c}/>
+      <rect x="149" y="167" width="21" height="68" rx="10" fill={c}/>
+      <ellipse cx="39" cy="244" rx="11" ry="15" fill={c}/>
+      <ellipse cx="161" cy="244" rx="11" ry="15" fill={c}/>
+      <rect x="68" y="238" width="29" height="88" rx="13" fill={c}/>
+      <rect x="103" y="238" width="29" height="88" rx="13" fill={c}/>
+      <ellipse cx="82" cy="326" rx="15" ry="11" fill={c}/>
+      <ellipse cx="118" cy="326" rx="15" ry="11" fill={c}/>
+      <rect x="70" y="334" width="24" height="70" rx="11" fill={c}/>
+      <rect x="106" y="334" width="24" height="70" rx="11" fill={c}/>
+      <ellipse cx="80" cy="413" rx="16" ry="9" fill={c}/>
+      <ellipse cx="120" cy="413" rx="16" ry="9" fill={c}/>
+    </>
+  );
+}
+
+function MuscleHeatMap({ sessions, showToast }) {
+  const [view, setView] = useState("front");
+  const [period, setPeriod] = useState("week");
+  const [sel, setSel] = useState(null);
+
+  const rawScores = calcMuscleScores(sessions);
+  const factor = period === "month" ? 0.45 : 1;
+  const scores = Object.fromEntries(Object.entries(rawScores).map(([k,v]) => [k, v * factor]));
+
+  const sc = key => scores[key] || 0;
+  const col = key => getHeatColor(sc(key));
+  const op = key => { const s = sc(key); return s < 3 ? 0.14 : 0.45 + (s/100)*0.55; };
+  const glow = key => { const s = sc(key); return s > 15 ? getHeatGlow(s, col(key)) : "none"; };
+
+  const patch = (key, shapeEl) => {
+    const s = sc(key);
+    const anim = s > 75 ? "heatPulse 2s ease-in-out infinite" : "none";
+    return (
+      <g key={key} onClick={() => setSel(sel===key ? null : key)}
+         style={{ cursor:"pointer", filter: glow(key), animation: anim }}>
+        {shapeEl(col(key), op(key))}
+      </g>
+    );
+  };
+
+  // ── Total sets per muscle from sessions ──────────────────────────────────
+  const muscleSets = key => {
+    let total = 0;
+    for (const sess of sessions) {
+      for (const ex of (sess.exs||[])) {
+        const map = EXERCISE_MUSCLE_MAP[ex.name];
+        if (map && map[key]) total += ex.sets.filter(s=>s.r&&s.w).length;
+      }
+    }
+    return total;
+  };
+  const lastTrained = key => {
+    for (const sess of sessions) {
+      for (const ex of (sess.exs||[])) {
+        if (EXERCISE_MUSCLE_MAP[ex.name]?.[key]) return sess.date||"—";
+      }
+    }
+    return "—";
+  };
+
+  // ── Insights ─────────────────────────────────────────────────────────────
+  const allKeys = Object.keys(MUSCLE_LABELS);
+  const maxScore = Math.max(...allKeys.map(k=>sc(k)), 1);
+  const minScore = Math.min(...allKeys.filter(k=>sc(k)>0).map(k=>sc(k)), 100);
+  const overKeys = allKeys.filter(k => sc(k) > 80);
+  const underKeys = allKeys.filter(k => sc(k) < 15).slice(0,3);
+  const imbalanced = maxScore - (minScore < 100 ? minScore : 0) > 55;
+
+  return (
+    <div>
+      {/* Header controls */}
+      <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+        {[["front","FRONT VIEW"],["back","BACK VIEW"]].map(([v,l]) => (
+          <button key={v} onClick={()=>{setView(v);setSel(null);}} style={{
+            flex:1, padding:"9px 4px", borderRadius:6, border:`1px solid ${view===v?G.gold:G.borderB}`,
+            background: view===v ? `${G.gold}22` : "transparent",
+            color: view===v ? G.gold : G.textMid,
+            fontFamily:FONT.display, fontSize:12, letterSpacing:2, cursor:"pointer"
+          }}>{l}</button>
+        ))}
+        {[["week","WEEK"],["month","MONTH"]].map(([p,l]) => (
+          <button key={p} onClick={()=>setPeriod(p)} style={{
+            padding:"9px 10px", borderRadius:6, border:`1px solid ${period===p?G.purpleLight:G.borderB}`,
+            background: period===p ? `${G.purpleLight}22` : "transparent",
+            color: period===p ? G.purpleLight : G.textMid,
+            fontFamily:FONT.display, fontSize:12, letterSpacing:2, cursor:"pointer"
+          }}>{l}</button>
+        ))}
+      </div>
+
+      {/* SVG Body */}
+      <div style={{ position:"relative", display:"flex", justifyContent:"center" }}>
+        <svg viewBox="0 0 200 440" width="200" height="440"
+             style={{ filter:"drop-shadow(0 0 30px rgba(85,37,131,0.25))" }}>
+
+          <BodyBase/>
+
+          {view === "front" ? (
+            <g>
+              {/* Chest */}
+              {patch("chest", (c,o) => <>
+                <rect x="70" y="92" width="28" height="52" rx="8" fill={c} fillOpacity={o}/>
+                <rect x="102" y="92" width="28" height="52" rx="8" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Front delts */}
+              {patch("front_delt", (c,o) => <>
+                <ellipse cx="52" cy="92" rx="13" ry="18" fill={c} fillOpacity={o}/>
+                <ellipse cx="148" cy="92" rx="13" ry="18" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Side delts */}
+              {patch("mid_delt", (c,o) => <>
+                <ellipse cx="41" cy="95" rx="8" ry="12" fill={c} fillOpacity={o}/>
+                <ellipse cx="159" cy="95" rx="8" ry="12" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Biceps */}
+              {patch("bicep", (c,o) => <>
+                <rect x="39" y="102" width="20" height="58" rx="9" fill={c} fillOpacity={o}/>
+                <rect x="141" y="102" width="20" height="58" rx="9" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Forearms */}
+              {patch("forearm", (c,o) => <>
+                <rect x="31" y="169" width="18" height="55" rx="8" fill={c} fillOpacity={o}/>
+                <rect x="151" y="169" width="18" height="55" rx="8" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Upper abs (4-pack) */}
+              {patch("upper_abs", (c,o) => <>
+                <rect x="80" y="150" width="18" height="20" rx="5" fill={c} fillOpacity={o}/>
+                <rect x="102" y="150" width="18" height="20" rx="5" fill={c} fillOpacity={o}/>
+                <rect x="80" y="173" width="18" height="20" rx="5" fill={c} fillOpacity={o}/>
+                <rect x="102" y="173" width="18" height="20" rx="5" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Lower abs */}
+              {patch("lower_abs", (c,o) => <>
+                <rect x="80" y="196" width="18" height="18" rx="5" fill={c} fillOpacity={o}/>
+                <rect x="102" y="196" width="18" height="18" rx="5" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Obliques */}
+              {patch("oblique", (c,o) => <>
+                <path d="M68 148 Q64 168 66 205 Q72 213 80 209 L80 196 L80 148 Z" fill={c} fillOpacity={o}/>
+                <path d="M132 148 Q136 168 134 205 Q128 213 120 209 L120 196 L120 148 Z" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Hip flexors */}
+              {patch("hip_flexor", (c,o) => <>
+                <rect x="70" y="215" width="24" height="24" rx="8" fill={c} fillOpacity={o}/>
+                <rect x="106" y="215" width="24" height="24" rx="8" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Quads */}
+              {patch("quad", (c,o) => <>
+                <rect x="70" y="240" width="26" height="80" rx="11" fill={c} fillOpacity={o}/>
+                <rect x="104" y="240" width="26" height="80" rx="11" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Calves front */}
+              {patch("calf", (c,o) => <>
+                <rect x="72" y="334" width="21" height="62" rx="9" fill={c} fillOpacity={o}/>
+                <rect x="107" y="334" width="21" height="62" rx="9" fill={c} fillOpacity={o}/>
+              </>)}
+            </g>
+          ) : (
+            <g>
+              {/* Traps */}
+              {patch("trap", (c,o) => <>
+                <path d="M88 72 L50 90 L55 118 L90 110 Z" fill={c} fillOpacity={o}/>
+                <path d="M112 72 L150 90 L145 118 L110 110 Z" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Rear delts */}
+              {patch("rear_delt", (c,o) => <>
+                <ellipse cx="50" cy="96" rx="13" ry="18" fill={c} fillOpacity={o}/>
+                <ellipse cx="150" cy="96" rx="13" ry="18" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Lats */}
+              {patch("lat", (c,o) => <>
+                <path d="M64 108 L50 148 L53 205 L72 202 L74 148 L68 113 Z" fill={c} fillOpacity={o}/>
+                <path d="M136 108 L150 148 L147 205 L128 202 L126 148 L132 113 Z" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Mid back */}
+              {patch("mid_back", (c,o) =>
+                <rect x="77" y="118" width="46" height="42" rx="9" fill={c} fillOpacity={o}/>
+              )}
+              {/* Lower back */}
+              {patch("lower_back", (c,o) =>
+                <rect x="78" y="163" width="44" height="36" rx="10" fill={c} fillOpacity={o}/>
+              )}
+              {/* Triceps */}
+              {patch("tricep", (c,o) => <>
+                <rect x="39" y="98" width="20" height="64" rx="9" fill={c} fillOpacity={o}/>
+                <rect x="141" y="98" width="20" height="64" rx="9" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Rear forearms */}
+              {patch("forearm", (c,o) => <>
+                <rect x="31" y="169" width="18" height="55" rx="8" fill={c} fillOpacity={o}/>
+                <rect x="151" y="169" width="18" height="55" rx="8" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Glutes */}
+              {patch("glute", (c,o) => <>
+                <rect x="69" y="204" width="28" height="44" rx="13" fill={c} fillOpacity={o}/>
+                <rect x="103" y="204" width="28" height="44" rx="13" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Hamstrings */}
+              {patch("hamstring", (c,o) => <>
+                <rect x="70" y="250" width="26" height="70" rx="11" fill={c} fillOpacity={o}/>
+                <rect x="104" y="250" width="26" height="70" rx="11" fill={c} fillOpacity={o}/>
+              </>)}
+              {/* Calves back */}
+              {patch("calf", (c,o) => <>
+                <rect x="72" y="330" width="21" height="66" rx="9" fill={c} fillOpacity={o}/>
+                <rect x="107" y="330" width="21" height="66" rx="9" fill={c} fillOpacity={o}/>
+              </>)}
+            </g>
+          )}
+        </svg>
+
+        {/* Selected muscle tooltip overlay */}
+        {sel && (
+          <div style={{ position:"absolute", bottom:8, left:0, right:0, margin:"0 4px",
+            background:`linear-gradient(135deg,rgba(10,8,24,0.97),rgba(85,37,131,0.18))`,
+            border:`1px solid ${col(sel)}55`, borderRadius:10, padding:"12px 14px",
+            backdropFilter:"blur(12px)", boxShadow:`0 8px 32px rgba(0,0,0,0.6)`,
+            animation:"toastIn 0.2s ease" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+              <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:3, color:col(sel),
+                textShadow:`0 0 12px ${col(sel)}88` }}>{MUSCLE_LABELS[sel]?.toUpperCase()}</div>
+              <button onClick={()=>setSel(null)} style={{ background:"none", border:"none",
+                color:G.textMid, cursor:"pointer", fontSize:16 }}>✕</button>
+            </div>
+            {/* Heat bar */}
+            <div style={{ height:6, borderRadius:3, background:"rgba(255,255,255,0.08)", marginBottom:10, overflow:"hidden" }}>
+              <div style={{ height:"100%", width:`${sc(sel)}%`, borderRadius:3,
+                background:`linear-gradient(90deg,#1B4FBF,#4DA6FF,#FFD700,${col(sel)})`,
+                boxShadow:`0 0 8px ${col(sel)}` }}/>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:6 }}>
+              {[
+                ["HEAT",`${Math.round(sc(sel))}%`],
+                ["SETS",muscleSets(sel)],
+                ["RECOVERY",`${Math.max(0,Math.round(100-sc(sel)*1.2))}%`],
+                ["LAST",lastTrained(sel)],
+              ].map(([l,v])=>(
+                <div key={l} style={{ textAlign:"center" }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:14, color:G.gold, letterSpacing:1 }}>{v}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>{l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Legend */}
+      <div style={{ display:"flex", alignItems:"center", gap:10, margin:"12px 0 16px" }}>
+        <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase", flexShrink:0 }}>COLD</div>
+        <div style={{ flex:1, height:6, borderRadius:3, background:"linear-gradient(90deg,#1B4FBF,#4DA6FF,#FFD700,#FF6B00,#FF1744)" }}/>
+        <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase", flexShrink:0 }}>HOT</div>
+      </div>
+
+      {/* AI Insights */}
+      <SectionLabel>AI Recovery Intel</SectionLabel>
+
+      {sessions.length === 0 && (
+        <ChromeCard style={{ padding:"14px", marginBottom:10, textAlign:"center" }}>
+          <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.textMid }}>LOG A WORKOUT TO SEE YOUR MUSCLE MAP</div>
+        </ChromeCard>
+      )}
+
+      {overKeys.length > 0 && (
+        <ChromeCard style={{ padding:"12px 14px", marginBottom:10, border:`1px solid ${G.red}44` }}>
+          <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
+            <div style={{ fontSize:18, flexShrink:0 }}>🔥</div>
+            <div>
+              <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:G.red, marginBottom:3 }}>OVERTRAINING DETECTED</div>
+              <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1 }}>
+                {overKeys.map(k=>MUSCLE_LABELS[k]).join(", ")} — take 48–72 hrs rest
+              </div>
+            </div>
+          </div>
+        </ChromeCard>
+      )}
+
+      {imbalanced && (
+        <ChromeCard style={{ padding:"12px 14px", marginBottom:10, border:`1px solid ${G.gold}44` }}>
+          <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
+            <div style={{ fontSize:18, flexShrink:0 }}>⚖️</div>
+            <div>
+              <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:G.gold, marginBottom:3 }}>MUSCLE IMBALANCE</div>
+              <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1 }}>
+                Large gap between your most and least trained groups — target neglected muscles
+              </div>
+            </div>
+          </div>
+        </ChromeCard>
+      )}
+
+      {underKeys.length > 0 && (
+        <ChromeCard style={{ padding:"12px 14px", marginBottom:10 }}>
+          <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
+            <div style={{ fontSize:18, flexShrink:0 }}>💡</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:G.purpleLight, marginBottom:6 }}>UNDERTRAINED — ADD THESE</div>
+              {underKeys.map(k => (
+                <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+                  <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1 }}>{MUSCLE_LABELS[k]}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:1, color:G.gold, textTransform:"uppercase" }}>→ {MUSCLE_SUGGEST[k]}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ChromeCard>
+      )}
+    </div>
+  );
+}
+
+function ProgressScreen({ showToast, sessions = [] }) {
   const [activeTab, setActiveTab] = useState("stats");
   const [streak] = useState(14);
   const [freezes, setFreezes] = useState(2);
@@ -661,8 +1079,8 @@ function ProgressScreen({ showToast }) {
         PROGRESS <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>VAULT</span>
       </div>
       <div style={{ display:"flex", background:"rgba(0,0,0,0.5)", borderRadius:7, padding:3, gap:3, marginBottom:18, border:`1px solid ${G.borderB}` }}>
-        {[{id:"stats",l:"STATS"},{id:"streak",l:"STREAK"},{id:"transform",l:"TRANSFORM"}].map(t=>(
-          <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{ flex:1, padding:"9px 4px", borderRadius:5, border:"none", background:activeTab===t.id?`linear-gradient(135deg,${G.gold},${G.goldDark})`:"transparent", color:activeTab===t.id?"#0A0810":G.textMid, fontFamily:FONT.display, fontSize:12, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
+        {[{id:"stats",l:"STATS"},{id:"streak",l:"STREAK"},{id:"transform",l:"BODY"},{id:"heatmap",l:"HEAT MAP"}].map(t=>(
+          <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{ flex:1, padding:"8px 2px", borderRadius:5, border:"none", background:activeTab===t.id?`linear-gradient(135deg,${G.gold},${G.goldDark})`:"transparent", color:activeTab===t.id?"#0A0810":G.textMid, fontFamily:FONT.display, fontSize:10, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
         ))}
       </div>
 
@@ -782,6 +1200,10 @@ function ProgressScreen({ showToast }) {
           ))}
           <NeonBtn onClick={()=>showToast("📸 Photo upload would open on device")} full outline style={{ marginTop:8 }}>+ ADD THIS WEEK'S CHECK-IN</NeonBtn>
         </div>
+      )}
+
+      {activeTab==="heatmap" && (
+        <MuscleHeatMap sessions={sessions} showToast={showToast}/>
       )}
     </div>
   );
@@ -1234,7 +1656,7 @@ export default function SocialFitClub() {
       <div style={{ paddingBottom:82, position:"relative", zIndex:2, minHeight:"100vh" }}>
         {tab==="home" && <HomeScreen sessions={sessions} leaderboard={leaderboard} onStartWorkout={()=>setTab("train")} onQuickStart={handleQuickStart} showToast={showToast}/>}
         {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)}/>}
-        {tab==="progress" && <ProgressScreen showToast={showToast}/>}
+        {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions}/>}
         {tab==="nutrition" && <NutritionScreen showToast={showToast}/>}
         {tab==="feed" && <FeedScreen showToast={showToast}/>}
         {tab==="more" && <MoreScreen showToast={showToast}/>}
@@ -1258,6 +1680,7 @@ export default function SocialFitClub() {
 
       <style>{`
         @keyframes toastIn { from{opacity:0;transform:translate(-50%,-10px)} to{opacity:1;transform:translate(-50%,0)} }
+        @keyframes heatPulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
         * { -webkit-tap-highlight-color: transparent; }
         input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; }
         input::placeholder, textarea::placeholder { color: #3D3360; letter-spacing: 1px; }
