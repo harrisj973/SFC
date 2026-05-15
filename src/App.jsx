@@ -1503,6 +1503,18 @@ function FeedScreen({ showToast }) {
         <NeonBtn onClick={()=>setShowPost(true)} small>+ POST</NeonBtn>
       </div>
 
+      {/* Instagram follow card */}
+      <div onClick={()=>window.open("https://www.instagram.com/thesocialfitclub26","_blank")}
+           style={{ background:"linear-gradient(135deg,rgba(131,58,180,0.18),rgba(253,29,29,0.12),rgba(252,176,69,0.15))", border:"1px solid rgba(253,29,29,0.28)", borderRadius:10, padding:"13px 14px", marginBottom:16, display:"flex", alignItems:"center", gap:12, cursor:"pointer", position:"relative", overflow:"hidden" }}>
+        <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(131,58,180,0.06),rgba(252,176,69,0.04))", pointerEvents:"none" }}/>
+        <div style={{ width:42, height:42, borderRadius:12, background:"linear-gradient(135deg,#833AB4,#FD1D1D,#FCB045)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0, boxShadow:"0 0 14px rgba(253,29,29,0.4)" }}>📸</div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:"#fff", textTransform:"uppercase", lineHeight:1.1 }}>FOLLOW US ON INSTAGRAM</div>
+          <div style={{ fontFamily:FONT.body, fontSize:11, color:"rgba(252,176,69,0.85)", letterSpacing:1.5, textTransform:"uppercase", marginTop:2 }}>@THESOCIALFITCLUB26</div>
+        </div>
+        <div style={{ background:"linear-gradient(135deg,#833AB4,#FD1D1D,#FCB045)", borderRadius:6, padding:"7px 12px", fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:"#fff", flexShrink:0, textTransform:"uppercase", boxShadow:"0 0 10px rgba(253,29,29,0.35)" }}>FOLLOW</div>
+      </div>
+
       {feed.map(post => {
         const tc = typeConfig[post.type] || typeConfig.post;
         return (
@@ -1595,6 +1607,16 @@ function MoreScreen({ showToast }) {
         ))}
       </div>
       <div style={{ height:1, background:`linear-gradient(90deg,transparent,${G.borderB},transparent)`, marginBottom:16 }}/>
+      <SectionLabel>Connect</SectionLabel>
+      <div onClick={()=>window.open("https://www.instagram.com/thesocialfitclub26","_blank")}
+           style={{ background:"linear-gradient(135deg,rgba(131,58,180,0.14),rgba(252,176,69,0.10))", border:"1px solid rgba(253,29,29,0.25)", borderRadius:10, padding:"12px 14px", marginBottom:16, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
+        <div style={{ width:36, height:36, borderRadius:10, background:"linear-gradient(135deg,#833AB4,#FD1D1D,#FCB045)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>📸</div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>INSTAGRAM</div>
+          <div style={{ fontFamily:FONT.body, fontSize:10, color:"rgba(252,176,69,0.8)", letterSpacing:1.5, textTransform:"uppercase" }}>@THESOCIALFITCLUB26</div>
+        </div>
+        <span style={{ color:G.textDim, fontSize:13 }}>›</span>
+      </div>
       <SectionLabel>Account</SectionLabel>
       {[{l:"ADMIN DASHBOARD",ico:"👑",col:G.gold},{l:"NOTIFICATION SETTINGS",ico:"🔔",col:G.textMid},{l:"PRIVACY & SECURITY",ico:"🔒",col:G.textMid},{l:"HELP & SUPPORT",ico:"❓",col:G.textMid}].map((item,i)=>(
         <div key={i} onClick={()=>showToast(item.l)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
