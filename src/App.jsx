@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import logoImg from "./assets/logo.jpg";
 
 const G = {
   gold: "#FDB927",
@@ -422,11 +423,13 @@ function HomeScreen({ sessions, leaderboard, onStartWorkout, onQuickStart, showT
 
   return (
     <div style={{ padding:"22px 18px 0" }}>
-      <div style={{ marginBottom:24 }}>
-        <div style={{ fontFamily:FONT.display, fontSize:36, letterSpacing:4, color:"#fff", lineHeight:1, textTransform:"uppercase" }}>
-          SOCIAL<span style={{ color:G.gold, textShadow:G.goldGlow }}> FIT</span> CLUB
-        </div>
-        <div style={{ fontFamily:FONT.body, fontSize:11, letterSpacing:3, color:G.textMid, textTransform:"uppercase", marginTop:3 }}>
+      <div style={{ marginBottom:24, display:"flex", flexDirection:"column", alignItems:"center" }}>
+        <img
+          src={logoImg}
+          alt="Social Fit Club"
+          style={{ width:160, height:160, borderRadius:"50%", objectFit:"cover", objectPosition:"center top", boxShadow:`0 0 30px rgba(253,185,39,0.5), 0 0 60px rgba(85,37,131,0.4), 0 8px 32px rgba(0,0,0,0.7)`, border:`3px solid ${G.gold}88` }}
+        />
+        <div style={{ fontFamily:FONT.body, fontSize:11, letterSpacing:3, color:G.textMid, textTransform:"uppercase", marginTop:10 }}>
           ◆ &nbsp;STRENGTH IN COMMUNITY&nbsp; ◆
         </div>
       </div>
