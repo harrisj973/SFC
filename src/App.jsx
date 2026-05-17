@@ -2716,6 +2716,158 @@ function AdminDashboardModal({ onClose }) {
   );
 }
 
+function TogglePill({ on, onToggle }) {
+  return (
+    <div onClick={onToggle} style={{ width:44, height:24, borderRadius:12, background: on ? G.gold : "rgba(255,255,255,0.12)", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+      <div style={{ position:"absolute", top:3, left: on ? 22 : 3, width:18, height:18, borderRadius:"50%", background: on ? "#0A0810" : G.textDim, transition:"left 0.2s" }}/>
+    </div>
+  );
+}
+
+const NOTIF_KEY = "sfc_notif_prefs";
+function loadNotifPrefs() {
+  try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || "null") || { enabled: false, reminderTime: "08:00", streakAlert: true }; }
+  catch { return { enabled: false, reminderTime: "08:00", streakAlert: true }; }
+}
+
+async function scheduleReminder(prefs, swReg) {
+  if (!swReg || !prefs.enabled) return;
+  const [h, m] = (prefs.reminderTime || "08:00").split(":").map(Number);
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(h, m, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  const delay = next - now;
+  swReg.active?.postMessage({ type: "SCHEDULE_NOTIFICATION", id: "daily-reminder", title: "Social Fit Club 💪", body: "Time to train! Log today's session and keep your streak alive.", delay });
+}
+
+function NotificationsModal({ onClose, sessions }) {
+  const [prefs, setPrefs] = useState(loadNotifPrefs);
+  const [permission, setPermission] = useState(() => ("Notification" in window ? Notification.permission : "denied"));
+  const [swReg, setSwReg] = useState(null);
+
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.ready.then(reg => setSwReg(reg)).catch(() => {});
+    }
+  }, []);
+
+  const requestPermission = async () => {
+    if (!("Notification" in window)) return;
+    const result = await Notification.requestPermission();
+    setPermission(result);
+    if (result === "granted") {
+      const next = { ...prefs, enabled: true };
+      setPrefs(next);
+      localStorage.setItem(NOTIF_KEY, JSON.stringify(next));
+      scheduleReminder(next, swReg);
+    }
+  };
+
+  const save = (updates) => {
+    const next = { ...prefs, ...updates };
+    setPrefs(next);
+    localStorage.setItem(NOTIF_KEY, JSON.stringify(next));
+    if (next.enabled && permission === "granted") scheduleReminder(next, swReg);
+    if (!next.enabled && swReg) swReg.active?.postMessage({ type: "CANCEL_NOTIFICATION", id: "daily-reminder" });
+  };
+
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const loggedToday = sessions.some(s => (s.createdAt || "").slice(0, 10) === todayKey);
+  const hasStreak = sessions.length > 0;
+
+  const toggle = { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"13px 0", borderBottom:`1px solid ${G.borderB}` };
+  const label = { fontFamily:FONT.body, fontSize:13, letterSpacing:1.5, color:"#fff", textTransform:"uppercase" };
+  const sub = { fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, marginTop:2 };
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:900, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.65)" }}/>
+      <div style={{ position:"relative", background:"#0F0E22", borderRadius:"18px 18px 0 0", border:`1px solid ${G.borderB}`, borderBottom:"none", maxHeight:"88vh", display:"flex", flexDirection:"column" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 18px 14px" }}>
+          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:G.gold }}>NOTIFICATIONS</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:20 }}>✕</button>
+        </div>
+
+        <div style={{ overflowY:"auto", flex:1, padding:"0 18px 32px" }}>
+
+          {/* Permission status */}
+          {permission !== "granted" ? (
+            <ChromeCard style={{ padding:"16px", marginBottom:18, textAlign:"center" }}>
+              <div style={{ fontSize:32, marginBottom:8 }}>🔔</div>
+              <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:"#fff", marginBottom:6 }}>ENABLE NOTIFICATIONS</div>
+              <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1, marginBottom:14 }}>
+                {permission === "denied" ? "Notifications are blocked. Please allow them in your browser settings, then return here." : "Allow SFC to send workout reminders and streak alerts."}
+              </div>
+              {permission !== "denied" && <NeonBtn onClick={requestPermission} full>ALLOW NOTIFICATIONS</NeonBtn>}
+              {permission === "denied" && <div style={{ fontFamily:FONT.body, fontSize:10, color:G.red, letterSpacing:1 }}>BLOCKED IN BROWSER SETTINGS</div>}
+            </ChromeCard>
+          ) : (
+            <ChromeCard style={{ padding:"12px 14px", marginBottom:18, display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{ width:8, height:8, borderRadius:"50%", background:G.green, boxShadow:`0 0 8px ${G.green}`, flexShrink:0 }}/>
+              <div style={{ fontFamily:FONT.body, fontSize:11, letterSpacing:1.5, color:G.green, textTransform:"uppercase" }}>NOTIFICATIONS ALLOWED</div>
+            </ChromeCard>
+          )}
+
+          {/* Today's status */}
+          {hasStreak && (
+            <ChromeCard style={{ padding:"13px 14px", marginBottom:18, display:"flex", alignItems:"center", gap:12 }}>
+              <div style={{ fontSize:22 }}>{loggedToday ? "✅" : "⚠️"}</div>
+              <div>
+                <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:1.5, color: loggedToday ? G.green : G.gold, textTransform:"uppercase" }}>
+                  {loggedToday ? "TRAINED TODAY — STREAK SAFE" : "NOT TRAINED TODAY — STREAK AT RISK"}
+                </div>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, marginTop:2 }}>
+                  {loggedToday ? "Great work! Your streak is secured." : "Log a session today to keep your streak alive."}
+                </div>
+              </div>
+            </ChromeCard>
+          )}
+
+          {/* Settings — only active if permission granted */}
+          <div style={{ opacity: permission === "granted" ? 1 : 0.4, pointerEvents: permission === "granted" ? "auto" : "none" }}>
+            <div style={toggle}>
+              <div>
+                <div style={label}>DAILY REMINDER</div>
+                <div style={sub}>Remind me to train every day</div>
+              </div>
+              <TogglePill on={prefs.enabled} onToggle={()=>save({ enabled: !prefs.enabled })}/>
+            </div>
+
+            {prefs.enabled && (
+              <div style={{ padding:"13px 0", borderBottom:`1px solid ${G.borderB}` }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                  <div>
+                    <div style={label}>REMINDER TIME</div>
+                    <div style={sub}>Daily notification at this time</div>
+                  </div>
+                  <input
+                    type="time"
+                    value={prefs.reminderTime}
+                    onChange={e=>save({ reminderTime: e.target.value })}
+                    style={{ background:"rgba(0,0,0,0.5)", border:`1px solid ${G.gold}55`, borderRadius:6, padding:"6px 10px", color:G.gold, fontSize:15, outline:"none", fontFamily:FONT.mono, letterSpacing:2, colorScheme:"dark" }}/>
+                </div>
+              </div>
+            )}
+
+            <div style={toggle}>
+              <div>
+                <div style={label}>STREAK ALERTS</div>
+                <div style={sub}>Warn me before my streak breaks</div>
+              </div>
+              <TogglePill on={prefs.streakAlert} onToggle={()=>save({ streakAlert: !prefs.streakAlert })}/>
+            </div>
+          </div>
+
+          <div style={{ marginTop:18, fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1, lineHeight:1.6 }}>
+            Notifications are scheduled locally and fire even when SFC is running in the background. They require your browser to remain open.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isAdmin }) {
   const [aiCoachOpen, setAiCoachOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
@@ -2723,6 +2875,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
   const [accountabilityOpen, setAccountabilityOpen] = useState(false);
   const [healthOpen, setHealthOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const FEATURES = [
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
     {id:"reports", l:"WEEKLY REPORTS", ico:"📋", desc:"Personalized coaching notes", col:G.purpleLight, hot:true},
@@ -2731,6 +2884,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
     {id:"ai", l:"AI COACH", ico:"🤖", desc:"Smart daily recommendations", col:G.gold, hot:true},
     {id:"partners", l:"ACCOUNTABILITY", ico:"🤝", desc:"Train together, stay consistent", col:G.green},
     {id:"goals", l:"GOALS", ico:"🎯", desc:"Track your fitness targets", col:G.gold},
+    {id:"notif", l:"NOTIFICATIONS", ico:"🔔", desc:"Reminders & streak alerts", col:G.purpleLight, hot:true},
   ];
 
   const handleTile = (id) => {
@@ -2739,6 +2893,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
     else if (id === "reports") setReportsOpen(true);
     else if (id === "partners") setAccountabilityOpen(true);
     else if (id === "health") setHealthOpen(true);
+    else if (id === "notif") setNotifOpen(true);
     else showToast(`${FEATURES.find(f=>f.id===id)?.ico} ${FEATURES.find(f=>f.id===id)?.l} — COMING SOON`);
   };
 
@@ -2754,6 +2909,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
       {accountabilityOpen && <AccountabilityModal sessions={sessions} profile={profile} onClose={()=>setAccountabilityOpen(false)}/>}
       {healthOpen && <HealthConnectModal onClose={()=>setHealthOpen(false)}/>}
       {adminOpen && <AdminDashboardModal onClose={()=>setAdminOpen(false)}/>}
+      {notifOpen && <NotificationsModal sessions={sessions} onClose={()=>setNotifOpen(false)}/>}
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:20 }}>
         {FEATURES.map(f => (
@@ -3096,6 +3252,22 @@ function SocialFitClubInner() {
       .subscribe();
     return () => supabase.removeChannel(lbChannel);
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!profile || !sessions) return;
+    const notifPrefs = loadNotifPrefs();
+    if (!notifPrefs.enabled || !notifPrefs.streakAlert) return;
+    if ("Notification" in window && Notification.permission !== "granted") return;
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const loggedToday = sessions.some(s => (s.createdAt || "").slice(0, 10) === todayKey);
+    if (!loggedToday && (profile.streak || 0) > 0) {
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.ready.then(reg => {
+          reg.active?.postMessage({ type: "SCHEDULE_NOTIFICATION", id: "streak-alert", title: "Streak Alert 🔥", body: `Your ${profile.streak}-day streak is at risk! Log a session today to keep it going.`, delay: 5000 });
+        }).catch(() => {});
+      }
+    }
+  }, [profile?.streak, sessions?.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
