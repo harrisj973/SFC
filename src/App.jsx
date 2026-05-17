@@ -2125,17 +2125,190 @@ function AccountabilityModal({ sessions, profile, onClose }) {
   );
 }
 
+function HealthConnectModal({ onClose }) {
+  const [status, setStatus] = useState("idle"); // idle | scanning | connected | error | unsupported
+  const [heartRate, setHeartRate] = useState(null);
+  const [deviceName, setDeviceName] = useState(() => {
+    try { return localStorage.getItem("sfc_ble_device") || null; } catch { return null; }
+  });
+  const [errorMsg, setErrorMsg] = useState("");
+  const charRef = useRef(null);
+  const deviceRef = useRef(null);
+
+  const supported = typeof navigator !== "undefined" && !!navigator.bluetooth;
+
+  const parseHeartRate = (value) => {
+    const flags = value.getUint8(0);
+    return (flags & 0x01) ? value.getUint16(1, true) : value.getUint8(1);
+  };
+
+  const connect = async () => {
+    if (!supported) { setStatus("unsupported"); return; }
+    setStatus("scanning"); setErrorMsg("");
+    try {
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ services: ["heart_rate"] }],
+        optionalServices: ["battery_service", "device_information"],
+      });
+      deviceRef.current = device;
+      device.addEventListener("gattserverdisconnected", () => {
+        setStatus("idle"); setHeartRate(null);
+      });
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService("heart_rate");
+      const char = await service.getCharacteristic("heart_rate_measurement");
+      charRef.current = char;
+      await char.startNotifications();
+      char.addEventListener("characteristicvaluechanged", (e) => {
+        setHeartRate(parseHeartRate(e.target.value));
+      });
+      const name = device.name || "BLE Device";
+      setDeviceName(name);
+      localStorage.setItem("sfc_ble_device", name);
+      setStatus("connected");
+    } catch (e) {
+      if (e.name === "NotFoundError") { setStatus("idle"); return; } // user cancelled
+      setErrorMsg(e.message || "Connection failed");
+      setStatus("error");
+    }
+  };
+
+  const disconnect = async () => {
+    if (charRef.current) { try { await charRef.current.stopNotifications(); } catch { /* ignore */ } }
+    if (deviceRef.current?.gatt?.connected) deviceRef.current.gatt.disconnect();
+    setStatus("idle"); setHeartRate(null);
+  };
+
+  useEffect(() => () => { disconnect(); }, []);
+
+  const hrColor = heartRate
+    ? heartRate > 160 ? G.red : heartRate > 120 ? G.gold : G.green
+    : G.textMid;
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.96)", zIndex:400, display:"flex", alignItems:"flex-end" }} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.blue}44`, borderBottom:"none", maxHeight:"88vh", overflowY:"auto", paddingBottom:48 }}>
+        <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"14px auto 0" }}/>
+        <div style={{ padding:"14px 18px 0", display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+          <div style={{ width:44, height:44, borderRadius:12, background:`${G.blue}22`, border:`1px solid ${G.blue}55`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>⌚</div>
+          <div>
+            <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>HEALTH CONNECT</div>
+            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>BLE heart rate · fitness devices</div>
+          </div>
+          <button onClick={onClose} style={{ marginLeft:"auto", background:"none", border:"none", color:G.textMid, cursor:"pointer", fontSize:18, padding:"4px 6px", flexShrink:0 }}>✕</button>
+        </div>
+        <div style={{ height:1, background:`linear-gradient(90deg,transparent,${G.blue}44,transparent)`, marginBottom:18 }}/>
+
+        <div style={{ padding:"0 18px" }}>
+          {/* Live heart rate display */}
+          {status === "connected" && (
+            <ChromeCard style={{ padding:"20px", marginBottom:14, textAlign:"center", border:`1px solid ${hrColor}44` }}>
+              <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:3, textTransform:"uppercase", marginBottom:8 }}>LIVE HEART RATE</div>
+              <div style={{ fontFamily:FONT.display, fontSize:80, letterSpacing:-2, lineHeight:1, color:hrColor, textShadow:`0 0 20px ${hrColor}88` }}>
+                {heartRate ?? "—"}
+              </div>
+              <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:3, color:hrColor, marginBottom:12 }}>BPM</div>
+              <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase", marginBottom:16 }}>
+                {heartRate ? (heartRate > 160 ? "⚡ HIGH INTENSITY" : heartRate > 120 ? "🔥 MODERATE" : "💚 RESTING ZONE") : "Waiting for data…"}
+              </div>
+              <NeonBtn onClick={disconnect} full outline color={G.red} small>DISCONNECT</NeonBtn>
+            </ChromeCard>
+          )}
+
+          {/* Device status */}
+          {status === "connected" && (
+            <ChromeCard style={{ padding:"12px 14px", marginBottom:14, display:"flex", gap:10, alignItems:"center" }}>
+              <div style={{ width:8, height:8, borderRadius:"50%", background:G.green, boxShadow:`0 0 8px ${G.green}`, flexShrink:0 }}/>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>{deviceName}</div>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase" }}>Connected via Bluetooth</div>
+              </div>
+            </ChromeCard>
+          )}
+
+          {/* Idle / scan prompt */}
+          {(status === "idle" || status === "error") && (
+            <>
+              {deviceName && status === "idle" && (
+                <ChromeCard style={{ padding:"12px 14px", marginBottom:12, display:"flex", gap:10, alignItems:"center" }}>
+                  <div style={{ width:8, height:8, borderRadius:"50%", background:G.textDim, flexShrink:0 }}/>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.textMid, textTransform:"uppercase" }}>{deviceName}</div>
+                    <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1, textTransform:"uppercase" }}>Last paired device · not connected</div>
+                  </div>
+                </ChromeCard>
+              )}
+              {status === "error" && (
+                <ChromeCard style={{ padding:"12px 14px", marginBottom:12, borderLeft:`3px solid ${G.red}` }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:G.red, textTransform:"uppercase", marginBottom:4 }}>CONNECTION FAILED</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:0.5 }}>{errorMsg}</div>
+                </ChromeCard>
+              )}
+              <NeonBtn onClick={connect} full style={{ marginBottom:16 }}>
+                {deviceName ? "🔄 RECONNECT DEVICE" : "🔍 SCAN FOR DEVICES"}
+              </NeonBtn>
+              <ChromeCard style={{ padding:"14px", marginBottom:12 }}>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginBottom:10 }}>COMPATIBLE DEVICES</div>
+                {[
+                  { ico:"❤️", name:"Heart Rate Monitors", eg:"Polar H10, Garmin HRM, Wahoo TICKR" },
+                  { ico:"⌚", name:"Smartwatches", eg:"Garmin, Polar, Suunto (BLE HR mode)" },
+                  { ico:"🚴", name:"Fitness Equipment", eg:"BLE-enabled bikes, rowers, treadmills" },
+                ].map(d => (
+                  <div key={d.name} style={{ display:"flex", gap:10, marginBottom:10, alignItems:"flex-start" }}>
+                    <div style={{ fontSize:18, flexShrink:0 }}>{d.ico}</div>
+                    <div>
+                      <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, color:"#fff", textTransform:"uppercase" }}>{d.name}</div>
+                      <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:0.5 }}>{d.eg}</div>
+                    </div>
+                  </div>
+                ))}
+              </ChromeCard>
+            </>
+          )}
+
+          {/* Scanning */}
+          {status === "scanning" && (
+            <div style={{ textAlign:"center", padding:"32px 0" }}>
+              <div style={{ fontSize:48, marginBottom:14 }}>📡</div>
+              <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:3, color:G.blue, textTransform:"uppercase", marginBottom:8 }}>SCANNING…</div>
+              <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>Select your device from the browser prompt</div>
+            </div>
+          )}
+
+          {/* Not supported */}
+          {status === "unsupported" && (
+            <ChromeCard style={{ padding:"16px", textAlign:"center" }}>
+              <div style={{ fontSize:36, marginBottom:10 }}>⚠️</div>
+              <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:G.gold, textTransform:"uppercase", marginBottom:8 }}>BROWSER NOT SUPPORTED</div>
+              <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:0.5, lineHeight:1.6, marginBottom:16 }}>Web Bluetooth requires Chrome or Edge on Android or desktop. Safari and Firefox do not support it.</div>
+              <Chip label="Use Chrome or Edge" color={G.blue}/>
+            </ChromeCard>
+          )}
+
+          {/* Requirements note */}
+          {status !== "unsupported" && status !== "scanning" && (
+            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1, textAlign:"center", lineHeight:1.6 }}>
+              Requires Chrome or Edge · Bluetooth must be enabled · Tap Scan, then select your device from the browser prompt
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores }) {
   const [aiCoachOpen, setAiCoachOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [accountabilityOpen, setAccountabilityOpen] = useState(false);
+  const [healthOpen, setHealthOpen] = useState(false);
   const FEATURES = [
     {id:"live", l:"LIVE TRAINING", ico:"🎥", desc:"Virtual 1-on-1 · from $29/mo", col:G.gold, hot:true},
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
     {id:"reports", l:"WEEKLY REPORTS", ico:"📋", desc:"Personalized coaching notes", col:G.purpleLight, hot:true},
     {id:"form", l:"FORM CHECK", ico:"🏋️", desc:"Expert feedback on your lifts", col:G.gold},
-    {id:"health", l:"HEALTH CONNECT", ico:"⌚", desc:"Sync Apple Health & wearables", col:G.blue},
+    {id:"health", l:"HEALTH CONNECT", ico:"⌚", desc:"BLE heart rate & fitness devices", col:G.blue, hot:true},
     {id:"ai", l:"AI COACH", ico:"🤖", desc:"Smart daily recommendations", col:G.gold, hot:true},
     {id:"book", l:"BOOK SESSION", ico:"📅", desc:"In-person & online PT sessions", col:G.purpleLight},
     {id:"partners", l:"ACCOUNTABILITY", ico:"🤝", desc:"Train together, stay consistent", col:G.green},
@@ -2147,6 +2320,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores }) {
     else if (id === "goals") setGoalsOpen(true);
     else if (id === "reports") setReportsOpen(true);
     else if (id === "partners") setAccountabilityOpen(true);
+    else if (id === "health") setHealthOpen(true);
     else showToast(`${FEATURES.find(f=>f.id===id)?.ico} ${FEATURES.find(f=>f.id===id)?.l} — COMING SOON`);
   };
 
@@ -2160,6 +2334,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores }) {
       {goalsOpen && <GoalsModal sessions={sessions} profile={profile} onClose={()=>setGoalsOpen(false)}/>}
       {reportsOpen && <WeeklyReportModal sessions={sessions} muscleScores={muscleScores} onClose={()=>setReportsOpen(false)}/>}
       {accountabilityOpen && <AccountabilityModal sessions={sessions} profile={profile} onClose={()=>setAccountabilityOpen(false)}/>}
+      {healthOpen && <HealthConnectModal onClose={()=>setHealthOpen(false)}/>}
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:20 }}>
         {FEATURES.map(f => (
