@@ -1102,10 +1102,40 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
   const [freezes, setFreezes] = useState(() => {
     try { return Number(localStorage.getItem("sfc_streak_freezes") ?? 2); } catch { return 2; }
   });
+  const [bodyLog, setBodyLog] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sfc_body_log") || "[]"); } catch { return []; }
+  });
+  const [showLogForm, setShowLogForm] = useState(false);
+  const [logWeight, setLogWeight] = useState("");
+  const [logBf, setLogBf] = useState("");
+
+  const saveBodyEntry = () => {
+    const w = parseFloat(logWeight);
+    if (isNaN(w) || w <= 0) { showToast("⚠️ Enter a valid weight"); return; }
+    const bf = parseFloat(logBf) || null;
+    const entry = { date: new Date().toISOString().slice(0, 10), weight: w, bf };
+    const next = [entry, ...bodyLog];
+    setBodyLog(next);
+    localStorage.setItem("sfc_body_log", JSON.stringify(next));
+    setLogWeight(""); setLogBf(""); setShowLogForm(false);
+    showToast("📊 CHECK-IN SAVED!");
+  };
+
   const MILESTONES = [7,14,30,60,90,180,365];
   const nextMs = MILESTONES.find(m => m > streak) || 365;
   const totalVol = sessions.reduce((a,s) => a + (s.vol||0), 0);
   const fmtVol = v => v >= 1000 ? `${(v/1000).toFixed(1)}K` : String(v);
+
+  const latest = bodyLog[0] || null;
+  const first = bodyLog.length > 1 ? bodyLog[bodyLog.length - 1] : null;
+  const weightDelta = latest && first ? +(latest.weight - first.weight).toFixed(1) : null;
+  const bfDelta = latest?.bf != null && first?.bf != null ? +(latest.bf - first.bf).toFixed(1) : null;
+  const weightPct = latest && first ? Math.max(10, Math.min(100, (latest.weight / first.weight) * 100)) : 0;
+  const bfPct = latest?.bf != null && first?.bf != null && first.bf > 0
+    ? Math.max(0, Math.min(100, ((first.bf - latest.bf) / first.bf) * 100))
+    : 0;
+
+  const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"10px 12px", color:"#fff", fontSize:14, outline:"none", flex:1, fontFamily:FONT.body, letterSpacing:1 };
   return (
     <div style={{ padding:"20px 18px 0" }}>
       <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase", marginBottom:16 }}>
@@ -1136,17 +1166,57 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
             ))}
           </div>
           <SectionLabel>Body Composition</SectionLabel>
-          <ChromeCard gold style={{ padding:"16px", marginBottom:14 }}>
-            <div style={{ display:"flex", justifyContent:"space-around", alignItems:"center" }}>
-              <RingMeter pct={(181/198)*100} size={80} strokeW={6} color={G.gold} value="181" label="LBS"/>
-              <div style={{ textAlign:"center" }}>
-                <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:6 }}>Progress</div>
-                <div style={{ fontFamily:FONT.display, fontSize:28, color:"#00FF88", letterSpacing:1, textShadow:`0 0 12px #00FF88` }}>-17 LBS</div>
-                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>since start</div>
+          {latest ? (
+            <ChromeCard gold style={{ padding:"16px", marginBottom:10 }}>
+              <div style={{ display:"flex", justifyContent:"space-around", alignItems:"center", marginBottom:14 }}>
+                <RingMeter pct={weightPct} size={80} strokeW={6} color={G.gold} value={String(latest.weight)} label="LBS"/>
+                <div style={{ textAlign:"center" }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:4 }}>Since Start</div>
+                  {weightDelta !== null ? (
+                    <>
+                      <div style={{ fontFamily:FONT.display, fontSize:26, color:weightDelta <= 0 ? G.green : G.red, letterSpacing:1, textShadow:`0 0 12px ${weightDelta <= 0 ? G.green : G.red}` }}>{weightDelta > 0 ? "+" : ""}{weightDelta} lbs</div>
+                      {bfDelta !== null && <div style={{ fontFamily:FONT.display, fontSize:14, color:bfDelta <= 0 ? G.green : G.red, letterSpacing:1, marginTop:2 }}>{bfDelta > 0 ? "+" : ""}{bfDelta}% BF</div>}
+                    </>
+                  ) : (
+                    <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1, textTransform:"uppercase", maxWidth:60 }}>Log more to see trend</div>
+                  )}
+                </div>
+                <RingMeter pct={bfPct} size={80} strokeW={6} color={G.purpleLight} value={latest.bf != null ? `${latest.bf}%` : "—"} label="BODY FAT"/>
               </div>
-              <RingMeter pct={((22-15.2)/22)*100} size={80} strokeW={6} color={G.purpleLight} value="15.2%" label="BODY FAT"/>
+              <button onClick={()=>setShowLogForm(v=>!v)} style={{ width:"100%", background:"transparent", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"8px", color:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>{showLogForm ? "✕ CANCEL" : "＋ LOG CHECK-IN"}</button>
+            </ChromeCard>
+          ) : (
+            <ChromeCard style={{ padding:"20px", marginBottom:10, textAlign:"center", border:`1px dashed ${G.borderB}` }}>
+              <div style={{ fontSize:32, marginBottom:10 }}>📊</div>
+              <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:"#fff", textTransform:"uppercase", marginBottom:6 }}>NO DATA YET</div>
+              <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1, marginBottom:14 }}>Log your weight and body fat % to track your progress over time.</div>
+              <button onClick={()=>setShowLogForm(v=>!v)} style={{ background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", borderRadius:6, padding:"10px 20px", color:"#0A0810", fontFamily:FONT.display, fontSize:13, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>LOG FIRST CHECK-IN</button>
+            </ChromeCard>
+          )}
+          {showLogForm && (
+            <ChromeCard style={{ padding:"14px", marginBottom:10 }}>
+              <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginBottom:10 }}>NEW CHECK-IN · {new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>
+              <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                <input type="number" placeholder="Weight (lbs)" value={logWeight} onChange={e=>setLogWeight(e.target.value)} style={inp}/>
+                <input type="number" placeholder="Body fat % (opt)" value={logBf} onChange={e=>setLogBf(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveBodyEntry()} style={inp}/>
+              </div>
+              <button onClick={saveBodyEntry} style={{ width:"100%", background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", borderRadius:6, padding:"10px", color:"#0A0810", fontFamily:FONT.display, fontSize:14, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>SAVE</button>
+            </ChromeCard>
+          )}
+          {bodyLog.length > 0 && (
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>HISTORY</div>
+              {bodyLog.slice(0, 4).map((entry, i) => (
+                <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 10px", background:i===0?`${G.gold}08`:"transparent", borderRadius:5, marginBottom:3, border:`1px solid ${i===0?G.borderB:"transparent"}` }}>
+                  <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1 }}>{entry.date}</div>
+                  <div style={{ display:"flex", gap:10 }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:13, color:i===0?G.gold:"#fff", letterSpacing:1 }}>{entry.weight} lbs</div>
+                    {entry.bf != null && <div style={{ fontFamily:FONT.display, fontSize:13, color:i===0?G.purpleLight:G.textMid, letterSpacing:1 }}>{entry.bf}% BF</div>}
+                  </div>
+                </div>
+              ))}
             </div>
-          </ChromeCard>
+          )}
         </div>
       )}
 
