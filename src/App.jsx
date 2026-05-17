@@ -7,6 +7,8 @@ const supabase = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhjcmhvY2NkZ2RlbG1ic21icmJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NzAyMzcsImV4cCI6MjA5NDU0NjIzN30.Ulcfa_LbgVsqsSt47M1bvDbgLW6nuvVzM-1sEUKj624"
 );
 
+const ADMIN_EMAIL = "harrisj1025@gmail.com";
+
 const G = {
   gold: "#FDB927",
   goldHot: "#FFD060",
@@ -2357,12 +2359,162 @@ function HealthConnectModal({ onClose }) {
   );
 }
 
-function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores }) {
+function AdminDashboardModal({ onClose }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const load = async () => {
+    setLoading(true); setError(null);
+    const { data: profiles, error: e } = await supabase
+      .from("profiles")
+      .select("id, username, avatar_initials, points, streak, sessions_count")
+      .order("points", { ascending: false });
+    if (e) { setError(e.message); setLoading(false); return; }
+    setData(profiles || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/set-state-in-effect
+
+  const totalUsers    = data?.length || 0;
+  const totalSessions = data?.reduce((a, p) => a + (p.sessions_count || 0), 0) || 0;
+  const totalPoints   = data?.reduce((a, p) => a + (p.points || 0), 0) || 0;
+  const activeUsers   = data?.filter(p => (p.sessions_count || 0) > 0).length || 0;
+  const streakUsers   = data?.filter(p => (p.streak || 0) > 0).length || 0;
+  const avgSessions   = totalUsers > 0 ? (totalSessions / totalUsers).toFixed(1) : "0";
+  const topUser       = data?.[0];
+
+  const overviewStats = [
+    { l:"TOTAL USERS",   v: String(totalUsers),    ico:"👥" },
+    { l:"ACTIVE USERS",  v: String(activeUsers),   ico:"🏋️" },
+    { l:"TOTAL SESSIONS",v: String(totalSessions), ico:"📅" },
+    { l:"TOTAL POINTS",  v: totalPoints >= 1000 ? `${(totalPoints/1000).toFixed(1)}K` : String(totalPoints), ico:"⚡" },
+    { l:"AVG SESSIONS",  v: avgSessions,           ico:"📈" },
+    { l:"ON STREAKS",    v: String(streakUsers),   ico:"🔥" },
+  ];
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.98)", zIndex:500, display:"flex", flexDirection:"column" }}>
+      {/* Header */}
+      <div style={{ background:`linear-gradient(135deg,${G.purple}44,rgba(0,0,0,0.8))`, borderBottom:`1px solid ${G.gold}33`, padding:"16px 18px", display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
+        <div style={{ width:42, height:42, borderRadius:10, background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, boxShadow:G.goldGlow, flexShrink:0 }}>👑</div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:G.gold, textTransform:"uppercase", textShadow:G.goldGlow2 }}>ADMIN DASHBOARD</div>
+          <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>Social Fit Club · Platform Analytics</div>
+        </div>
+        <button onClick={onClose} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:8, color:G.textMid, cursor:"pointer", fontSize:16, padding:"6px 10px" }}>✕</button>
+      </div>
+
+      <div style={{ flex:1, overflowY:"auto", padding:"18px 18px 48px", maxWidth:480, width:"100%", margin:"0 auto", boxSizing:"border-box" }}>
+        {loading && (
+          <div style={{ textAlign:"center", padding:"60px 0" }}>
+            <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:3, color:G.gold, textTransform:"uppercase" }}>LOADING DATA...</div>
+          </div>
+        )}
+        {error && (
+          <div style={{ textAlign:"center", padding:"40px 0" }}>
+            <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:G.red, textTransform:"uppercase", marginBottom:12 }}>FAILED TO LOAD</div>
+            <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, marginBottom:20 }}>{error}</div>
+            <NeonBtn onClick={load} full>RETRY</NeonBtn>
+          </div>
+        )}
+
+        {data && (
+          <>
+            {/* Overview grid */}
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:10 }}>PLATFORM OVERVIEW</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:18 }}>
+              {overviewStats.map(s => (
+                <ChromeCard key={s.l} style={{ padding:"12px 10px", textAlign:"center" }}>
+                  <div style={{ fontSize:18, marginBottom:4 }}>{s.ico}</div>
+                  <div style={{ fontFamily:FONT.display, fontSize:20, color:G.gold, letterSpacing:1 }}>{s.v}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{s.l}</div>
+                </ChromeCard>
+              ))}
+            </div>
+
+            {/* Engagement bar */}
+            {totalUsers > 0 && (
+              <>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:10 }}>ENGAGEMENT</div>
+                <ChromeCard style={{ padding:"14px", marginBottom:18 }}>
+                  {[
+                    { l:"ACTIVATION RATE", pct: Math.round((activeUsers/totalUsers)*100), col:G.green, sub:`${activeUsers} of ${totalUsers} users have logged a session` },
+                    { l:"STREAK RETENTION", pct: Math.round((streakUsers/totalUsers)*100), col:G.gold, sub:`${streakUsers} users currently on a streak` },
+                    { l:"CHURN (0 SESSIONS)", pct: Math.round(((totalUsers-activeUsers)/totalUsers)*100), col:G.red, sub:`${totalUsers-activeUsers} users never logged a workout` },
+                  ].map(row => (
+                    <div key={row.l} style={{ marginBottom:12 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                        <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, color:"#fff", textTransform:"uppercase" }}>{row.l}</div>
+                        <div style={{ fontFamily:FONT.display, fontSize:13, color:row.col }}>{row.pct}%</div>
+                      </div>
+                      <div style={{ height:4, background:"rgba(255,255,255,0.07)", borderRadius:2, overflow:"hidden", marginBottom:3 }}>
+                        <div style={{ height:"100%", width:`${row.pct}%`, background:row.col, borderRadius:2, transition:"width 0.6s ease" }}/>
+                      </div>
+                      <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:0.5 }}>{row.sub}</div>
+                    </div>
+                  ))}
+                </ChromeCard>
+              </>
+            )}
+
+            {/* Top performer */}
+            {topUser && (
+              <>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:10 }}>TOP PERFORMER</div>
+                <ChromeCard gold glow style={{ padding:"14px 16px", marginBottom:18, display:"flex", gap:12, alignItems:"center" }}>
+                  <AvatarBadge initials={topUser.avatar_initials || "?"} size={48} gold/>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:2, color:G.gold, textTransform:"uppercase" }}>{topUser.username}</div>
+                    <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:3 }}>
+                      {topUser.points} pts · {topUser.sessions_count} sessions · {topUser.streak}d streak
+                    </div>
+                  </div>
+                  <div style={{ fontSize:28 }}>🥇</div>
+                </ChromeCard>
+              </>
+            )}
+
+            {/* Full user table */}
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:10 }}>ALL USERS ({totalUsers})</div>
+            <ChromeCard style={{ padding:0, overflow:"hidden", marginBottom:18 }}>
+              {/* Table header */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 60px 54px 44px", gap:0, padding:"8px 12px", background:"rgba(0,0,0,0.4)", borderBottom:`1px solid ${G.borderB}` }}>
+                {["ATHLETE","PTS","SESS","STRK"].map(h => (
+                  <div key={h} style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:2, textTransform:"uppercase", textAlign: h==="ATHLETE"?"left":"right" }}>{h}</div>
+                ))}
+              </div>
+              {data.map((p, i) => (
+                <div key={p.id} style={{ display:"grid", gridTemplateColumns:"1fr 60px 54px 44px", gap:0, padding:"9px 12px", borderBottom: i < data.length-1 ? `1px solid ${G.borderB}` : "none", background: i===0 ? `${G.gold}06` : "transparent", alignItems:"center" }}>
+                  <div style={{ display:"flex", gap:8, alignItems:"center", minWidth:0 }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:10, color: i===0?G.gold:G.textDim, letterSpacing:1, flexShrink:0, width:16 }}>{i+1}</div>
+                    <AvatarBadge initials={p.avatar_initials || "?"} size={28} gold={i===0}/>
+                    <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, color: i===0?"#fff":G.textMid, textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.username || "—"}</div>
+                  </div>
+                  <div style={{ fontFamily:FONT.display, fontSize:12, color:G.gold, letterSpacing:1, textAlign:"right" }}>{(p.points||0).toLocaleString()}</div>
+                  <div style={{ fontFamily:FONT.display, fontSize:12, color:"#fff", letterSpacing:1, textAlign:"right" }}>{p.sessions_count||0}</div>
+                  <div style={{ fontFamily:FONT.display, fontSize:12, color: (p.streak||0)>0?G.green:G.textDim, letterSpacing:1, textAlign:"right" }}>{p.streak||0}d</div>
+                </div>
+              ))}
+              {data.length === 0 && (
+                <div style={{ padding:"24px", textAlign:"center", fontFamily:FONT.body, fontSize:12, color:G.textDim }}>No users found.</div>
+              )}
+            </ChromeCard>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isAdmin }) {
   const [aiCoachOpen, setAiCoachOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [accountabilityOpen, setAccountabilityOpen] = useState(false);
   const [healthOpen, setHealthOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const FEATURES = [
     {id:"live", l:"LIVE TRAINING", ico:"🎥", desc:"Virtual 1-on-1 · from $29/mo", col:G.gold, hot:true},
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
@@ -2395,6 +2547,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores }) {
       {reportsOpen && <WeeklyReportModal sessions={sessions} muscleScores={muscleScores} onClose={()=>setReportsOpen(false)}/>}
       {accountabilityOpen && <AccountabilityModal sessions={sessions} profile={profile} onClose={()=>setAccountabilityOpen(false)}/>}
       {healthOpen && <HealthConnectModal onClose={()=>setHealthOpen(false)}/>}
+      {adminOpen && <AdminDashboardModal onClose={()=>setAdminOpen(false)}/>}
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:20 }}>
         {FEATURES.map(f => (
@@ -2428,7 +2581,14 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores }) {
         </div>
         <div style={{ fontFamily:FONT.display, fontSize:22, color:G.gold, letterSpacing:1 }}>💪</div>
       </ChromeCard>
-      {[{l:"ADMIN DASHBOARD",ico:"👑",col:G.gold},{l:"NOTIFICATION SETTINGS",ico:"🔔",col:G.textMid},{l:"PRIVACY & SECURITY",ico:"🔒",col:G.textMid},{l:"HELP & SUPPORT",ico:"❓",col:G.textMid}].map((item)=>(
+      {isAdmin && (
+        <div onClick={()=>setAdminOpen(true)} style={{ background:`linear-gradient(135deg,${G.gold}10,${G.purple}08)`, border:`1px solid ${G.gold}44`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer", boxShadow:G.goldGlow2 }}>
+          <span style={{ fontSize:18, flexShrink:0 }}>👑</span>
+          <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.gold, textTransform:"uppercase" }}>ADMIN DASHBOARD</div>
+          <span style={{ color:G.gold, fontSize:13 }}>›</span>
+        </div>
+      )}
+      {[{l:"NOTIFICATION SETTINGS",ico:"🔔",col:G.textMid},{l:"PRIVACY & SECURITY",ico:"🔒",col:G.textMid},{l:"HELP & SUPPORT",ico:"❓",col:G.textMid}].map((item)=>(
         <div key={item.l} onClick={()=>showToast(item.l)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
           <span style={{ fontSize:18, flexShrink:0 }}>{item.ico}</span>
           <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:item.col, textTransform:"uppercase" }}>{item.l}</div>
@@ -2817,7 +2977,7 @@ function SocialFitClubInner() {
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile}/>}
         {tab==="nutrition" && <NutritionScreen showToast={showToast}/>}
         {tab==="feed" && <FeedScreen showToast={showToast} profile={profile}/>}
-        {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut} sessions={sessions} muscleScores={calcMuscleScores(sessions)}/>}
+        {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut} sessions={sessions} muscleScores={calcMuscleScores(sessions)} isAdmin={user?.email?.toLowerCase()===ADMIN_EMAIL}/>}
       </div>
 
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, zIndex:50 }}>
