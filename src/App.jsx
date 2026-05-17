@@ -354,6 +354,7 @@ function calcPRs(sessions) {
     for (const ex of (sess.exs || [])) {
       if (!ex.name) continue;
       for (const set of (ex.sets || [])) {
+        if (set.type === "warmup") continue;
         const w = parseFloat(set.w) || 0;
         const r = parseInt(set.r) || 0;
         if (!w || !r) continue;
@@ -372,7 +373,7 @@ function getLastExercisePerformance(exName, sessions) {
   for (const sess of sessions) {
     const ex = (sess.exs || []).find(e => e.name === exName);
     if (ex) {
-      const validSets = (ex.sets || []).filter(s => s.r && s.w);
+      const validSets = (ex.sets || []).filter(s => s.r && s.w && s.type !== "warmup");
       if (validSets.length > 0) return { date: sess.date || (sess.createdAt || "").slice(0, 10), sets: validSets };
     }
   }
@@ -392,6 +393,7 @@ function getExerciseHistory(exName, sessions) {
     if (!ex) continue;
     let maxEst = 0; let bestSet = null;
     for (const set of (ex.sets || [])) {
+      if (set.type === "warmup") continue;
       const w = parseFloat(set.w) || 0; const r = parseInt(set.r) || 0;
       if (!w || !r) continue;
       const est = Math.round(w * (1 + r / 30));
@@ -810,8 +812,8 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   const [exs, setExs] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("sfc_wip_session") || "{}").exs;
-      return saved?.length ? saved : [{ id:1, name:"", sets:[{r:"",w:""}], rest:60, q:"", sugg:false }];
-    } catch { return [{ id:1, name:"", sets:[{r:"",w:""}], rest:60, q:"", sugg:false }]; }
+      return saved?.length ? saved : [{ id:1, name:"", sets:[{r:"",w:"",type:"working"}], rest:60, q:"", sugg:false }];
+    } catch { return [{ id:1, name:"", sets:[{r:"",w:"",type:"working"}], rest:60, q:"", sugg:false }]; }
   });
   const [restSec, setRestSec] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -832,15 +834,15 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   useEffect(() => {
     if (quickStart) {
       setSessName(quickStart.name); // eslint-disable-line react-hooks/set-state-in-effect
-      setExs(quickStart.exs.map((name, i) => ({ id: i+1, name, sets:[{r:"",w:""}], rest:60, q:name, sugg:false })));
+      setExs(quickStart.exs.map((name, i) => ({ id: i+1, name, sets:[{r:"",w:"",type:"working"}], rest:60, q:name, sugg:false })));
       setSubTab("track");
       if (onClearQuickStart) onClearQuickStart();
       showToast(`✓ ${quickStart.name} loaded — add your sets!`);
     }
   }, [quickStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const totSets = exs.reduce((a,e) => a + e.sets.filter(s=>s.r&&s.w).length, 0);
-  const totVol = exs.reduce((a,e) => a + e.sets.reduce((b,s) => b+(parseFloat(s.w)||0)*(parseInt(s.r)||0),0),0);
+  const totSets = exs.reduce((a,e) => a + e.sets.filter(s=>s.r&&s.w&&s.type!=="warmup").length, 0);
+  const totVol = exs.reduce((a,e) => a + e.sets.filter(s=>s.type!=="warmup").reduce((b,s) => b+(parseFloat(s.w)||0)*(parseInt(s.r)||0),0),0);
   const pts = totSets * 10 + Math.floor(totVol / 100) * 5;
   const prs = calcPRs(sessions);
   const getSugg = q => !q || q.length < 2 ? [] : EXERCISES.filter(e => e.toLowerCase().includes(q.toLowerCase())).slice(0,5);
@@ -953,6 +955,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
             const sugg = getSugg(ex.q);
             const liveNewPr = ex.name ? (() => {
               for (const set of ex.sets) {
+                if (set.type === "warmup") continue;
                 const w = parseFloat(set.w) || 0;
                 const r = parseInt(set.r) || 0;
                 if (!w || !r) continue;
@@ -1018,8 +1021,8 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                   ) : null;
                 })()}
 
-                <div style={{ display:"grid", gridTemplateColumns:"28px 1fr 1fr 28px", gap:6, padding:"6px 12px 3px", alignItems:"center" }}>
-                  {["SET","REPS","WEIGHT (LBS)",""].map((h,i)=>(
+                <div style={{ display:"grid", gridTemplateColumns:"30px 1fr 1fr 30px", gap:6, padding:"6px 12px 3px", alignItems:"center" }}>
+                  {["TYPE","REPS","WEIGHT (LBS)",""].map((h,i)=>(
                     <div key={i} style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase" }}>{h}</div>
                   ))}
                 </div>
@@ -1027,18 +1030,31 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                 {ex.sets.map((set,si)=>{
                   const lastPerf2 = getLastExercisePerformance(ex.name, sessions);
                   const prevSet = lastPerf2?.sets[si];
+                  const setType = set.type || "working";
+                  const typeOrder = ["working","warmup","drop"];
+                  const nextType = typeOrder[(typeOrder.indexOf(setType)+1) % typeOrder.length];
+                  const badgeCfg = setType==="warmup"
+                    ? { bg:"#74B9FF", border:"#74B9FF88", label:"W", color:"#0A0810" }
+                    : setType==="drop"
+                    ? { bg:"#FF7675", border:"#FF767588", label:"D", color:"#fff" }
+                    : { bg: set.r&&set.w ? `linear-gradient(135deg,${G.gold},${G.goldDark})` : "rgba(255,255,255,0.05)", border: set.r&&set.w ? G.gold+"88" : G.borderB, label: String(si+1), color: set.r&&set.w ? "#0A0810" : G.textDim };
+                  const inputColor = setType==="warmup" ? "#74B9FF" : setType==="drop" ? "#FF7675" : (set.r||set.w) ? G.gold : G.textDim;
                   return (
-                    <div key={si} style={{ display:"grid", gridTemplateColumns:"28px 1fr 1fr 28px", gap:6, padding:"3px 12px", alignItems:"center" }}>
-                      <div style={{ width:22, height:22, borderRadius:4, background: set.r&&set.w ? `linear-gradient(135deg,${G.gold},${G.goldDark})` : "rgba(255,255,255,0.05)", border:`1px solid ${set.r&&set.w ? G.gold+"88" : G.borderB}`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT.display, fontSize:11, color: set.r&&set.w ? "#0A0810" : G.textDim }}>{si+1}</div>
-                      <input type="number" inputMode="numeric" placeholder={prevSet ? String(prevSet.r) : "—"} value={set.r} onChange={e=>updSet(ex.id,si,"r",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color: set.r ? G.gold : G.textDim }}/>
-                      <input type="number" inputMode="decimal" placeholder={prevSet ? String(progressWeight(prevSet.w)) : "—"} value={set.w} onChange={e=>updSet(ex.id,si,"w",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color: set.w ? G.gold : G.textDim }}/>
-                      <button onClick={()=>{if(ex.sets.length>1)setExs(p=>p.map(e=>e.id!==ex.id?e:{...e,sets:e.sets.filter((_,j)=>j!==si)}));}} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:13 }}>✕</button>
+                    <div key={si}>
+                      <div style={{ display:"grid", gridTemplateColumns:"30px 1fr 1fr 30px", gap:6, padding:"3px 12px", alignItems:"center" }}>
+                        <button onClick={()=>updSet(ex.id,si,"type",nextType)} title={`Tap to change: ${nextType}`} style={{ width:24, height:24, borderRadius:4, background:badgeCfg.bg, border:`1px solid ${badgeCfg.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT.display, fontSize:11, color:badgeCfg.color, cursor:"pointer", padding:0 }}>{badgeCfg.label}</button>
+                        <input type="number" inputMode="numeric" placeholder={prevSet ? String(prevSet.r) : "—"} value={set.r} onChange={e=>updSet(ex.id,si,"r",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color:inputColor }}/>
+                        <input type="number" inputMode="decimal" placeholder={prevSet ? String(progressWeight(prevSet.w)) : "—"} value={set.w} onChange={e=>updSet(ex.id,si,"w",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color:inputColor }}/>
+                        <button onClick={()=>{if(ex.sets.length>1)setExs(p=>p.map(e=>e.id!==ex.id?e:{...e,sets:e.sets.filter((_,j)=>j!==si)}));}} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:13 }}>✕</button>
+                      </div>
+                      {setType==="warmup" && <div style={{ paddingLeft:48, paddingBottom:1, fontFamily:FONT.body, fontSize:9, color:"#74B9FF", letterSpacing:1.5, textTransform:"uppercase" }}>warm-up · not counted in volume</div>}
+                      {setType==="drop" && <div style={{ paddingLeft:48, paddingBottom:1, fontFamily:FONT.body, fontSize:9, color:"#FF7675", letterSpacing:1.5, textTransform:"uppercase" }}>drop set · no rest</div>}
                     </div>
                   );
                 })}
 
                 <div style={{ padding:"9px 12px 12px" }}>
-                  <button onClick={()=>{ const last=ex.sets[ex.sets.length-1]; setExs(p=>p.map(e=>e.id===ex.id?{...e,sets:[...e.sets,{r:"",w:""}]}:e)); if(last.r&&last.w) setRestSec(ex.rest); }} style={{ background:"transparent", border:`1px dashed ${G.borderB}`, borderRadius:5, padding:"6px", width:"100%", color:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:2, cursor:"pointer", marginBottom:9, textTransform:"uppercase" }}>+ ADD SET</button>
+                  <button onClick={()=>{ const last=ex.sets[ex.sets.length-1]; setExs(p=>p.map(e=>e.id===ex.id?{...e,sets:[...e.sets,{r:"",w:"",type:"working"}]}:e)); if(last.r&&last.w) setRestSec(ex.rest); }} style={{ background:"transparent", border:`1px dashed ${G.borderB}`, borderRadius:5, padding:"6px", width:"100%", color:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:2, cursor:"pointer", marginBottom:9, textTransform:"uppercase" }}>+ ADD SET</button>
                   <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                     <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1.5, flexShrink:0, textTransform:"uppercase" }}>Rest:</div>
                     <div style={{ display:"flex", gap:4, flex:1 }}>
@@ -1053,7 +1069,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
             );
           })}
 
-          <button onClick={()=>{const newId=nextIdRef.current++;setExs(p=>[...p,{id:newId,name:"",sets:[{r:"",w:""}],rest:60,q:"",sugg:false}]);}} style={{ width:"100%", padding:"12px", borderRadius:8, border:`1px dashed ${G.gold}44`, background:`${G.gold}06`, color:G.gold, fontFamily:FONT.display, fontSize:14, letterSpacing:3, cursor:"pointer", marginBottom:16, textTransform:"uppercase" }}>+ ADD EXERCISE</button>
+          <button onClick={()=>{const newId=nextIdRef.current++;setExs(p=>[...p,{id:newId,name:"",sets:[{r:"",w:"",type:"working"}],rest:60,q:"",sugg:false}]);}} style={{ width:"100%", padding:"12px", borderRadius:8, border:`1px dashed ${G.gold}44`, background:`${G.gold}06`, color:G.gold, fontFamily:FONT.display, fontSize:14, letterSpacing:3, cursor:"pointer", marginBottom:16, textTransform:"uppercase" }}>+ ADD EXERCISE</button>
 
           <ChromeCard gold style={{ padding:"14px", marginBottom:8 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
