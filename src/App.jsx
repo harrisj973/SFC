@@ -137,6 +137,21 @@ const REST_OPTIONS = [
 ];
 const DAYS_SHORT = ["M","T","W","T","F","S","S"];
 
+function calcBestWeekVolume(sessions) {
+  const byWeek = {};
+  for (const sess of sessions) {
+    if (!sess.createdAt) continue;
+    const d = new Date(sess.createdAt);
+    const dayOfWeek = (d.getDay() + 6) % 7;
+    const weekStart = new Date(d);
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(d.getDate() - dayOfWeek);
+    const key = weekStart.toISOString().slice(0, 10);
+    byWeek[key] = (byWeek[key] || 0) + (sess.vol || 0);
+  }
+  return Object.values(byWeek).reduce((a, v) => Math.max(a, v), 0);
+}
+
 function calcWeeklyVolume(sessions) {
   const days = [0, 0, 0, 0, 0, 0, 0];
   const now = new Date();
@@ -417,8 +432,14 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
   const [period, setPeriod] = useState("weekly");
   const weeklyVol = calcWeeklyVolume(sessions);
   const maxVol = Math.max(...weeklyVol, 1);
-  const myRank = leaderboard.find(u => u.isMe)?.rank || 3;
-  const myPts = profile?.points ?? leaderboard.find(u => u.isMe)?.pts ?? 3650;
+  const myRank = leaderboard.find(u => u.isMe)?.rank ?? "—";
+  const myPts = profile?.points ?? leaderboard.find(u => u.isMe)?.pts ?? 0;
+  const thisWeekSessions = (() => {
+    const now = new Date();
+    const dow = (now.getDay() + 6) % 7;
+    const weekStart = new Date(now); weekStart.setHours(0,0,0,0); weekStart.setDate(now.getDate()-dow);
+    return sessions.filter(s => s.createdAt && new Date(s.createdAt) >= weekStart).length;
+  })();
 
   return (
     <div style={{ padding:"22px 18px 0" }}>
@@ -449,7 +470,7 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
           </div>
         </div>
         <div style={{ display:"flex", gap:8, marginTop:14 }}>
-          {[{l:"RANK",v:`#${myRank}`,ico:"👑"},{l:"STREAK",v:`${profile?.streak||0}D`,ico:"🔥"},{l:"THIS WK",v:`${sessions.length}`,ico:"💪"}].map(s=>(
+          {[{l:"RANK",v:`#${myRank}`,ico:"👑"},{l:"STREAK",v:`${profile?.streak||0}D`,ico:"🔥"},{l:"THIS WK",v:`${thisWeekSessions}`,ico:"💪"}].map(s=>(
             <div key={s.l} style={{ flex:1, background:"rgba(0,0,0,0.3)", borderRadius:6, padding:"9px 6px", textAlign:"center", border:`1px solid rgba(253,185,39,0.15)` }}>
               <div style={{ fontSize:14, marginBottom:3 }}>{s.ico}</div>
               <div style={{ fontFamily:FONT.display, fontSize:18, color:G.gold, letterSpacing:1 }}>{s.v}</div>
@@ -1126,6 +1147,7 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
   const MILESTONES = [7,14,30,60,90,180,365];
   const nextMs = MILESTONES.find(m => m > streak) || 365;
   const totalVol = sessions.reduce((a,s) => a + (s.vol||0), 0);
+  const bestWeekVol = calcBestWeekVolume(sessions);
   const fmtVol = v => v >= 1000 ? `${(v/1000).toFixed(1)}K` : String(v);
 
   const latest = bodyLog[0] || null;
@@ -1152,21 +1174,53 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
       {activeTab==="stats" && (
         <div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:14 }}>
-            {[{l:"SESSIONS",v:String(sessions.length),ico:"🏋️"},{l:"TOTAL VOL",v:fmtVol(Math.round(totalVol)),ico:"⚡"},{l:"BEST WEEK",v:fmtVol(Math.round(totalVol)),ico:"📈"}].map(s=>(
+            {[{l:"SESSIONS",v:String(sessions.length),ico:"🏋️"},{l:"TOTAL VOL",v:fmtVol(Math.round(totalVol)),ico:"⚡"},{l:"BEST WEEK",v:bestWeekVol>0?fmtVol(Math.round(bestWeekVol)):"—",ico:"📈"}].map(s=>(
               <StatPill key={s.l} label={s.l} value={s.v} icon={s.ico}/>
             ))}
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:16 }}>
-            {[{l:"CALORIES TRACKED",v:"1,840 avg",ico:"🔥"},{l:"PROTEIN GOAL",v:"87%",ico:"🥩"},{l:"SLEEP AVERAGE",v:"7.4 HRS",ico:"🌙"},{l:"HRV SCORE",v:"48 ms",ico:"📊"}].map(s=>(
-              <ChromeCard key={s.l} style={{ padding:"12px 10px", display:"flex", gap:9, alignItems:"center" }}>
-                <div style={{ fontSize:20 }}>{s.ico}</div>
-                <div>
-                  <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:1, color:G.gold }}>{s.v}</div>
-                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>{s.l}</div>
-                </div>
-              </ChromeCard>
-            ))}
-          </div>
+          {(() => {
+            const avgSets = sessions.length > 0 ? (sessions.reduce((a,s)=>a+(s.sets||0),0)/sessions.length).toFixed(1) : "—";
+            const avgVol  = sessions.length > 0 ? fmtVol(Math.round(sessions.reduce((a,s)=>a+(s.vol||0),0)/sessions.length)) : "—";
+            const exCounts = {};
+            sessions.forEach(s=>(s.exs||[]).forEach(e=>{ if(e.name) exCounts[e.name]=(exCounts[e.name]||0)+1; }));
+            const topEx = Object.entries(exCounts).sort(([,a],[,b])=>b-a)[0]?.[0] || "—";
+            const now = new Date();
+            const monthSessions = sessions.filter(s=>{
+              if(!s.createdAt) return false;
+              const d = new Date(s.createdAt);
+              return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+            }).length;
+            const todayNutrition = (() => {
+              try {
+                const saved = JSON.parse(localStorage.getItem("sfc_nutrition_log")||"null");
+                if(saved?.date===now.toISOString().slice(0,10)) return saved.items||[];
+              } catch { /* ignore */ }
+              return [];
+            })();
+            const todayCal = todayNutrition.reduce((a,i)=>a+(i.cal||0),0);
+            const todayPro = todayNutrition.reduce((a,i)=>a+(i.pro||0),0);
+            const stats2 = [
+              { l:"AVG SETS/SESSION", v:avgSets,              ico:"💪" },
+              { l:"AVG VOL/SESSION",  v:`${avgVol} lbs`,      ico:"⚡" },
+              { l:"THIS MONTH",       v:`${monthSessions} sessions`, ico:"📅" },
+              { l:"TOP EXERCISE",     v:topEx,                ico:"🏋️" },
+              { l:"TODAY'S CALS",     v:todayCal>0?`${todayCal} kcal`:"—", ico:"🔥" },
+              { l:"TODAY'S PROTEIN",  v:todayPro>0?`${todayPro}g`:"—", ico:"🥩" },
+            ];
+            return (
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:16 }}>
+                {stats2.map(s=>(
+                  <ChromeCard key={s.l} style={{ padding:"12px 10px", display:"flex", gap:9, alignItems:"center" }}>
+                    <div style={{ fontSize:20 }}>{s.ico}</div>
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:1, color:G.gold, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.v}</div>
+                      <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>{s.l}</div>
+                    </div>
+                  </ChromeCard>
+                ))}
+              </div>
+            );
+          })()}
           <SectionLabel>Body Composition</SectionLabel>
           {latest ? (
             <ChromeCard gold style={{ padding:"16px", marginBottom:10 }}>
@@ -1243,7 +1297,7 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
               </div>
               <div style={{ fontFamily:FONT.display, fontSize:32, color:G.blue, textShadow:`0 0 12px ${G.blue}` }}>{freezes}</div>
             </div>
-            <NeonBtn onClick={()=>{if(freezes>0){const n=freezes-1;setFreezes(n);localStorage.setItem("sfc_streak_freezes",n);showToast("🧊 STREAK FREEZE USED!");}}} outline color={G.blue} full small disabled={freezes<=0}>USE FREEZE ({freezes} REMAINING)</NeonBtn>
+            <NeonBtn onClick={()=>{if(freezes>0){const n=freezes-1;setFreezes(n);localStorage.setItem("sfc_streak_freezes",String(n));showToast("🧊 STREAK FREEZE USED!");}}} outline color={G.blue} full small disabled={freezes<=0}>USE FREEZE ({freezes} REMAINING)</NeonBtn>
           </ChromeCard>
           <SectionLabel>Milestone Road</SectionLabel>
           {MILESTONES.map((ms, i) => {
@@ -1309,7 +1363,7 @@ function NutritionScreen({ showToast }) {
   useEffect(() => () => { stopCamera(); clearInterval(scanTimerRef.current); }, []);
 
   const MEALS = ["BREAKFAST","PRE-WORKOUT","LUNCH","POST-WORKOUT","DINNER","LATE SNACK"];
-  const totals = log.reduce((a,f)=>({cal:a.cal+f.cal,pro:a.pro+f.pro,carb:a.carb+f.carb,fat:a.fat+f.fat}),{cal:0,pro:0,carb:0,fat:0});
+  const totals = log.reduce((a,f)=>({cal:a.cal+(f.cal||0),pro:a.pro+(f.pro||0),carb:a.carb+(f.carb||0),fat:a.fat+(f.fat||0)}),{cal:0,pro:0,carb:0,fat:0});
   const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:5, padding:"9px 12px", color:"#fff", fontSize:13, outline:"none", boxSizing:"border-box", width:"100%", fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" };
 
   const captureMealFrame = () => {
