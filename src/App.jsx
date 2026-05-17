@@ -133,8 +133,24 @@ const REST_OPTIONS = [
   { label:"45S", sec:45 }, { label:"1 MIN", sec:60 },
   { label:"1:30", sec:90 }, { label:"2 MIN", sec:120 },
 ];
-const WEEKLY_VOLUME = [18400, 12200, 22100, 19800, 0, 24600, 16300];
 const DAYS_SHORT = ["M","T","W","T","F","S","S"];
+
+function calcWeeklyVolume(sessions) {
+  const days = [0, 0, 0, 0, 0, 0, 0];
+  const now = new Date();
+  const dayOfWeek = (now.getDay() + 6) % 7; // 0=Mon … 6=Sun
+  const startOfWeek = new Date(now);
+  startOfWeek.setHours(0, 0, 0, 0);
+  startOfWeek.setDate(now.getDate() - dayOfWeek);
+  for (const sess of sessions) {
+    if (!sess.createdAt) continue;
+    const d = new Date(sess.createdAt);
+    if (d >= startOfWeek && d <= now) {
+      days[(d.getDay() + 6) % 7] += sess.vol || 0;
+    }
+  }
+  return days;
+}
 
 const EXERCISE_MUSCLE_MAP = {
   "Barbell Bench Press":      { chest:1.0, front_delt:0.5, tricep:0.4 },
@@ -397,7 +413,8 @@ function RestTimer({ sec, onDone }) {
 
 function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile }) {
   const [period, setPeriod] = useState("weekly");
-  const maxVol = Math.max(...WEEKLY_VOLUME);
+  const weeklyVol = calcWeeklyVolume(sessions);
+  const maxVol = Math.max(...weeklyVol, 1);
   const myRank = leaderboard.find(u => u.isMe)?.rank || 3;
   const myPts = profile?.points ?? leaderboard.find(u => u.isMe)?.pts ?? 3650;
 
@@ -446,9 +463,10 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
           <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1 }}>LBS</div>
         </div>
         <div style={{ display:"flex", alignItems:"flex-end", gap:6, height:60 }}>
-          {WEEKLY_VOLUME.map((v, i) => {
+          {weeklyVol.map((v, i) => {
+            const todayIdx = (new Date().getDay() + 6) % 7;
             const pct = v / maxVol;
-            const isToday = i === 6;
+            const isToday = i === todayIdx;
             return (
               <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
                 <div style={{
@@ -531,11 +549,22 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
 
 function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart, sessions = [] }) {
   const [subTab, setSubTab] = useState("track");
-  const [sessName, setSessName] = useState("");
-  const [exs, setExs] = useState([{ id:1, name:"", sets:[{r:"",w:""}], rest:60, q:"", sugg:false }]);
+  const [sessName, setSessName] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sfc_wip_session") || "{}").name || ""; } catch { return ""; }
+  });
+  const [exs, setExs] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("sfc_wip_session") || "{}").exs;
+      return saved?.length ? saved : [{ id:1, name:"", sets:[{r:"",w:""}], rest:60, q:"", sugg:false }];
+    } catch { return [{ id:1, name:"", sets:[{r:"",w:""}], rest:60, q:"", sugg:false }]; }
+  });
   const [restSec, setRestSec] = useState(null);
   const [saving, setSaving] = useState(false);
   const nextIdRef = useRef(2);
+
+  useEffect(() => {
+    localStorage.setItem("sfc_wip_session", JSON.stringify({ name: sessName, exs }));
+  }, [sessName, exs]);
 
   useEffect(() => {
     if (quickStart) {
@@ -563,6 +592,7 @@ function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart, session
       onSave({ name:sessName||"CUSTOM SESSION", exs:valid, sets:totSets, vol:totVol, pts, date: new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}) });
       setExs([{id:1,name:"",sets:[{r:"",w:""}],rest:60,q:"",sugg:false}]);
       setSessName("");
+      localStorage.removeItem("sfc_wip_session");
       setSubTab("log");
     }, 900);
   };
@@ -1069,7 +1099,9 @@ function MuscleHeatMap({ sessions }) {
 function ProgressScreen({ showToast, sessions = [], profile }) {
   const [activeTab, setActiveTab] = useState("stats");
   const streak = profile?.streak || 0;
-  const [freezes, setFreezes] = useState(2);
+  const [freezes, setFreezes] = useState(() => {
+    try { return Number(localStorage.getItem("sfc_streak_freezes") ?? 2); } catch { return 2; }
+  });
   const MILESTONES = [7,14,30,60,90,180,365];
   const nextMs = MILESTONES.find(m => m > streak) || 365;
   const totalVol = sessions.reduce((a,s) => a + (s.vol||0), 0);
@@ -1146,7 +1178,7 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
               </div>
               <div style={{ fontFamily:FONT.display, fontSize:32, color:G.blue, textShadow:`0 0 12px ${G.blue}` }}>{freezes}</div>
             </div>
-            <NeonBtn onClick={()=>{if(freezes>0){setFreezes(f=>f-1);showToast("🧊 STREAK FREEZE USED!");} }} outline color={G.blue} full small disabled={freezes<=0}>USE FREEZE ({freezes} REMAINING)</NeonBtn>
+            <NeonBtn onClick={()=>{if(freezes>0){const n=freezes-1;setFreezes(n);localStorage.setItem("sfc_streak_freezes",n);showToast("🧊 STREAK FREEZE USED!");}}} outline color={G.blue} full small disabled={freezes<=0}>USE FREEZE ({freezes} REMAINING)</NeonBtn>
           </ChromeCard>
           <SectionLabel>Milestone Road</SectionLabel>
           {MILESTONES.map((ms, i) => {
@@ -1219,10 +1251,20 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
 
 function NutritionScreen({ showToast }) {
   const [view, setView] = useState("log");
-  const [log, setLog] = useState([
-    { id:1, meal:"PRE-WORKOUT", name:"Oatmeal 40g", cal:150, pro:5, carb:27, fat:2.5 },
-    { id:2, meal:"LUNCH", name:"Chicken Breast 100g", cal:165, pro:31, carb:0, fat:3.6 },
-  ]);
+  const today = new Date().toISOString().slice(0, 10);
+  const savedLog = (() => {
+    try {
+      const s = localStorage.getItem("sfc_nutrition_log");
+      if (!s) return [];
+      const parsed = JSON.parse(s);
+      return parsed.date === today ? parsed.items : [];
+    } catch { return []; }
+  })();
+  const [log, setLog] = useState(savedLog);
+
+  useEffect(() => {
+    localStorage.setItem("sfc_nutrition_log", JSON.stringify({ date: today, items: log }));
+  }, [log, today]);
   const [selMeal, setSelMeal] = useState("LUNCH");
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("ALL");
@@ -1581,11 +1623,20 @@ function NutritionScreen({ showToast }) {
 }
 
 function FeedScreen({ showToast, profile }) {
-  const [feed, setFeed] = useState(FEED_DATA);
+  const [feed, setFeed] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("sfc_feed") || "null");
+      return saved || FEED_DATA;
+    } catch { return FEED_DATA; }
+  });
   const [activeComment, setActiveComment] = useState(null);
   const [cTxt, setCTxt] = useState("");
   const [showPost, setShowPost] = useState(false);
   const [newTxt, setNewTxt] = useState("");
+
+  useEffect(() => {
+    localStorage.setItem("sfc_feed", JSON.stringify(feed));
+  }, [feed]);
 
   const toggleLike = id => setFeed(p=>p.map(post=>post.id===id?{...post,liked:!post.liked,likes:post.liked?post.likes-1:post.likes+1}:post));
 
@@ -1867,15 +1918,36 @@ function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
 
   const inp = { background:"rgba(0,0,0,0.45)", border:`1px solid ${G.borderB}`, borderRadius:8, padding:"13px 14px", color:"#fff", fontSize:14, outline:"none", width:"100%", boxSizing:"border-box", fontFamily:FONT.body, letterSpacing:1.5 };
+
+  const sendForgot = async () => {
+    if (!email.trim()) { setError("Enter your email first."); return; }
+    setLoading(true); setError(null);
+    const { error: e } = await supabase.auth.resetPasswordForEmail(email.trim());
+    setLoading(false);
+    if (e) setError(e.message);
+    else setForgotSent(true);
+  };
+
+  const resendConfirm = async () => {
+    setResendLoading(true);
+    await supabase.auth.resend({ type: "signup", email: email.trim() });
+    setResendLoading(false);
+  };
 
   const submit = async () => {
     if (!email.trim() || !password.trim()) { setError("Please fill in all fields."); return; }
     setLoading(true); setError(null);
     try {
       if (mode === "signup") {
-        const { data, error: e } = await supabase.auth.signUp({ email: email.trim(), password });
+        const name = displayName.trim().toUpperCase() || email.trim().split("@")[0].toUpperCase();
+        const { data, error: e } = await supabase.auth.signUp({
+          email: email.trim(), password,
+          options: { data: { display_name: name.slice(0, 20) } },
+        });
         if (e) throw e;
         if (data.session === null) setAwaitingConfirm(true);
       } else {
@@ -1895,12 +1967,28 @@ function LoginScreen() {
       <div style={{ position:"relative", zIndex:1 }}>
         <div style={{ fontSize:52, marginBottom:16 }}>📧</div>
         <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", marginBottom:10 }}>CHECK YOUR EMAIL</div>
-        <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:1, lineHeight:1.6, marginBottom:28 }}>
+        <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:1, lineHeight:1.6, marginBottom:20 }}>
           We sent a confirmation link to<br/>
           <span style={{ color:G.gold }}>{email}</span><br/>
           Click it to activate your account, then sign in.
         </div>
-        <NeonBtn onClick={()=>{ setAwaitingConfirm(false); setMode("signin"); }} full>BACK TO SIGN IN</NeonBtn>
+        <NeonBtn onClick={()=>{ setAwaitingConfirm(false); setMode("signin"); }} full style={{ marginBottom:10 }}>BACK TO SIGN IN</NeonBtn>
+        <NeonBtn onClick={resendConfirm} full outline disabled={resendLoading}>{resendLoading ? "SENDING..." : "RESEND CONFIRMATION EMAIL"}</NeonBtn>
+      </div>
+    </div>
+  );
+
+  if (forgotSent) return (
+    <div style={{ minHeight:"100vh", background:G.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"0 28px", textAlign:"center" }}>
+      <GridBg/>
+      <div style={{ position:"relative", zIndex:1 }}>
+        <div style={{ fontSize:52, marginBottom:16 }}>🔑</div>
+        <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", marginBottom:10 }}>CHECK YOUR EMAIL</div>
+        <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:1, lineHeight:1.6, marginBottom:28 }}>
+          A password reset link was sent to<br/>
+          <span style={{ color:G.gold }}>{email}</span>
+        </div>
+        <NeonBtn onClick={()=>setForgotSent(false)} full>BACK TO SIGN IN</NeonBtn>
       </div>
     </div>
   );
@@ -1940,10 +2028,15 @@ function LoginScreen() {
           </NeonBtn>
         </div>
 
-        <div style={{ textAlign:"center", marginTop:18 }}>
+        <div style={{ textAlign:"center", marginTop:18, display:"flex", flexDirection:"column", gap:10 }}>
           <button onClick={()=>{ setMode(m=>m==="signin"?"signup":"signin"); setError(null); }} style={{ background:"none", border:"none", fontFamily:FONT.body, fontSize:12, letterSpacing:2, color:G.textMid, textTransform:"uppercase", cursor:"pointer" }}>
             {mode==="signin" ? "New here? Create an account" : "Already a member? Sign in"}
           </button>
+          {mode==="signin" && (
+            <button onClick={sendForgot} disabled={loading} style={{ background:"none", border:"none", fontFamily:FONT.body, fontSize:11, letterSpacing:2, color:G.textDim, textTransform:"uppercase", cursor:"pointer" }}>
+              Forgot password?
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -1973,7 +2066,7 @@ export default function SocialFitClub() {
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
-    if (data) setSessions(data.map(s => ({ name:s.name, exs:s.exercises, sets:s.sets, vol:s.volume, pts:s.points, date:s.date })));
+    if (data) setSessions(data.map(s => ({ name:s.name, exs:s.exercises, sets:s.sets, vol:s.volume, pts:s.points, date:s.date, createdAt:s.created_at })));
   };
 
   const loadLeaderboard = async (currentUserId) => {
@@ -1998,7 +2091,8 @@ export default function SocialFitClub() {
   const ensureProfile = async (u) => {
     const existing = await loadProfile(u.id);
     if (!existing) {
-      const base = u.email.split("@")[0].replace(/[^a-zA-Z0-9 ]/g, " ").trim().toUpperCase().slice(0, 20);
+      const raw = u.user_metadata?.display_name || u.email.split("@")[0].replace(/[^a-zA-Z0-9 ]/g, " ").trim().toUpperCase();
+      const base = raw.slice(0, 20);
       const initials = base.split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2) || "ME";
       const { data } = await supabase.from("profiles").insert({ id: u.id, username: base || "ATHLETE", avatar_initials: initials, points: 0, streak: 0, sessions_count: 0 }).select().single();
       if (data) setProfile(data);
@@ -2047,7 +2141,7 @@ export default function SocialFitClub() {
 
   const handleSave = async (sess) => {
     // Optimistic local update
-    setSessions(p => [sess, ...p]);
+    setSessions(p => [{ ...sess, createdAt: new Date().toISOString() }, ...p]);
     const newPts = (profile?.points || 0) + sess.pts;
     const newSessionsCount = (profile?.sessions_count || 0) + 1;
     setProfile(p => ({ ...p, points: newPts, sessions_count: newSessionsCount }));
