@@ -15,7 +15,7 @@ No test suite is configured. Deployment is via GitHub Actions → GitHub Pages o
 
 ## Architecture
 
-The entire app lives in a **single file**: `src/App.jsx` (~3070 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+The entire app lives in a **single file**: `src/App.jsx` (~3600 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
 
 `SocialFitClubInner` contains all app logic and is wrapped by an `ErrorBoundary` class component (exported as `SocialFitClub`). Unhandled render errors show a styled "SOMETHING WENT WRONG" screen with a reload button.
 
@@ -52,7 +52,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
 
 `ResetPasswordScreen` is shown when `onAuthStateChange` fires a `PASSWORD_RECOVERY` event (user clicked reset link in email). It calls `supabase.auth.updateUser({ password })` and returns to the main app on success.
 
-Render guards (in order): blank screen while `authReady` is false → `<LoginScreen/>` when no user → `<ResetPasswordScreen/>` when `passwordRecovery` is true → "CONNECTION ERROR" screen with Retry button when `dataLoadFailed` is true (network errors in `loadProfile`/`loadSessions` set this flag; a missing profile row — Postgres error `PGRST116` — does not) → blank while profile loads → main app.
+Render guards (in order): blank screen while `authReady` is false → `<ResetPasswordScreen/>` when `passwordRecovery` is true → `<LoginScreen/>` when no user → "CONNECTION ERROR" screen with Retry button when `!profile && dataLoadFailed` (network errors in `loadProfile`/`loadSessions` set this flag; a missing profile row — Postgres error `PGRST116` — does not) → blank while profile loads → main app.
 
 ### Navigation model
 
@@ -79,12 +79,16 @@ Root state passed as props:
 
 `isAdmin` is computed as `user?.email?.toLowerCase() === ADMIN_EMAIL` (module-level constant `"harrisj1025@gmail.com"`) and passed from `SocialFitClubInner`.
 
-### Data flow for saving a workout
+### Data flow for saving / editing / deleting a workout
 
 `handleSave` in `SocialFitClubInner`:
 1. Optimistic update: prepend `{ ...sess, createdAt: new Date().toISOString() }` to `sessions`, bump `profile.points` + `profile.sessions_count`, re-sort leaderboard
 2. Parallel Supabase writes: `sessions.insert` + `profiles.update`
 3. Real-time subscription on `profiles` triggers `loadLeaderboard` for all connected clients
+
+`handleDeleteSession(sessId)`: optimistic removal from `sessions` + decrements `profile.points`/`sessions_count`, then `sessions.delete().eq("id", sessId)` + `profiles.update`.
+
+`handleEditSession(sessId, newName)`: optimistic name update locally, then `sessions.update({ name }).eq("id", sessId)`.
 
 ### localStorage keys
 
@@ -175,7 +179,9 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 
 ### Shared UI atoms
 
-`ChromeCard`, `NeonBtn`, `NeonOutlineBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `RestTimer`, `TogglePill` — all defined in `App.jsx`.
+`ChromeCard`, `NeonBtn`, `NeonOutlineBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `RestTimer`, `TogglePill`, `ExercisePicker` — all defined in `App.jsx`.
+
+`ExercisePicker` is a bottom-sheet modal used in `TrainScreen`. It receives `{ onSelect, onClose }` and renders a search bar + category chips (from `EXERCISE_CATS`) + a filtered list of `EXERCISES` with primary muscle label and category badge. Opens via the ⊞ button next to each exercise name input.
 
 ### Module-level constants
 
