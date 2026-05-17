@@ -1259,30 +1259,43 @@ function NutritionScreen({ showToast }) {
   const totals = log.reduce((a,f)=>({cal:a.cal+f.cal,pro:a.pro+f.pro,carb:a.carb+f.carb,fat:a.fat+f.fat}),{cal:0,pro:0,carb:0,fat:0});
   const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:5, padding:"9px 12px", color:"#fff", fontSize:13, outline:"none", boxSizing:"border-box", width:"100%", fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" };
 
+  const captureMealFrame = () => {
+    const video = videoRef.current;
+    if (!video) return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    return canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
+  };
+
   const startCameraScan = async () => {
     setScanMode("camera"); setScanProgress(0); setScanLabel("REQUESTING CAMERA...");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:"environment", width:{ideal:1280}, height:{ideal:720} } });
       streamRef.current = stream;
       if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
-      setScanLabel("POINT CAMERA AT YOUR MEAL");
-      let prog = 0;
-      scanTimerRef.current = setInterval(() => {
-        prog += 3;
-        setScanProgress(Math.min(prog, 100));
-        if (prog >= 100) {
-          clearInterval(scanTimerRef.current);
-          stopCamera();
-          setScanLabel("ANALYZING...");
-          setTimeout(() => {
-            const r = SCAN_MEALS[Math.floor(Math.random()*SCAN_MEALS.length)];
-            setScanResult(r); setScanMode("result");
-          }, 600);
-        }
-      }, 90);
+      setScanLabel("POINT CAMERA AT YOUR MEAL — TAP TO SCAN");
     } catch {
       setScanMode("idle");
       showToast("Camera access denied");
+    }
+  };
+
+  const captureAndAnalyze = async () => {
+    const image = captureMealFrame();
+    if (!image) return;
+    stopCamera();
+    setScanMode("analyzing"); setScanLabel("ANALYZING WITH AI..."); setScanProgress(30);
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-meal", { body: { image } });
+      setScanProgress(100);
+      if (error || data?.error) throw new Error(error?.message || data?.error);
+      setScanResult(data);
+      setScanMode("result");
+    } catch (e) {
+      setScanMode("idle");
+      showToast(e.message === "No food detected" ? "No food detected — try again" : "Scan failed — check connection");
     }
   };
 
@@ -1432,11 +1445,8 @@ function NutritionScreen({ showToast }) {
                   {/* Label + progress below video */}
                   <div style={{ marginTop:8 }}>
                     {scanMode==="camera" && <>
-                      <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:3, color:G.gold, textTransform:"uppercase", textAlign:"center", marginBottom:5 }}>{scanLabel}</div>
-                      <div style={{ height:3, background:"rgba(255,255,255,0.1)", borderRadius:2 }}>
-                        <div style={{ height:"100%", width:`${scanProgress}%`, background:`linear-gradient(90deg,${G.green},${G.gold})`, borderRadius:2, transition:"width 0.1s", boxShadow:`0 0 6px ${G.green}` }}/>
-                      </div>
-                      <div style={{ fontFamily:FONT.mono, fontSize:9, color:G.textDim, marginTop:3, textAlign:"center" }}>{scanProgress}%</div>
+                      <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:3, color:G.gold, textTransform:"uppercase", textAlign:"center", marginBottom:8 }}>{scanLabel}</div>
+                      <NeonBtn onClick={captureAndAnalyze} full>📸 CAPTURE & ANALYZE</NeonBtn>
                     </>}
                     {scanMode==="barcode_scanning" && <>
                       <div style={{ fontFamily:FONT.display, fontSize:10, letterSpacing:2, color:G.gold, textTransform:"uppercase", textAlign:"center", marginBottom:6 }}>
