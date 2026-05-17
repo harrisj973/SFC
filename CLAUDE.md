@@ -15,7 +15,7 @@ No test suite is configured. Deployment is via GitHub Actions → GitHub Pages o
 
 ## Architecture
 
-The entire app lives in a **single file**: `src/App.jsx` (~2500 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+The entire app lives in a **single file**: `src/App.jsx` (~3070 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
 
 `SocialFitClubInner` contains all app logic and is wrapped by an `ErrorBoundary` class component (exported as `SocialFitClub`). Unhandled render errors show a styled "SOMETHING WENT WRONG" screen with a reload button.
 
@@ -50,11 +50,13 @@ ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
 
 `ensureProfile` fires on every `SIGNED_IN` event — reads `user.user_metadata.display_name` for the username, creates the `profiles` row if missing, then loads sessions and leaderboard.
 
-Render guards (in order): blank screen while `authReady` is false → `<LoginScreen/>` when no user → "CONNECTION ERROR" screen with Retry button when `dataLoadFailed` is true (network errors in `loadProfile`/`loadSessions` set this flag; a missing profile row — Postgres error `PGRST116` — does not) → blank while profile loads → main app.
+`ResetPasswordScreen` is shown when `onAuthStateChange` fires a `PASSWORD_RECOVERY` event (user clicked reset link in email). It calls `supabase.auth.updateUser({ password })` and returns to the main app on success.
+
+Render guards (in order): blank screen while `authReady` is false → `<LoginScreen/>` when no user → `<ResetPasswordScreen/>` when `passwordRecovery` is true → "CONNECTION ERROR" screen with Retry button when `dataLoadFailed` is true (network errors in `loadProfile`/`loadSessions` set this flag; a missing profile row — Postgres error `PGRST116` — does not) → blank while profile loads → main app.
 
 ### Navigation model
 
-`SocialFitClub` owns all top-level state and renders one screen at a time based on a `tab` string (`home`, `train`, `progress`, `nutrition`, `feed`, `more`). No router. Tab switching calls `setTab(id)`.
+`SocialFitClubInner` owns all top-level state and renders one screen at a time based on a `tab` string (`home`, `train`, `progress`, `nutrition`, `feed`, `more`). No router. Tab switching calls `setTab(id)`.
 
 Root state passed as props:
 
@@ -73,43 +75,49 @@ Root state passed as props:
 | `ProgressScreen` | `sessions`, `profile`, `showToast` |
 | `NutritionScreen` | `showToast` |
 | `FeedScreen` | `profile`, `showToast` |
-| `MoreScreen` | `profile`, `sessions`, `muscleScores`, `onSignOut`, `showToast` |
+| `MoreScreen` | `profile`, `sessions`, `muscleScores`, `onSignOut`, `showToast`, `isAdmin` |
+
+`isAdmin` is computed as `user?.email?.toLowerCase() === ADMIN_EMAIL` (module-level constant `"harrisj1025@gmail.com"`) and passed from `SocialFitClubInner`.
 
 ### Data flow for saving a workout
 
-`handleSave` in `SocialFitClub`:
+`handleSave` in `SocialFitClubInner`:
 1. Optimistic update: prepend `{ ...sess, createdAt: new Date().toISOString() }` to `sessions`, bump `profile.points` + `profile.sessions_count`, re-sort leaderboard
 2. Parallel Supabase writes: `sessions.insert` + `profiles.update`
 3. Real-time subscription on `profiles` triggers `loadLeaderboard` for all connected clients
 
 ### localStorage keys
 
-Several features persist locally (no extra Supabase tables needed):
-
 | Key | Content | Expires |
 |---|---|---|
 | `sfc_nutrition_log` | `{ date: "YYYY-MM-DD", items: [] }` | Auto-cleared when date changes |
 | `sfc_wip_session` | `{ name, exs }` in-progress workout | Cleared on save |
-| `sfc_feed` | full feed array (posts + like counts) | Never (persists across refreshes) |
-| `sfc_streak_freezes` | number | Never |
+| `sfc_feed` | full feed array (posts + like counts + `commentList`) | Never |
+| `sfc_streak_freezes` | string-encoded integer | Never |
 | `sfc_goals` | `{ weekly, volume, streak }` — user-set numeric targets | Never |
-| `sfc_pledge` | integer 1–7, weekly session commitment | Never |
+| `sfc_pledge` | string-encoded integer 1–7, weekly session commitment | Never |
+| `sfc_body_log` | `[{ date, weight, bf }]` body check-in history, newest first | Never |
+| `sfc_ble_device` | last paired Bluetooth device name | Never |
 
-### Weekly volume chart
+### Module-level helpers
 
-`calcWeeklyVolume(sessions)` returns a 7-element array (Mon–Sun) by summing `sess.vol` for sessions whose `createdAt` falls within the current calendar week. `HomeScreen` uses this instead of any hardcoded constant.
-
-### Muscle Heat Map
-
-`calcMuscleScores(sessions)` → `{ muscleKey: 0–100 }`. `getHeatColor(score)` → blue→yellow→red via `lerpColor`. `MuscleHeatMap` renders an SVG body (`viewBox="0 0 200 440"`). Raw (unfactored) scores drive AI alerts; the period toggle only scales display colours. `calcMuscleScores` output is also passed to `MoreScreen` as `muscleScores` for the AI Coach.
+- **`calcWeeklyVolume(sessions)`** — 7-element array (Mon–Sun) of volume for the current calendar week. Used by `HomeScreen`.
+- **`calcBestWeekVolume(sessions)`** — single number: highest total volume in any Mon–Sun week across all sessions. Used by `ProgressScreen` BEST WEEK stat.
+- **`calcMuscleScores(sessions)`** → `{ muscleKey: 0–100 }`. Passed to `MoreScreen` as `muscleScores` for AI Coach and heat map.
+- **`getHeatColor(score)`** → blue→yellow→red via `lerpColor`. Used by `MuscleHeatMap`.
 
 ### ProgressScreen internal tabs
 
-Three tabs rendered via `activeTab` state: `stats` (session count, volume stats, body composition placeholders), `streak` (streak counter, freeze mechanic, milestone road), `heatmap` (`MuscleHeatMap` component). The `transform` (body photo) tab was removed.
+Three tabs via `activeTab` state:
+- **`stats`**: real computed stats (sessions, total vol, best week vol, avg sets/session, avg vol/session, this-month sessions, top exercise, today's calories/protein from nutrition log) + user-input body composition (`sfc_body_log`).
+- **`streak`**: streak counter, freeze mechanic (`sfc_streak_freezes`), milestone road.
+- **`heatmap`**: `MuscleHeatMap` SVG component (`viewBox="0 0 200 440"`).
+
+Body composition section reads/writes `sfc_body_log`. Each entry: `{ date: "YYYY-MM-DD", weight: number, bf: number|null }`. Progress rings use actual latest values; delta shown vs. first entry.
 
 ### MoreScreen modals
 
-Four modals can open from the tile grid, all defined just before `MoreScreen`:
+Six modals can open from `MoreScreen`, all defined just before it:
 
 | Modal | Tile | localStorage | Props |
 |---|---|---|---|
@@ -117,12 +125,26 @@ Four modals can open from the tile grid, all defined just before `MoreScreen`:
 | `GoalsModal` | GOALS | `sfc_goals` | `sessions`, `profile`, `onClose` |
 | `WeeklyReportModal` | WEEKLY REPORTS | — | `sessions`, `muscleScores`, `onClose` |
 | `AccountabilityModal` | ACCOUNTABILITY | `sfc_pledge` | `sessions`, `profile`, `onClose` |
+| `HealthConnectModal` | HEALTH CONNECT | `sfc_ble_device` | `onClose` |
+| `AdminDashboardModal` | ADMIN DASHBOARD (admin only) | — | `onClose` |
 
-The remaining 5 tiles (Live Training, Merch, Form Check, Health Connect, Book Session) show a "COMING SOON" toast.
+The remaining 4 tiles (Live Training, Merch, Form Check, Book Session) show a "COMING SOON" toast.
+
+### Health Connect (Web Bluetooth)
+
+`HealthConnectModal` uses `navigator.bluetooth.requestDevice` filtering for the `heart_rate` BLE GATT service. On connect it subscribes to `heart_rate_measurement` characteristic notifications and updates live BPM state. Requires Chrome/Edge; gracefully shows "BROWSER NOT SUPPORTED" for Safari/Firefox. Last paired device name persisted to `sfc_ble_device`.
+
+### Admin Dashboard
+
+`AdminDashboardModal` fetches all rows from `profiles` (read-all RLS) and displays: platform overview stats (total users, active users, total sessions, total points, avg sessions, users on streaks), engagement bars (activation/streak/churn rates), top performer card, and a full ranked user table. Visible only when `isAdmin` is true in `MoreScreen`.
+
+### FeedScreen
+
+Posts stored in `sfc_feed` as `[{ id, user, av, time, txt, likes, liked, commentList: [], type, tag }]`. `type` is `"post"` | `"pr"` | `"milestone"`. Compose sheet has a type selector; PR and MILESTONE types show a tag input that populates the gold banner. Comments are stored in `commentList` as `[{ user, av, txt, time }]` and displayed when the comment section is expanded.
 
 ### NutritionScreen — external integrations
 
-- **Barcode scan**: `BarcodeDetector` API + Open Food Facts (`world.openfoodfacts.org/api/v0/product/{code}.json`). `BARCODE_DB` is a 8-product local fallback only.
+- **Barcode scan**: `BarcodeDetector` API + Open Food Facts (`world.openfoodfacts.org/api/v0/product/{code}.json`). `BARCODE_DB` is an 8-product local fallback only.
 - **Meal scan**: captures live video to `<canvas>` → JPEG base64 → `analyze-meal` Edge Function → Claude Haiku vision.
 
 ### Design tokens
@@ -136,16 +158,16 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 
 - All styles are inline objects on the `style` prop
 - Glow effects use `boxShadow` with values from `G` (e.g. `G.goldGlow`, `G.purpleGlow`)
-- Animations declared in a `<style>` tag at the bottom of `SocialFitClub`'s render
+- Animations declared in a `<style>` tag at the bottom of `SocialFitClubInner`'s render
 - No CSS classes except the minimal reset in `src/index.css`
 - Max width `480px`, `margin: 0 auto`, mobile-first; `viewport-fit=cover` in `index.html`
 
 ### Shared UI atoms
 
-`ChromeCard`, `NeonBtn`, `NeonOutlineBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `RestTimer` — all defined in `App.jsx`. `GlowDot` was removed (unused).
+`ChromeCard`, `NeonBtn`, `NeonOutlineBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `RestTimer` — all defined in `App.jsx`.
 
 ### Module-level constants
 
-`EXERCISES`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `MACROS_GOAL`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `FEED_DATA` (default feed seed), `REST_OPTIONS`.
+`ADMIN_EMAIL`, `EXERCISES`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `MACROS_GOAL`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `FEED_DATA` (default feed seed), `REST_OPTIONS`.
 
 Removed constants (no longer in file): `LEADERBOARD`, `SCAN_MEALS`, `WEEKLY_VOLUME`.
