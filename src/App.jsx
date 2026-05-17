@@ -71,6 +71,31 @@ const FEED_DATA = [
 ];
 
 const MACROS_GOAL = { cal:2200, pro:180, carb:220, fat:65 };
+
+const MACRO_COACH_KEY = "sfc_macro_coach";
+function loadMacroCoach() {
+  try { return JSON.parse(localStorage.getItem(MACRO_COACH_KEY) || "null"); } catch { return null; }
+}
+function getActiveMacroTargets() {
+  const d = loadMacroCoach();
+  if (d?.setupComplete) return { cal: d.calories, pro: d.protein, carb: d.carbs, fat: d.fat };
+  return MACROS_GOAL;
+}
+function calcTDEE(sex, age, heightIn, weightLbs, activity) {
+  const kg = weightLbs * 0.453592;
+  const cm = heightIn * 2.54;
+  const bmr = sex === "male"
+    ? 10 * kg + 6.25 * cm - 5 * age + 5
+    : 10 * kg + 6.25 * cm - 5 * age - 161;
+  const m = { sedentary:1.2, light:1.375, moderate:1.55, active:1.725, very_active:1.9 };
+  return Math.round(bmr * (m[activity] || 1.55));
+}
+function calcMacrosFromCalories(calories, weightLbs) {
+  const protein = Math.round(weightLbs * 1.0);
+  const fat = Math.round(Math.max(40, weightLbs * 0.35));
+  const carbs = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4));
+  return { protein, fat, carbs };
+}
 const FOODS = [
   { name:"Chicken Breast 100g", cat:"PROTEIN", cal:165, pro:31, carb:0, fat:3.6 },
   { name:"Salmon Fillet 100g", cat:"PROTEIN", cal:208, pro:20, carb:0, fat:13 },
@@ -1688,6 +1713,8 @@ function NutritionScreen({ showToast }) {
   useEffect(() => () => { stopCamera(); clearInterval(scanTimerRef.current); }, []);
 
   const MEALS = ["BREAKFAST","PRE-WORKOUT","LUNCH","POST-WORKOUT","DINNER","LATE SNACK"];
+  const macroTargets = getActiveMacroTargets();
+  const macroCoachActive = !!loadMacroCoach()?.setupComplete;
   const totals = log.reduce((a,f)=>({cal:a.cal+(f.cal||0),pro:a.pro+(f.pro||0),carb:a.carb+(f.carb||0),fat:a.fat+(f.fat||0)}),{cal:0,pro:0,carb:0,fat:0});
   const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:5, padding:"9px 12px", color:"#fff", fontSize:13, outline:"none", boxSizing:"border-box", width:"100%", fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" };
 
@@ -1848,13 +1875,16 @@ function NutritionScreen({ showToast }) {
 
       <ChromeCard gold glow style={{ padding:"16px", marginBottom:14 }}>
         <div style={{ display:"flex", gap:14, alignItems:"center" }}>
-          <RingMeter pct={Math.min(100,Math.round((totals.cal/MACROS_GOAL.cal)*100))} size={76} strokeW={6} color={G.gold} value={totals.cal} label="KCAL"/>
+          <RingMeter pct={Math.min(100,Math.round((totals.cal/macroTargets.cal)*100))} size={76} strokeW={6} color={G.gold} value={totals.cal} label="KCAL"/>
           <div style={{ flex:1 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
-              <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:"#fff" }}>TODAY</div>
-              <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1, textTransform:"uppercase" }}>{MACROS_GOAL.cal-totals.cal} cal left</div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:"#fff" }}>TODAY</div>
+                {macroCoachActive && <div style={{ background:`${G.gold}20`, border:`1px solid ${G.gold}44`, borderRadius:4, padding:"2px 6px", fontFamily:FONT.body, fontSize:8, letterSpacing:1.5, color:G.gold, textTransform:"uppercase" }}>⚡ ADAPTIVE</div>}
+              </div>
+              <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1, textTransform:"uppercase" }}>{macroTargets.cal-totals.cal} cal left</div>
             </div>
-            {[{l:"PROTEIN",v:totals.pro,m:MACROS_GOAL.pro,col:G.purpleLight},{l:"CARBS",v:totals.carb,m:MACROS_GOAL.carb,col:G.gold},{l:"FAT",v:totals.fat,m:MACROS_GOAL.fat,col:"#FF3D5A"}].map(b=>(
+            {[{l:"PROTEIN",v:totals.pro,m:macroTargets.pro,col:G.purpleLight},{l:"CARBS",v:totals.carb,m:macroTargets.carb,col:G.gold},{l:"FAT",v:totals.fat,m:macroTargets.fat,col:"#FF3D5A"}].map(b=>(
               <div key={b.l} style={{ marginBottom:5 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2 }}>
                   <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>{b.l}</div>
@@ -3195,6 +3225,267 @@ function NotificationsModal({ onClose, sessions }) {
   );
 }
 
+function MacroCoachModal({ onClose }) {
+  const existing = loadMacroCoach();
+  const bodyLog = (() => { try { return JSON.parse(localStorage.getItem("sfc_body_log") || "[]"); } catch { return []; } })();
+
+  const [phase, setPhase] = useState(existing?.setupComplete ? "dashboard" : "setup");
+  const [sex, setSex] = useState(existing?.sex || "male");
+  const [age, setAge] = useState(existing?.age ? String(existing.age) : "");
+  const [heightFt, setHeightFt] = useState(existing?.heightIn ? String(Math.floor(existing.heightIn / 12)) : "");
+  const [heightIn2, setHeightIn2] = useState(existing?.heightIn ? String(existing.heightIn % 12) : "");
+  const [weightLbs, setWeightLbs] = useState(existing?.weightLbs ? String(existing.weightLbs) : "");
+  const [activity, setActivity] = useState(existing?.activityLevel || "moderate");
+  const [goal, setGoal] = useState(existing?.goal || "fat_loss");
+  const [rate, setRate] = useState(existing?.targetWeeklyChange ?? -0.5);
+  const [data, setData] = useState(existing);
+  const [checkInWeight, setCheckInWeight] = useState(bodyLog[0]?.weight ? String(bodyLog[0].weight) : "");
+  const [checkInPhase, setCheckInPhase] = useState(false);
+  const [adjustment, setAdjustment] = useState(null);
+  const [setupError, setSetupError] = useState("");
+  const [nowMs] = useState(() => Date.now());
+
+  const daysSinceCheckIn = data?.lastAdjustment ? (nowMs - new Date(data.lastAdjustment).getTime()) / 86400000 : 999;
+  const canCheckIn = !!(data?.setupComplete && daysSinceCheckIn >= 7);
+
+  const doSetup = () => {
+    const a = parseInt(age); const w = parseFloat(weightLbs);
+    const h = parseInt(heightFt) * 12 + parseInt(heightIn2 || "0");
+    if (!a || a < 10 || a > 100) { setSetupError("Enter a valid age (10–100)"); return; }
+    if (!h || h < 48 || h > 96) { setSetupError("Enter a valid height"); return; }
+    if (!w || w < 50 || w > 700) { setSetupError("Enter a valid weight"); return; }
+    const tdee = calcTDEE(sex, a, h, w, activity);
+    const goalDelta = goal === "fat_loss" ? Math.round(rate * -3500 / 7) : goal === "muscle_gain" ? 300 : 0;
+    const calories = Math.max(1200, tdee - goalDelta);
+    const { protein, fat, carbs } = calcMacrosFromCalories(calories, w);
+    const newData = { sex, age:a, heightIn:h, weightLbs:w, activityLevel:activity, goal, targetWeeklyChange:rate,
+      tdee, calories, protein, carbs, fat, setupComplete:true,
+      lastAdjustment: new Date().toISOString().slice(0,10), weekStartWeight:w, history:[] };
+    localStorage.setItem(MACRO_COACH_KEY, JSON.stringify(newData));
+    setData(newData); setPhase("dashboard"); setSetupError("");
+  };
+
+  const calcAdjustment = () => {
+    const w = parseFloat(checkInWeight);
+    if (!w || !data) return;
+    const daysSince = data.lastAdjustment ? (Date.now() - new Date(data.lastAdjustment).getTime()) / 86400000 : 7;
+    const wks = Math.max(daysSince / 7, 0.5);
+    const expectedChange = +(data.targetWeeklyChange * wks).toFixed(2);
+    const actualChange = +(w - (data.weekStartWeight || data.weightLbs)).toFixed(2);
+    const diff = actualChange - expectedChange;
+    const dailyAdj = Math.max(-200, Math.min(200, Math.round((-diff * 3500) / 7)));
+    const newCal = Math.max(1200, data.calories + dailyAdj);
+    const { protein, fat, carbs } = calcMacrosFromCalories(newCal, w);
+    setAdjustment({ currentWeight:w, actualChange, expectedChange, dailyAdj, newCal, protein, carbs, fat });
+  };
+
+  const applyAdjustment = () => {
+    if (!adjustment || !data) return;
+    const newData = { ...data, calories:adjustment.newCal, protein:adjustment.protein, carbs:adjustment.carbs, fat:adjustment.fat,
+      weightLbs:adjustment.currentWeight, weekStartWeight:adjustment.currentWeight,
+      lastAdjustment: new Date().toISOString().slice(0,10),
+      history: [...(data.history||[]), { date:new Date().toISOString().slice(0,10), weight:adjustment.currentWeight, calories:adjustment.newCal, adj:adjustment.dailyAdj }].slice(-8) };
+    localStorage.setItem(MACRO_COACH_KEY, JSON.stringify(newData));
+    setData(newData); setAdjustment(null); setCheckInPhase(false); setCheckInWeight(bodyLog[0]?.weight ? String(bodyLog[0].weight) : "");
+  };
+
+  const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"10px 12px", color:"#fff", fontSize:14, outline:"none", fontFamily:FONT.body, letterSpacing:1, width:"100%", boxSizing:"border-box" };
+  const selBtn = (active, col=G.gold) => ({ flex:1, padding:"9px 6px", borderRadius:6, border:`1px solid ${active?col+"88":G.borderB}`, background:active?`${col}18`:"transparent", color:active?col:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" });
+
+  const GOAL_OPTS = [
+    { id:"fat_loss", l:"FAT LOSS", ico:"🔥", rates:[-0.5,-0.75,-1.0] },
+    { id:"maintenance", l:"MAINTAIN", ico:"⚖️", rates:[0] },
+    { id:"muscle_gain", l:"MUSCLE GAIN", ico:"💪", rates:[0.25,0.5] },
+  ];
+  const ACTIVITY_OPTS = [
+    { id:"sedentary", l:"SEDENTARY", sub:"desk job, no exercise" },
+    { id:"light", l:"LIGHT", sub:"1–3 days/wk" },
+    { id:"moderate", l:"MODERATE", sub:"3–5 days/wk" },
+    { id:"active", l:"ACTIVE", sub:"6–7 days/wk" },
+    { id:"very_active", l:"VERY ACTIVE", sub:"2× daily or physical job" },
+  ];
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.97)", zIndex:800, display:"flex", flexDirection:"column", overflowY:"auto" }}>
+      <GridBg/>
+      <div style={{ position:"relative", zIndex:1, padding:"24px 18px 40px", maxWidth:480, margin:"0 auto", width:"100%" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:22 }}>
+          <button onClick={onClose} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:7, padding:"6px 10px", color:G.textMid, cursor:"pointer", fontSize:13 }}>✕</button>
+          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+            MACRO <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>COACH</span>
+          </div>
+          {data?.setupComplete && phase==="dashboard" && (
+            <button onClick={()=>{ setPhase("setup"); setSetupError(""); }} style={{ marginLeft:"auto", background:"none", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"4px 10px", color:G.textMid, fontFamily:FONT.body, fontSize:10, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>RECONFIGURE</button>
+          )}
+        </div>
+
+        {phase === "setup" && (
+          <div>
+            <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase", marginBottom:18 }}>
+              Tell us about yourself and we'll calculate your personalised daily targets using the Mifflin-St Jeor formula.
+            </div>
+
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>BIOLOGICAL SEX</div>
+            <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+              <button onClick={()=>setSex("male")} style={selBtn(sex==="male")}>♂ MALE</button>
+              <button onClick={()=>setSex("female")} style={selBtn(sex==="female")}>♀ FEMALE</button>
+            </div>
+
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>AGE</div>
+            <input type="number" inputMode="numeric" placeholder="e.g. 28" value={age} onChange={e=>setAge(e.target.value)} style={{ ...inp, marginBottom:16 }}/>
+
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>HEIGHT</div>
+            <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+              <div style={{ flex:1, position:"relative" }}>
+                <input type="number" inputMode="numeric" placeholder="5" value={heightFt} onChange={e=>setHeightFt(e.target.value)} style={{ ...inp }}/>
+                <div style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", fontFamily:FONT.body, fontSize:10, color:G.textDim, pointerEvents:"none" }}>FT</div>
+              </div>
+              <div style={{ flex:1, position:"relative" }}>
+                <input type="number" inputMode="numeric" placeholder="10" value={heightIn2} onChange={e=>setHeightIn2(e.target.value)} style={{ ...inp }}/>
+                <div style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", fontFamily:FONT.body, fontSize:10, color:G.textDim, pointerEvents:"none" }}>IN</div>
+              </div>
+            </div>
+
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>CURRENT WEIGHT (LBS)</div>
+            <input type="number" inputMode="decimal" placeholder="e.g. 185" value={weightLbs} onChange={e=>setWeightLbs(e.target.value)} style={{ ...inp, marginBottom:16 }}/>
+
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>ACTIVITY LEVEL</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:5, marginBottom:16 }}>
+              {ACTIVITY_OPTS.map(a => (
+                <button key={a.id} onClick={()=>setActivity(a.id)} style={{ ...selBtn(activity===a.id), display:"flex", justifyContent:"space-between", alignItems:"center", textAlign:"left", padding:"10px 12px" }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:2 }}>{a.l}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:activity===a.id?G.gold:G.textDim, letterSpacing:1, textTransform:"none" }}>{a.sub}</div>
+                </button>
+              ))}
+            </div>
+
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>GOAL</div>
+            <div style={{ display:"flex", gap:6, marginBottom:12 }}>
+              {GOAL_OPTS.map(g => (
+                <button key={g.id} onClick={()=>{ setGoal(g.id); setRate(g.rates[0]); }} style={{ ...selBtn(goal===g.id), flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"10px 4px" }}>
+                  <div style={{ fontSize:18 }}>{g.ico}</div>
+                  <div style={{ fontFamily:FONT.display, fontSize:10, letterSpacing:1.5 }}>{g.l}</div>
+                </button>
+              ))}
+            </div>
+
+            {goal !== "maintenance" && (
+              <>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>TARGET RATE (LBS/WEEK)</div>
+                <div style={{ display:"flex", gap:6, marginBottom:16 }}>
+                  {GOAL_OPTS.find(g=>g.id===goal)?.rates.map(r => (
+                    <button key={r} onClick={()=>setRate(r)} style={selBtn(rate===r)}>{Math.abs(r)} lbs/wk</button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {setupError && <div style={{ fontFamily:FONT.body, fontSize:11, color:G.red, letterSpacing:1, marginBottom:12 }}>⚠ {setupError}</div>}
+
+            <NeonBtn onClick={doSetup} full>CALCULATE MY TARGETS ◆</NeonBtn>
+          </div>
+        )}
+
+        {phase === "dashboard" && data && (
+          <div>
+            <ChromeCard gold glow style={{ padding:"20px", marginBottom:14, textAlign:"center" }}>
+              <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:3, textTransform:"uppercase", marginBottom:6 }}>DAILY CALORIE TARGET</div>
+              <div style={{ fontFamily:FONT.display, fontSize:68, color:G.gold, textShadow:G.goldGlow, letterSpacing:-1, lineHeight:1 }}>{data.calories}</div>
+              <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginTop:4 }}>TDEE: {data.tdee} kcal · {data.goal==="fat_loss"?"DEFICIT":data.goal==="muscle_gain"?"SURPLUS":"MAINTENANCE"}</div>
+            </ChromeCard>
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:16 }}>
+              {[{l:"PROTEIN",v:data.protein,u:"G",col:G.purpleLight},{l:"CARBS",v:data.carbs,u:"G",col:G.gold},{l:"FAT",v:data.fat,u:"G",col:"#FF6B35"}].map(m=>(
+                <ChromeCard key={m.l} style={{ padding:"12px 8px", textAlign:"center" }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:28, color:m.col, textShadow:`0 0 8px ${m.col}88`, letterSpacing:0 }}>{m.v}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:m.col, letterSpacing:1, textTransform:"uppercase", marginBottom:2 }}>{m.u}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>{m.l}</div>
+                </ChromeCard>
+              ))}
+            </div>
+
+            <ChromeCard style={{ padding:"12px 14px", marginBottom:12 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div>
+                  <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>
+                    {GOAL_OPTS.find(g=>g.id===data.goal)?.ico} {GOAL_OPTS.find(g=>g.id===data.goal)?.l}
+                  </div>
+                  <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, marginTop:2 }}>
+                    {data.goal!=="maintenance" ? `Target: ${Math.abs(data.targetWeeklyChange)} lbs/wk ${data.targetWeeklyChange<0?"loss":"gain"}` : "Maintain current weight"}
+                  </div>
+                </div>
+                <div style={{ textAlign:"right" }}>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1, textTransform:"uppercase" }}>Last adjusted</div>
+                  <div style={{ fontFamily:FONT.display, fontSize:12, color:G.textMid, letterSpacing:1 }}>{data.lastAdjustment || "Today"}</div>
+                </div>
+              </div>
+            </ChromeCard>
+
+            {!checkInPhase ? (
+              <NeonBtn onClick={()=>setCheckInPhase(true)} full disabled={!canCheckIn}>
+                {canCheckIn ? "WEEKLY CHECK-IN & ADJUST ◆" : `CHECK-IN AVAILABLE IN ${Math.max(0, 7 - Math.floor(daysSinceCheckIn))} DAYS`}
+              </NeonBtn>
+            ) : (
+              <ChromeCard style={{ padding:"16px", marginBottom:12 }}>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginBottom:12 }}>WEEKLY CHECK-IN</div>
+                <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:1, marginBottom:10 }}>
+                  Enter your current weight. The algorithm will compare your actual progress to your goal and adjust your targets.
+                </div>
+                <div style={{ position:"relative", marginBottom:12 }}>
+                  <input type="number" inputMode="decimal" placeholder="Current weight (lbs)" value={checkInWeight} onChange={e=>setCheckInWeight(e.target.value)} style={{ ...inp }}/>
+                </div>
+                {adjustment && (
+                  <div style={{ marginBottom:14 }}>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+                      {[
+                        { l:"EXPECTED CHANGE", v:`${adjustment.expectedChange>0?"+":""}${adjustment.expectedChange} lbs`, col:G.textMid },
+                        { l:"ACTUAL CHANGE", v:`${adjustment.actualChange>0?"+":""}${adjustment.actualChange} lbs`, col:adjustment.actualChange<=adjustment.expectedChange?G.green:G.red },
+                        { l:"CALORIE ADJUSTMENT", v:`${adjustment.dailyAdj>0?"+":""}${adjustment.dailyAdj} cal/day`, col:adjustment.dailyAdj===0?G.textMid:adjustment.dailyAdj>0?G.green:G.gold },
+                        { l:"NEW DAILY TARGET", v:`${adjustment.newCal} kcal`, col:G.gold },
+                      ].map(s=>(
+                        <div key={s.l} style={{ background:`${s.col}08`, border:`1px solid ${s.col}22`, borderRadius:7, padding:"10px" }}>
+                          <div style={{ fontFamily:FONT.display, fontSize:14, color:s.col, letterSpacing:1 }}>{s.v}</div>
+                          <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase", marginTop:2 }}>{s.l}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, marginBottom:12 }}>
+                      New macros → P: {adjustment.protein}g · C: {adjustment.carbs}g · F: {adjustment.fat}g
+                    </div>
+                    <NeonBtn onClick={applyAdjustment} full>APPLY NEW TARGETS ◆</NeonBtn>
+                  </div>
+                )}
+                {!adjustment && (
+                  <div style={{ display:"flex", gap:8 }}>
+                    <NeonBtn onClick={calcAdjustment} full>CALCULATE ADJUSTMENT</NeonBtn>
+                    <button onClick={()=>{ setCheckInPhase(false); setAdjustment(null); }} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:7, padding:"10px 14px", color:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:1, cursor:"pointer" }}>CANCEL</button>
+                  </div>
+                )}
+              </ChromeCard>
+            )}
+
+            {(data.history||[]).length > 0 && (
+              <div style={{ marginTop:16 }}>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>ADJUSTMENT HISTORY</div>
+                {[...(data.history)].reverse().slice(0,4).map((h,i)=>(
+                  <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 10px", background:"rgba(255,255,255,0.02)", borderRadius:5, marginBottom:4, border:`1px solid ${G.borderB}` }}>
+                    <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1 }}>{h.date}</div>
+                    <div style={{ display:"flex", gap:12 }}>
+                      <div style={{ fontFamily:FONT.display, fontSize:12, color:"#fff", letterSpacing:1 }}>{h.weight} lbs</div>
+                      <div style={{ fontFamily:FONT.display, fontSize:12, color:G.gold, letterSpacing:1 }}>{h.calories} kcal</div>
+                      {h.adj !== 0 && <div style={{ fontFamily:FONT.display, fontSize:11, color:h.adj>0?G.green:G.red, letterSpacing:1 }}>{h.adj>0?"+":""}{h.adj}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isAdmin }) {
   const [aiCoachOpen, setAiCoachOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
@@ -3203,15 +3494,17 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
   const [healthOpen, setHealthOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [macroCoachOpen, setMacroCoachOpen] = useState(false);
   const FEATURES = [
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
     {id:"reports", l:"WEEKLY REPORTS", ico:"📋", desc:"Personalized coaching notes", col:G.purpleLight, hot:true},
-    {id:"form", l:"FORM CHECK", ico:"🏋️", desc:"Expert feedback on your lifts", col:G.gold},
+    {id:"macro", l:"MACRO COACH", ico:"⚡", desc:"Adaptive calorie & macro targets", col:G.gold, hot:true},
     {id:"health", l:"HEALTH CONNECT", ico:"⌚", desc:"BLE heart rate & fitness devices", col:G.blue, hot:true},
     {id:"ai", l:"AI COACH", ico:"🤖", desc:"Smart daily recommendations", col:G.gold, hot:true},
     {id:"partners", l:"ACCOUNTABILITY", ico:"🤝", desc:"Train together, stay consistent", col:G.green},
     {id:"goals", l:"GOALS", ico:"🎯", desc:"Track your fitness targets", col:G.gold},
     {id:"notif", l:"NOTIFICATIONS", ico:"🔔", desc:"Reminders & streak alerts", col:G.purpleLight, hot:true},
+    {id:"form", l:"FORM CHECK", ico:"🏋️", desc:"Expert feedback on your lifts", col:G.gold},
   ];
 
   const handleTile = (id) => {
@@ -3221,6 +3514,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
     else if (id === "partners") setAccountabilityOpen(true);
     else if (id === "health") setHealthOpen(true);
     else if (id === "notif") setNotifOpen(true);
+    else if (id === "macro") setMacroCoachOpen(true);
     else showToast(`${FEATURES.find(f=>f.id===id)?.ico} ${FEATURES.find(f=>f.id===id)?.l} — COMING SOON`);
   };
 
@@ -3237,6 +3531,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
       {healthOpen && <HealthConnectModal onClose={()=>setHealthOpen(false)}/>}
       {adminOpen && <AdminDashboardModal onClose={()=>setAdminOpen(false)}/>}
       {notifOpen && <NotificationsModal sessions={sessions} onClose={()=>setNotifOpen(false)}/>}
+      {macroCoachOpen && <MacroCoachModal onClose={()=>setMacroCoachOpen(false)}/>}
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:20 }}>
         {FEATURES.map(f => (
