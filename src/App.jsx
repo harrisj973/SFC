@@ -390,6 +390,25 @@ function getExerciseHistory(exName, sessions) {
   return out;
 }
 
+function compressImage(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 800;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.65));
+    };
+    img.src = url;
+  });
+}
+
 function SectionLabel({ children, accent = true }) {
   return (
     <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
@@ -1626,16 +1645,18 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
   const [showLogForm, setShowLogForm] = useState(false);
   const [logWeight, setLogWeight] = useState("");
   const [logBf, setLogBf] = useState("");
+  const [logPhoto, setLogPhoto] = useState(null);
+  const [photoLightbox, setPhotoLightbox] = useState(null);
 
   const saveBodyEntry = () => {
     const w = parseFloat(logWeight);
     if (isNaN(w) || w <= 0) { showToast("⚠️ Enter a valid weight"); return; }
     const bf = parseFloat(logBf) || null;
-    const entry = { date: new Date().toISOString().slice(0, 10), weight: w, bf };
+    const entry = { date: new Date().toISOString().slice(0, 10), weight: w, bf, photo: logPhoto || undefined };
     const next = [entry, ...bodyLog];
     setBodyLog(next);
     localStorage.setItem("sfc_body_log", JSON.stringify(next));
-    setLogWeight(""); setLogBf(""); setShowLogForm(false);
+    setLogWeight(""); setLogBf(""); setLogPhoto(null); setShowLogForm(false);
     showToast("📊 CHECK-IN SAVED!");
   };
 
@@ -1759,6 +1780,22 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
                 <input type="number" placeholder="Weight (lbs)" value={logWeight} onChange={e=>setLogWeight(e.target.value)} style={inp}/>
                 <input type="number" placeholder="Body fat % (opt)" value={logBf} onChange={e=>setLogBf(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveBodyEntry()} style={inp}/>
               </div>
+              <label style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8, cursor:"pointer" }}>
+                <div style={{ flex:1, background:"rgba(0,0,0,0.4)", border:`1px solid ${logPhoto?G.gold:G.borderB}`, borderRadius:6, padding:"9px 12px", color:logPhoto?G.gold:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:1, textTransform:"uppercase", display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:18 }}>📷</span>
+                  {logPhoto ? "PHOTO ADDED ✓" : "ADD PROGRESS PHOTO (OPT)"}
+                </div>
+                <input type="file" accept="image/*" capture="environment" style={{ display:"none" }} onChange={async e=>{
+                  const f=e.target.files?.[0]; if(!f) return;
+                  const b64=await compressImage(f); setLogPhoto(b64);
+                }}/>
+              </label>
+              {logPhoto && (
+                <div style={{ position:"relative", marginBottom:8, borderRadius:6, overflow:"hidden", border:`1px solid ${G.gold}44` }}>
+                  <img src={logPhoto} alt="preview" style={{ width:"100%", maxHeight:180, objectFit:"cover", display:"block" }}/>
+                  <button onClick={()=>setLogPhoto(null)} style={{ position:"absolute", top:6, right:6, background:"rgba(0,0,0,0.7)", border:"none", borderRadius:4, padding:"2px 7px", color:"#fff", fontFamily:FONT.body, fontSize:11, cursor:"pointer" }}>✕</button>
+                </div>
+              )}
               <button onClick={saveBodyEntry} style={{ width:"100%", background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", borderRadius:6, padding:"10px", color:"#0A0810", fontFamily:FONT.display, fontSize:14, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>SAVE</button>
             </ChromeCard>
           )}
@@ -1806,14 +1843,46 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
               {bodyLog.slice(0, 4).map((entry, i) => (
                 <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 10px", background:i===0?`${G.gold}08`:"transparent", borderRadius:5, marginBottom:3, border:`1px solid ${i===0?G.borderB:"transparent"}` }}>
                   <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1 }}>{entry.date}</div>
-                  <div style={{ display:"flex", gap:10 }}>
+                  <div style={{ display:"flex", gap:10, alignItems:"center" }}>
                     <div style={{ fontFamily:FONT.display, fontSize:13, color:i===0?G.gold:"#fff", letterSpacing:1 }}>{entry.weight} lbs</div>
                     {entry.bf != null && <div style={{ fontFamily:FONT.display, fontSize:13, color:i===0?G.purpleLight:G.textMid, letterSpacing:1 }}>{entry.bf}% BF</div>}
+                    {entry.photo && (
+                      <button onClick={()=>setPhotoLightbox(entry)} style={{ background:"none", border:"none", padding:0, cursor:"pointer", borderRadius:4, overflow:"hidden", width:32, height:32, flexShrink:0 }}>
+                        <img src={entry.photo} alt={entry.date} style={{ width:32, height:32, objectFit:"cover", display:"block", borderRadius:4, border:`1px solid ${i===0?G.gold:G.borderB}` }}/>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
           )}
+          {(() => {
+            const photosWithData = bodyLog.filter(e => e.photo);
+            if (photosWithData.length < 2) return null;
+            const first = photosWithData[photosWithData.length - 1];
+            const latest = photosWithData[0];
+            return (
+              <ChromeCard gold style={{ padding:"14px", marginBottom:14 }}>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:10 }}>BEFORE / AFTER</div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                  {[{ label:"BEFORE", entry:first }, { label:"LATEST", entry:latest }].map(({ label, entry }) => (
+                    <button key={label} onClick={()=>setPhotoLightbox(entry)} style={{ background:"none", border:"none", padding:0, cursor:"pointer", borderRadius:8, overflow:"hidden", position:"relative" }}>
+                      <img src={entry.photo} alt={label} style={{ width:"100%", aspectRatio:"3/4", objectFit:"cover", display:"block", borderRadius:8, border:`1px solid ${G.gold}44` }}/>
+                      <div style={{ position:"absolute", bottom:0, left:0, right:0, background:"rgba(0,0,0,0.7)", padding:"4px 6px", textAlign:"center" }}>
+                        <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:2, color:G.gold, textTransform:"uppercase" }}>{label}</div>
+                        <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:1 }}>{entry.date}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {first.weight && latest.weight && (
+                  <div style={{ marginTop:10, textAlign:"center", fontFamily:FONT.display, fontSize:13, letterSpacing:2, color: latest.weight <= first.weight ? G.green : G.red }}>
+                    {latest.weight <= first.weight ? "▼" : "▲"} {Math.abs(+(latest.weight - first.weight).toFixed(1))} lbs {latest.weight <= first.weight ? "lost" : "gained"}
+                  </div>
+                )}
+              </ChromeCard>
+            );
+          })()}
         </div>
       )}
 
@@ -1862,6 +1931,20 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
 
       {activeTab==="heatmap" && (
         <MuscleHeatMap sessions={sessions} showToast={showToast}/>
+      )}
+
+      {photoLightbox && (
+        <div onClick={()=>setPhotoLightbox(null)} style={{ position:"fixed", inset:0, zIndex:999, background:"rgba(0,0,0,0.92)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
+          <button onClick={()=>setPhotoLightbox(null)} style={{ position:"absolute", top:20, right:20, background:"rgba(255,255,255,0.12)", border:"none", borderRadius:50, width:38, height:38, color:"#fff", fontSize:20, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+          <img src={photoLightbox.photo} alt={photoLightbox.date} onClick={e=>e.stopPropagation()} style={{ maxWidth:"92vw", maxHeight:"72vh", objectFit:"contain", borderRadius:10, border:`1px solid ${G.gold}44`, display:"block" }}/>
+          <div style={{ marginTop:16, textAlign:"center" }}>
+            <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:3, color:G.gold, textShadow:G.goldGlow2 }}>{photoLightbox.date}</div>
+            <div style={{ display:"flex", gap:20, justifyContent:"center", marginTop:6 }}>
+              <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff" }}>{photoLightbox.weight} lbs</div>
+              {photoLightbox.bf != null && <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:G.purpleLight }}>{photoLightbox.bf}% BF</div>}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
