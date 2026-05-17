@@ -2139,6 +2139,53 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores }) {
   );
 }
 
+function ResetPasswordScreen({ onDone }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (password !== confirm) { setError("Passwords don't match."); return; }
+    setLoading(true); setError(null);
+    const { error: e } = await supabase.auth.updateUser({ password });
+    setLoading(false);
+    if (e) setError(e.message);
+    else setDone(true);
+  };
+
+  const inp = { background:"rgba(0,0,0,0.45)", border:`1px solid ${G.borderB}`, borderRadius:8, padding:"13px 14px", color:"#fff", fontSize:14, outline:"none", width:"100%", boxSizing:"border-box", fontFamily:FONT.body, letterSpacing:1.5 };
+
+  return (
+    <div style={{ minHeight:"100vh", background:G.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, maxWidth:480, margin:"0 auto" }}>
+      <div style={{ width:"100%", maxWidth:360 }}>
+        <div style={{ textAlign:"center", marginBottom:32 }}>
+          <div style={{ fontSize:40, marginBottom:12 }}>🔐</div>
+          <div style={{ fontFamily:FONT.display, fontSize:28, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>SET NEW PASSWORD</div>
+          <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:1.5, marginTop:6, textTransform:"uppercase" }}>Choose a strong password</div>
+        </div>
+        {done ? (
+          <div style={{ textAlign:"center" }}>
+            <div style={{ fontSize:48, marginBottom:16 }}>✅</div>
+            <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:G.green, textTransform:"uppercase", marginBottom:10 }}>PASSWORD UPDATED</div>
+            <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:1, marginBottom:24 }}>You're all set. Sign in with your new password.</div>
+            <button onClick={onDone} style={{ width:"100%", padding:"14px", borderRadius:8, background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", color:"#0A0810", fontFamily:FONT.display, fontSize:16, letterSpacing:3, cursor:"pointer", textTransform:"uppercase", boxShadow:G.goldGlow2 }}>CONTINUE TO APP</button>
+          </div>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            <input type="password" placeholder="New password" value={password} onChange={e=>setPassword(e.target.value)} style={inp}/>
+            <input type="password" placeholder="Confirm password" value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} style={inp}/>
+            {error && <div style={{ fontFamily:FONT.body, fontSize:12, color:G.red, letterSpacing:1, textAlign:"center" }}>{error}</div>}
+            <button onClick={submit} disabled={loading} style={{ width:"100%", padding:"14px", borderRadius:8, background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", color:"#0A0810", fontFamily:FONT.display, fontSize:16, letterSpacing:3, cursor:"pointer", textTransform:"uppercase", boxShadow:G.goldGlow2, opacity:loading?0.7:1 }}>{loading ? "SAVING..." : "UPDATE PASSWORD"}</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function LoginScreen() {
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
@@ -2300,6 +2347,7 @@ function SocialFitClubInner() {
   const [profile, setProfile] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [dataLoadFailed, setDataLoadFailed] = useState(false);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
   const toastTimer = useRef(null);
 
   const loadProfile = async (userId) => {
@@ -2358,7 +2406,8 @@ function SocialFitClubInner() {
       if (session?.user) { loadProfile(session.user.id); loadSessions(session.user.id); loadLeaderboard(session.user.id); }
       setAuthReady(true);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "PASSWORD_RECOVERY") { setPasswordRecovery(true); return; }
       setUser(session?.user ?? null);
       if (session?.user) await ensureProfile(session.user);
       else { setProfile(null); setSessions([]); }
@@ -2434,6 +2483,7 @@ function SocialFitClubInner() {
   ];
 
   if (!authReady) return <div style={{ minHeight:"100vh", background:G.bg }}/>;
+  if (passwordRecovery) return <ResetPasswordScreen onDone={() => setPasswordRecovery(false)}/>;
   if (!user) return <LoginScreen/>;
   if (!profile && dataLoadFailed) {
     const retry = () => { setDataLoadFailed(false); ensureProfile(user); };
