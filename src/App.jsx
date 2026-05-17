@@ -72,6 +72,18 @@ const FEED_DATA = [
 
 const MACROS_GOAL = { cal:2200, pro:180, carb:220, fat:65 };
 
+const SESSION_TYPES = [
+  { id:"push",     label:"PUSH",      color:"#FF6B6B" },
+  { id:"pull",     label:"PULL",      color:"#4ECDC4" },
+  { id:"legs",     label:"LEGS",      color:"#A29BFE" },
+  { id:"upper",    label:"UPPER",     color:"#74B9FF" },
+  { id:"lower",    label:"LOWER",     color:"#FDCB6E" },
+  { id:"full",     label:"FULL BODY", color:"#55EFC4" },
+  { id:"cardio",   label:"CARDIO",    color:"#FF7675" },
+  { id:"core",     label:"CORE",      color:"#FD79A8" },
+  { id:"recovery", label:"RECOVERY",  color:"#B2BEC3" },
+];
+
 const MACRO_COACH_KEY = "sfc_macro_coach";
 function loadMacroCoach() {
   try { return JSON.parse(localStorage.getItem(MACRO_COACH_KEY) || "null"); } catch { return null; }
@@ -791,6 +803,10 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   const [sessName, setSessName] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sfc_wip_session") || "{}").name || ""; } catch { return ""; }
   });
+  const [sessTag, setSessTag] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sfc_wip_session") || "{}").tag || null; } catch { return null; }
+  });
+  const [historyFilter, setHistoryFilter] = useState(null);
   const [exs, setExs] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("sfc_wip_session") || "{}").exs;
@@ -810,8 +826,8 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   const nextIdRef = useRef(2);
 
   useEffect(() => {
-    localStorage.setItem("sfc_wip_session", JSON.stringify({ name: sessName, exs }));
-  }, [sessName, exs]);
+    localStorage.setItem("sfc_wip_session", JSON.stringify({ name: sessName, exs, tag: sessTag }));
+  }, [sessName, exs, sessTag]);
 
   useEffect(() => {
     if (quickStart) {
@@ -882,9 +898,9 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
     setSaving(true);
     setTimeout(() => {
       setSaving(false);
-      onSave({ name:sessName||"CUSTOM SESSION", exs:valid, sets:totSets, vol:totVol, pts, date: new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}) });
+      onSave({ name:sessName||"CUSTOM SESSION", exs:valid, sets:totSets, vol:totVol, pts, tag: sessTag, date: new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}) });
       setExs([{id:1,name:"",sets:[{r:"",w:""}],rest:60,q:"",sugg:false}]);
-      setSessName("");
+      setSessName(""); setSessTag(null);
       localStorage.removeItem("sfc_wip_session");
       setSubTab("log");
     }, 900);
@@ -911,6 +927,15 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
           <div style={{ marginBottom:18 }}>
             <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:6 }}>SESSION NAME</div>
             <input placeholder="e.g. PUSH DAY · CHEST FOCUS" value={sessName} onChange={e=>setSessName(e.target.value)} style={{ ...inp, fontSize:18, fontFamily:FONT.display, letterSpacing:3, background:"transparent", border:"none", borderBottom:`1px solid ${G.border}`, borderRadius:0, padding:"8px 0", color:G.gold }}/>
+            <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textDim, textTransform:"uppercase", marginBottom:7, marginTop:14 }}>SESSION TYPE</div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+              {SESSION_TYPES.map(t => {
+                const active = sessTag === t.id;
+                return (
+                  <button key={t.id} onClick={()=>setSessTag(active ? null : t.id)} style={{ background: active ? t.color : "rgba(0,0,0,0.35)", border:`1px solid ${active ? t.color : G.borderB}`, borderRadius:20, padding:"5px 12px", color: active ? "#0A0810" : G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, cursor:"pointer", fontWeight: active ? 700 : 400, transition:"all 0.15s", boxShadow: active ? `0 0 8px ${t.color}66` : "none" }}>{t.label}</button>
+                );
+              })}
+            </div>
           </div>
 
           {totSets > 0 && (
@@ -1049,13 +1074,25 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
       {subTab==="log" && (
         <div>
           <SectionLabel>Session History</SectionLabel>
+          {(() => {
+            const usedTypes = SESSION_TYPES.filter(t => sessions.some(s => s.tag === t.id));
+            if (!usedTypes.length) return null;
+            return (
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
+                <button onClick={()=>setHistoryFilter(null)} style={{ background:!historyFilter?G.gold:"rgba(0,0,0,0.35)", border:`1px solid ${!historyFilter?G.gold:G.borderB}`, borderRadius:20, padding:"4px 11px", color:!historyFilter?"#0A0810":G.textMid, fontFamily:FONT.display, fontSize:10, letterSpacing:1.5, cursor:"pointer" }}>ALL</button>
+                {usedTypes.map(t => (
+                  <button key={t.id} onClick={()=>setHistoryFilter(historyFilter===t.id?null:t.id)} style={{ background:historyFilter===t.id?t.color:"rgba(0,0,0,0.35)", border:`1px solid ${historyFilter===t.id?t.color:G.borderB}`, borderRadius:20, padding:"4px 11px", color:historyFilter===t.id?"#0A0810":G.textMid, fontFamily:FONT.display, fontSize:10, letterSpacing:1.5, cursor:"pointer", boxShadow:historyFilter===t.id?`0 0 6px ${t.color}55`:"none" }}>{t.label}</button>
+                ))}
+              </div>
+            );
+          })()}
           {sessions.length === 0 ? (
             <div style={{ textAlign:"center", padding:"44px 0", color:G.textDim }}>
               <div style={{ fontFamily:FONT.display, fontSize:36, letterSpacing:4, marginBottom:8 }}>NO SESSIONS</div>
               <div style={{ fontFamily:FONT.body, fontSize:12, letterSpacing:2, textTransform:"uppercase" }}>Log your first workout to see history</div>
               <NeonBtn onClick={()=>setSubTab("track")} style={{ marginTop:20 }}>START TRACKING</NeonBtn>
             </div>
-          ) : sessions.map((s, i) => {
+          ) : sessions.filter(s => !historyFilter || s.tag === historyFilter).map((s, i) => {
             const sid = s.id;
             const isDeleting = deletingId === sid;
             const isEditing = editingId === sid;
@@ -1083,7 +1120,10 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                           onBlur={()=>{ if(editName.trim()&&editName.trim()!==s.name)onEdit(sid,editName.trim()); setEditingId(null); }}
                           style={{ background:"transparent", border:"none", borderBottom:`1px solid ${G.gold}`, padding:"2px 0", color:G.gold, fontFamily:FONT.display, fontSize:15, letterSpacing:2, width:"100%", outline:"none", textTransform:"uppercase" }}/>
                       ) : (
-                        <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name}</div>
+                        <div style={{ display:"flex", alignItems:"center", gap:7, flexWrap:"wrap" }}>
+                          <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name}</div>
+                          {s.tag && (() => { const t = SESSION_TYPES.find(x=>x.id===s.tag); return t ? <span style={{ background:`${t.color}22`, border:`1px solid ${t.color}66`, borderRadius:20, padding:"1px 8px", fontFamily:FONT.display, fontSize:9, letterSpacing:1.5, color:t.color, flexShrink:0 }}>{t.label}</span> : null; })()}
+                        </div>
                       )}
                       <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{s.date} · {s.sets} sets · {(s.vol||0).toLocaleString()} lbs</div>
                     </div>
@@ -4191,7 +4231,10 @@ function SocialFitClubInner() {
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
-    if (data) setSessions(data.map(s => ({ id:s.id, name:s.name, exs:s.exercises, sets:s.sets, vol:s.volume, pts:s.points, date:s.date, createdAt:s.created_at })));
+    if (data) {
+      const tagMap = (() => { try { return JSON.parse(localStorage.getItem("sfc_session_tags") || "{}"); } catch { return {}; } })();
+      setSessions(data.map(s => ({ id:s.id, name:s.name, exs:s.exercises, sets:s.sets, vol:s.volume, pts:s.points, date:s.date, createdAt:s.created_at, tag: tagMap[s.id] || undefined })));
+    }
     else if (error) setDataLoadFailed(true);
   };
 
@@ -4296,7 +4339,7 @@ function SocialFitClubInner() {
     showToast(`🏆 SESSION SAVED · +${sess.pts} POINTS`);
 
     // Persist to Supabase
-    const [{ error: sErr }, { error: pErr }] = await Promise.all([
+    const [{ data: sData, error: sErr }, { error: pErr }] = await Promise.all([
       supabase.from("sessions").insert({
         user_id: user.id,
         name: sess.name,
@@ -4305,10 +4348,17 @@ function SocialFitClubInner() {
         volume: sess.vol,
         points: sess.pts,
         date: sess.date,
-      }),
+      }).select("id").single(),
       supabase.from("profiles").update({ points: newPts, sessions_count: newSessionsCount }).eq("id", user.id),
     ]);
     if (sErr || pErr) showToast("⚠️ SYNC ERROR — DATA MAY NOT BE SAVED");
+    if (sData?.id && sess.tag) {
+      try {
+        const tagMap = JSON.parse(localStorage.getItem("sfc_session_tags") || "{}");
+        tagMap[sData.id] = sess.tag;
+        localStorage.setItem("sfc_session_tags", JSON.stringify(tagMap));
+      } catch { /* ignore */ }
+    }
   };
 
   const handleDeleteSession = async (sessId) => {
