@@ -1823,7 +1823,7 @@ export default function SocialFitClub() {
   const [tab, setTab] = useState("home");
   const [sessions, setSessions] = useState([]);
   const [quickStartWorkout, setQuickStartWorkout] = useState(null);
-  const [leaderboard, setLeaderboard] = useState(LEADERBOARD);
+  const [leaderboard, setLeaderboard] = useState([]);
   const [toast, setToast] = useState(null);
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -1831,7 +1831,7 @@ export default function SocialFitClub() {
   const toastTimer = useRef(null);
 
   const loadProfile = async (userId) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    const { data } = await supabase.from("profiles").select("id, username, avatar_initials, points, streak, sessions_count").eq("id", userId).single();
     if (data) { setProfile(data); return data; }
     return null;
   };
@@ -1845,21 +1845,40 @@ export default function SocialFitClub() {
     if (data) setSessions(data.map(s => ({ name:s.name, exs:s.exercises, sets:s.sets, vol:s.volume, pts:s.points, date:s.date })));
   };
 
+  const loadLeaderboard = async (currentUserId) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, username, avatar_initials, points, sessions_count")
+      .order("points", { ascending: false })
+      .limit(20);
+    if (data) {
+      setLeaderboard(data.map((p, i) => ({
+        rank: i + 1,
+        name: p.username || "ANONYMOUS",
+        pts: p.points || 0,
+        sessions: p.sessions_count || 0,
+        av: p.avatar_initials || "?",
+        isMe: p.id === currentUserId,
+      })));
+    }
+  };
+
   const ensureProfile = async (u) => {
     const existing = await loadProfile(u.id);
     if (!existing) {
       const base = u.email.split("@")[0].replace(/[^a-zA-Z0-9 ]/g, " ").trim().toUpperCase().slice(0, 20);
       const initials = base.split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2) || "ME";
-      const { data } = await supabase.from("profiles").insert({ id: u.id, username: base || "ATHLETE", avatar_initials: initials, points: 0, streak: 0 }).select().single();
+      const { data } = await supabase.from("profiles").insert({ id: u.id, username: base || "ATHLETE", avatar_initials: initials, points: 0, streak: 0, sessions_count: 0 }).select().single();
       if (data) setProfile(data);
     }
     await loadSessions(u.id);
+    await loadLeaderboard(u.id);
   };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) { loadProfile(session.user.id); loadSessions(session.user.id); }
+      if (session?.user) { loadProfile(session.user.id); loadSessions(session.user.id); loadLeaderboard(session.user.id); }
       setAuthReady(true);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -1869,6 +1888,17 @@ export default function SocialFitClub() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const lbChannel = supabase
+      .channel("leaderboard-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
+        loadLeaderboard(user.id);
+      })
+      .subscribe();
+    return () => supabase.removeChannel(lbChannel);
+  }, [user?.id]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -1887,7 +1917,8 @@ export default function SocialFitClub() {
     // Optimistic local update
     setSessions(p => [sess, ...p]);
     const newPts = (profile?.points || 0) + sess.pts;
-    setProfile(p => ({ ...p, points: newPts }));
+    const newSessionsCount = (profile?.sessions_count || 0) + 1;
+    setProfile(p => ({ ...p, points: newPts, sessions_count: newSessionsCount }));
     setLeaderboard(p =>
       p.map(u => u.isMe ? { ...u, pts: newPts, sessions: u.sessions + 1 } : u)
        .sort((a,b) => b.pts - a.pts)
@@ -1906,7 +1937,7 @@ export default function SocialFitClub() {
         points: sess.pts,
         date: sess.date,
       }),
-      supabase.from("profiles").update({ points: newPts }).eq("id", user.id),
+      supabase.from("profiles").update({ points: newPts, sessions_count: newSessionsCount }).eq("id", user.id),
     ]);
     if (sErr || pErr) showToast("⚠️ SYNC ERROR — DATA MAY NOT BE SAVED");
   };
