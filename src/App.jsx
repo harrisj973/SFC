@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Component } from "react";
 import logoImg from "./assets/logo.jpg";
 import { createClient } from "@supabase/supabase-js";
 
@@ -2272,7 +2272,25 @@ function LoginScreen() {
   );
 }
 
-export default function SocialFitClub() {
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ minHeight:"100vh", background:"#06060E", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, textAlign:"center" }}>
+          <div style={{ fontSize:48, marginBottom:16 }}>⚠️</div>
+          <div style={{ fontFamily:"'Bebas Neue','Impact','Arial Black',sans-serif", fontSize:28, letterSpacing:4, color:"#FDB927", textTransform:"uppercase", marginBottom:8 }}>SOMETHING WENT WRONG</div>
+          <div style={{ fontFamily:"'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize:13, color:"#8B7AA8", letterSpacing:1, marginBottom:24, maxWidth:320 }}>An unexpected error occurred. Reload the page to continue — your saved data won't be lost.</div>
+          <button onClick={()=>window.location.reload()} style={{ background:"#FDB927", border:"none", borderRadius:8, padding:"12px 28px", fontFamily:"'Bebas Neue','Impact','Arial Black',sans-serif", fontSize:16, letterSpacing:3, color:"#0A0810", cursor:"pointer", textTransform:"uppercase" }}>RELOAD APP</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function SocialFitClubInner() {
   const [tab, setTab] = useState("home");
   const [sessions, setSessions] = useState([]);
   const [quickStartWorkout, setQuickStartWorkout] = useState(null);
@@ -2458,4 +2476,8 @@ export default function SocialFitClub() {
       `}</style>
     </div>
   );
+}
+
+export default function SocialFitClub() {
+  return <ErrorBoundary><SocialFitClubInner/></ErrorBoundary>;
 }
