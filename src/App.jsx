@@ -134,14 +134,32 @@ const FOODS = [
 ];
 const FOOD_CATS = ["ALL","PROTEIN","CARBS","DAIRY","FRUIT","VEG","NUTS","FAT","SUPPLEMENT","FAST FOOD","RESTAURANT","SNACK","BRAND","BEVERAGE"];
 const BARCODE_DB = {
-  "012345678901": {name:"Quest Bar Chocolate Chip",cal:190,pro:21,carb:22,fat:7,brand:"Quest Nutrition"},
   "049000028911": {name:"Coca-Cola 355ml",cal:140,pro:0,carb:39,fat:0,brand:"Coca-Cola"},
-  "041196050120": {name:"Fairlife Core Power",cal:230,pro:42,carb:7,fat:3.5,brand:"Fairlife"},
-  "016000275287": {name:"Nature Valley Granola Bar",cal:190,pro:4,carb:29,fat:7,brand:"Nature Valley"},
-  "722252101587": {name:"KIND Dark Chocolate Almond",cal:200,pro:6,carb:18,fat:15,brand:"KIND"},
+  "049000050043": {name:"Coca-Cola Zero Sugar 355ml",cal:0,pro:0,carb:0,fat:0,brand:"Coca-Cola"},
+  "041196050120": {name:"Fairlife Core Power 11.5oz",cal:230,pro:42,carb:7,fat:3.5,brand:"Fairlife"},
+  "016000275287": {name:"Nature Valley Oats 'n Honey Bar",cal:190,pro:4,carb:29,fat:7,brand:"Nature Valley"},
+  "722252101587": {name:"KIND Dark Chocolate Almond Bar",cal:200,pro:6,carb:18,fat:15,brand:"KIND"},
   "070038631552": {name:"Clif Bar Chocolate Chip",cal:250,pro:9,carb:44,fat:5,brand:"Clif Bar"},
   "611247531888": {name:"Rx Bar Chocolate Sea Salt",cal:210,pro:12,carb:23,fat:9,brand:"RxBar"},
-  "036632008794": {name:"Premier Protein Shake",cal:160,pro:30,carb:5,fat:3,brand:"Premier Protein"},
+  "036632008794": {name:"Premier Protein Chocolate Shake",cal:160,pro:30,carb:5,fat:3,brand:"Premier Protein"},
+  "722252010260": {name:"Clif Bar Chocolate Brownie",cal:240,pro:9,carb:42,fat:5,brand:"Clif Bar"},
+  "888849000265": {name:"Quest Bar Chocolate Chip Cookie Dough",cal:190,pro:21,carb:22,fat:7,brand:"Quest Nutrition"},
+  "860133003069": {name:"Rx Bar Chocolate Peanut Butter",cal:210,pro:12,carb:24,fat:9,brand:"RxBar"},
+  "021908512716": {name:"Larabar Apple Pie",cal:190,pro:4,carb:29,fat:8,brand:"Larabar"},
+  "050000396473": {name:"Gatorade Fruit Punch 20oz",cal:130,pro:0,carb:34,fat:0,brand:"Gatorade"},
+  "052000047832": {name:"Gatorade Zero Glacier Cherry 20oz",cal:10,pro:0,carb:3,fat:0,brand:"Gatorade"},
+  "818290011103": {name:"Chobani Vanilla Non-Fat Greek Yogurt",cal:120,pro:12,carb:16,fat:0,brand:"Chobani"},
+  "036987002610": {name:"Fage Total 0% Greek Yogurt 7oz",cal:100,pro:18,carb:7,fat:0,brand:"Fage"},
+  "850022890179": {name:"Siggi's Vanilla Yogurt 5.3oz",cal:110,pro:15,carb:8,fat:0,brand:"Siggi's"},
+  "852013006439": {name:"Bang Blue Razz Energy Drink",cal:0,pro:0,carb:0,fat:0,brand:"Bang Energy"},
+  "070847811695": {name:"Monster Energy Original 16oz",cal:210,pro:0,carb:54,fat:0,brand:"Monster"},
+  "611269991692": {name:"Red Bull Energy Drink 8.4oz",cal:110,pro:1,carb:28,fat:0,brand:"Red Bull"},
+  "643843918522": {name:"Premier Protein Vanilla Shake",cal:160,pro:30,carb:5,fat:3,brand:"Premier Protein"},
+  "036632034006": {name:"Muscle Milk Chocolate Shake",cal:150,pro:25,carb:9,fat:3,brand:"Muscle Milk"},
+  "748927025798": {name:"ON Gold Standard Whey Chocolate",cal:120,pro:24,carb:3,fat:1.5,brand:"Optimum Nutrition"},
+  "796504028193": {name:"Kodiak Cakes Protein Waffles",cal:230,pro:12,carb:31,fat:5,brand:"Kodiak Cakes"},
+  "853643007104": {name:"Good Culture Cottage Cheese 5.3oz",cal:110,pro:14,carb:5,fat:4,brand:"Good Culture"},
+  "096619250486": {name:"Kirkland Protein Bar Chocolate Brownie",cal:190,pro:21,carb:21,fat:7,brand:"Kirkland"},
 };
 const REST_OPTIONS = [
   { label:"45S", sec:45 }, { label:"1 MIN", sec:60 },
@@ -1424,6 +1442,7 @@ function NutritionScreen({ showToast }) {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [scanProgress, setScanProgress] = useState(0);
   const [scanLabel, setScanLabel] = useState("");
+  const [manualEntry, setManualEntry] = useState({ name:"", cal:"", pro:"", carb:"", fat:"" });
   const scanTimerRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -1504,11 +1523,16 @@ function NutritionScreen({ showToast }) {
   };
 
   const lookupBarcode = async (code) => {
-    setScanMode("analyzing"); setScanLabel("LOOKING UP BARCODE..."); setScanProgress(30);
+    setScanMode("analyzing"); setScanLabel("LOOKING UP BARCODE..."); setScanProgress(25);
+    const showManual = (prefillName = "", prefillBrand = "") => {
+      setScanProgress(0);
+      setManualEntry({ name: prefillName, brand: prefillBrand, cal:"", pro:"", carb:"", fat:"" });
+      setScanMode("barcode_not_found");
+    };
     try {
       const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
       const data = await res.json();
-      setScanProgress(80);
+      setScanProgress(60);
       if (data.status === 1 && data.product) {
         const p = data.product;
         const n = p.nutriments || {};
@@ -1525,28 +1549,45 @@ function NutritionScreen({ showToast }) {
         setScanProgress(100);
         setScanResult({ ...found, confidence: 99 });
         setScanMode("barcode_result");
-      } else if (BARCODE_DB[code]) {
+        return;
+      }
+      if (BARCODE_DB[code]) {
         setScanProgress(100);
         setScanResult({ ...BARCODE_DB[code], confidence: 99 });
         setScanMode("barcode_result");
-      } else {
-        setScanProgress(0);
-        setScanMode("barcode_scanning");
-        showToast("Product not found — try another barcode");
+        return;
       }
+      setScanLabel("SEARCHING SECONDARY DATABASE...");
+      setScanProgress(75);
+      try {
+        const res2 = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${code}`);
+        const data2 = await res2.json();
+        if (data2.items?.length > 0) {
+          const item = data2.items[0];
+          showManual(item.title || item.brand || "", item.brand || "");
+          return;
+        }
+      } catch { /* ignore secondary lookup failure */ }
+      showManual();
     } catch {
-      setScanProgress(0);
-      setScanMode("barcode_scanning");
-      showToast("Lookup failed — check your connection");
+      showManual();
     }
   };
 
-  const resetScan = () => { stopCamera(); clearInterval(scanTimerRef.current); setScanMode("idle"); setScanResult(null); setBarcodeInput(""); setScanProgress(0); };
+  const resetScan = () => { stopCamera(); clearInterval(scanTimerRef.current); setScanMode("idle"); setScanResult(null); setBarcodeInput(""); setScanProgress(0); setManualEntry({ name:"", cal:"", pro:"", carb:"", fat:"" }); };
   const addScanResult = () => {
     if (!scanResult) return;
     setLog(p=>[...p,{...scanResult,id:Date.now(),meal:selMeal}]);
     resetScan(); setView("log");
     showToast(`✓ ${scanResult.name} added to ${selMeal}`);
+  };
+  const addManualEntry = () => {
+    const name = manualEntry.name.trim();
+    if (!name) { showToast("Enter a product name"); return; }
+    const item = { name, brand: manualEntry.brand || "", cal: parseInt(manualEntry.cal)||0, pro: parseFloat(manualEntry.pro)||0, carb: parseFloat(manualEntry.carb)||0, fat: parseFloat(manualEntry.fat)||0 };
+    setLog(p=>[...p,{...item,id:Date.now(),meal:selMeal}]);
+    resetScan(); setView("log");
+    showToast(`✓ ${item.name} added to ${selMeal}`);
   };
 
   const filteredFoods = FOODS.filter(f => {
@@ -1670,6 +1711,32 @@ function NutritionScreen({ showToast }) {
                   </div>
                 </div>
               )}
+              {scanMode==="barcode_not_found" && (
+                <div style={{ padding:"16px", width:"100%", boxSizing:"border-box" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+                    <div style={{ width:7, height:7, borderRadius:"50%", background:G.gold, boxShadow:`0 0 8px ${G.gold}` }}/>
+                    <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:3, color:G.gold, textTransform:"uppercase" }}>NOT IN DATABASE — ENTER MACROS</div>
+                  </div>
+                  {[
+                    { field:"name", label:"PRODUCT NAME", placeholder:"e.g. Protein Bar Vanilla" },
+                    { field:"cal",  label:"CALORIES",     placeholder:"e.g. 200" },
+                    { field:"pro",  label:"PROTEIN (G)",  placeholder:"e.g. 20" },
+                    { field:"carb", label:"CARBS (G)",    placeholder:"e.g. 25" },
+                    { field:"fat",  label:"FAT (G)",      placeholder:"e.g. 7" },
+                  ].map(({ field, label, placeholder }) => (
+                    <div key={field} style={{ marginBottom:8 }}>
+                      <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:3 }}>{label}</div>
+                      <input
+                        type={field==="name"?"text":"number"}
+                        inputMode={field==="name"?"text":"decimal"}
+                        value={manualEntry[field]}
+                        onChange={e=>setManualEntry(p=>({...p,[field]:e.target.value}))}
+                        placeholder={placeholder}
+                        style={{ background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"8px 10px", color:"#fff", fontSize:13, outline:"none", width:"100%", boxSizing:"border-box", fontFamily:FONT.body, letterSpacing:1 }}/>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div style={{ padding:"12px", borderTop:`1px solid ${G.borderB}` }}>
               {scanMode==="idle" && (
@@ -1695,6 +1762,19 @@ function NutritionScreen({ showToast }) {
                   <div style={{ display:"flex", gap:9 }}>
                     <NeonBtn onClick={resetScan} outline style={{ flex:1 }}>RESCAN</NeonBtn>
                     <NeonBtn onClick={addScanResult} style={{ flex:2 }}>ADD TO {selMeal} ◆</NeonBtn>
+                  </div>
+                </div>
+              )}
+              {scanMode==="barcode_not_found" && (
+                <div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:10 }}>
+                    {MEALS.map(m=>(
+                      <button key={m} onClick={()=>setSelMeal(m)} style={{ padding:"4px 9px", borderRadius:4, border:`1px solid ${selMeal===m?G.gold:G.borderB}`, background:selMeal===m?`${G.gold}18`:"transparent", color:selMeal===m?G.gold:G.textDim, fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>{m}</button>
+                    ))}
+                  </div>
+                  <div style={{ display:"flex", gap:9 }}>
+                    <NeonBtn onClick={resetScan} outline style={{ flex:1 }}>CANCEL</NeonBtn>
+                    <NeonBtn onClick={addManualEntry} style={{ flex:2 }}>ADD TO {selMeal} ◆</NeonBtn>
                   </div>
                 </div>
               )}
