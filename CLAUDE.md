@@ -15,7 +15,9 @@ No test suite is configured. Deployment is via GitHub Actions → GitHub Pages o
 
 ## Architecture
 
-The entire app lives in a **single file**: `src/App.jsx` (~2230 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+The entire app lives in a **single file**: `src/App.jsx` (~2500 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+
+`SocialFitClubInner` contains all app logic and is wrapped by an `ErrorBoundary` class component (exported as `SocialFitClub`). Unhandled render errors show a styled "SOMETHING WENT WRONG" screen with a reload button.
 
 ### Backend: Supabase
 
@@ -44,9 +46,11 @@ ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
 
 ### Auth flow
 
-`LoginScreen` handles sign-in, sign-up (with `display_name` passed via `user_metadata`), forgot-password (`supabase.auth.resetPasswordForEmail`), and email confirmation with resend. The root `SocialFitClub` component renders blank while `authReady` is false, `<LoginScreen/>` when no user.
+`LoginScreen` handles sign-in, sign-up (with `display_name` passed via `user_metadata`), forgot-password (`supabase.auth.resetPasswordForEmail`), and email confirmation with resend.
 
 `ensureProfile` fires on every `SIGNED_IN` event — reads `user.user_metadata.display_name` for the username, creates the `profiles` row if missing, then loads sessions and leaderboard.
+
+Render guards (in order): blank screen while `authReady` is false → `<LoginScreen/>` when no user → "CONNECTION ERROR" screen with Retry button when `dataLoadFailed` is true (network errors in `loadProfile`/`loadSessions` set this flag; a missing profile row — Postgres error `PGRST116` — does not) → blank while profile loads → main app.
 
 ### Navigation model
 
@@ -88,6 +92,8 @@ Several features persist locally (no extra Supabase tables needed):
 | `sfc_wip_session` | `{ name, exs }` in-progress workout | Cleared on save |
 | `sfc_feed` | full feed array (posts + like counts) | Never (persists across refreshes) |
 | `sfc_streak_freezes` | number | Never |
+| `sfc_goals` | `{ weekly, volume, streak }` — user-set numeric targets | Never |
+| `sfc_pledge` | integer 1–7, weekly session commitment | Never |
 
 ### Weekly volume chart
 
@@ -97,9 +103,22 @@ Several features persist locally (no extra Supabase tables needed):
 
 `calcMuscleScores(sessions)` → `{ muscleKey: 0–100 }`. `getHeatColor(score)` → blue→yellow→red via `lerpColor`. `MuscleHeatMap` renders an SVG body (`viewBox="0 0 200 440"`). Raw (unfactored) scores drive AI alerts; the period toggle only scales display colours. `calcMuscleScores` output is also passed to `MoreScreen` as `muscleScores` for the AI Coach.
 
-### AI Coach modal
+### ProgressScreen internal tabs
 
-`AiCoachModal` (defined just before `MoreScreen`) is opened by the AI COACH tile. It calls the `ai-coach` Edge Function on mount, shows loading/error/result states, and offers a refresh button. It receives `profile`, `sessions`, and `muscleScores` props.
+Three tabs rendered via `activeTab` state: `stats` (session count, volume stats, body composition placeholders), `streak` (streak counter, freeze mechanic, milestone road), `heatmap` (`MuscleHeatMap` component). The `transform` (body photo) tab was removed.
+
+### MoreScreen modals
+
+Four modals can open from the tile grid, all defined just before `MoreScreen`:
+
+| Modal | Tile | localStorage | Props |
+|---|---|---|---|
+| `AiCoachModal` | AI COACH | — | `profile`, `sessions`, `muscleScores`, `onClose` |
+| `GoalsModal` | GOALS | `sfc_goals` | `sessions`, `profile`, `onClose` |
+| `WeeklyReportModal` | WEEKLY REPORTS | — | `sessions`, `muscleScores`, `onClose` |
+| `AccountabilityModal` | ACCOUNTABILITY | `sfc_pledge` | `sessions`, `profile`, `onClose` |
+
+The remaining 5 tiles (Live Training, Merch, Form Check, Health Connect, Book Session) show a "COMING SOON" toast.
 
 ### NutritionScreen — external integrations
 
