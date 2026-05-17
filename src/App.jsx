@@ -52,6 +52,18 @@ const EXERCISES = [
   "Kettlebell Swing","Box Jumps","Jump Rope","Assault Bike",
 ];
 
+const EXERCISE_CATS = {
+  "CHEST":     ["Barbell Bench Press","Incline Dumbbell Press","Cable Flyes","Dumbbell Flyes"],
+  "BACK":      ["Barbell Row","Lat Pulldown","Pull-Ups","Barbell Deadlift","Romanian Deadlift"],
+  "LEGS":      ["Barbell Squat","Hack Squat","Leg Press","Bulgarian Split Squat","Leg Curl","Kettlebell Swing"],
+  "SHOULDERS": ["Barbell Overhead Press","Arnold Press","Lateral Raises","Rear Delt Flyes"],
+  "ARMS":      ["Barbell Curl","Hammer Curl","Preacher Curl","Tricep Pushdown","Skull Crushers"],
+  "CORE":      ["Plank","Ab Wheel","Hanging Leg Raises","Russian Twists"],
+  "CARDIO":    ["Jump Rope","Assault Bike","Box Jumps"],
+};
+const EX_CAT_LOOKUP = {};
+Object.entries(EXERCISE_CATS).forEach(([cat, arr]) => arr.forEach(n => { EX_CAT_LOOKUP[n] = cat; }));
+
 const FEED_DATA = [
   { id:"f1", user:"MARCUS J.", av:"MJ", time:"2H AGO", txt:"315lb deadlift PR. 5 sets of 3. The iron never lies. 🔥", likes:47, liked:false, commentList:[], type:"pr", tag:"315LBS DEADLIFT" },
   { id:"f2", user:"SOFIA R.", av:"SR", time:"4H AGO", txt:"100 logged workouts on SFC. This community keeps me showing up every single day.", likes:89, liked:true, commentList:[], type:"milestone", tag:"100 SESSIONS" },
@@ -570,6 +582,65 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
   );
 }
 
+function ExercisePicker({ onSelect, onClose }) {
+  const [q, setQ] = useState("");
+  const [cat, setCat] = useState("ALL");
+  const cats = ["ALL", ...Object.keys(EXERCISE_CATS)];
+
+  const filtered = EXERCISES.filter(e => {
+    const matchCat = cat === "ALL" || EX_CAT_LOOKUP[e] === cat;
+    const matchQ = !q || e.toLowerCase().includes(q.toLowerCase());
+    return matchCat && matchQ;
+  });
+
+  const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:7, padding:"10px 14px 10px 38px", color:"#fff", fontSize:13, outline:"none", boxSizing:"border-box", width:"100%", fontFamily:FONT.body, letterSpacing:1.5, textTransform:"uppercase" };
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:900, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.65)" }}/>
+      <div style={{ position:"relative", background:"#0F0E22", borderRadius:"18px 18px 0 0", border:`1px solid ${G.borderB}`, borderBottom:"none", maxHeight:"80vh", display:"flex", flexDirection:"column" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 18px 12px" }}>
+          <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:G.gold }}>BROWSE EXERCISES</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:20, lineHeight:1 }}>✕</button>
+        </div>
+
+        <div style={{ padding:"0 18px 10px", position:"relative" }}>
+          <span style={{ position:"absolute", left:30, top:"50%", transform:"translateY(-50%)", color:G.textDim, fontSize:14, pointerEvents:"none" }}>🔍</span>
+          <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="SEARCH EXERCISES..." style={inp}/>
+          {q && <button onClick={()=>setQ("")} style={{ position:"absolute", right:28, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:13 }}>✕</button>}
+        </div>
+
+        <div style={{ display:"flex", gap:6, padding:"0 18px 12px", overflowX:"auto", scrollbarWidth:"none" }}>
+          {cats.map(c => (
+            <button key={c} onClick={()=>setCat(c)} style={{ flexShrink:0, padding:"5px 12px", borderRadius:20, border:`1px solid ${cat===c ? G.gold : G.borderB}`, background: cat===c ? `${G.gold}20` : "transparent", color: cat===c ? G.gold : G.textMid, fontFamily:FONT.body, fontSize:10, letterSpacing:2, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}>{c}</button>
+          ))}
+        </div>
+
+        <div style={{ overflowY:"auto", flex:1, paddingBottom:24 }}>
+          {filtered.length === 0 && (
+            <div style={{ textAlign:"center", padding:"32px 18px", color:G.textDim, fontFamily:FONT.body, fontSize:12, letterSpacing:2 }}>NO EXERCISES FOUND</div>
+          )}
+          {filtered.map(e => {
+            const exCat = EX_CAT_LOOKUP[e];
+            const primaryMuscle = Object.entries(EXERCISE_MUSCLE_MAP[e] || {}).sort((a,b)=>b[1]-a[1])[0];
+            return (
+              <div key={e} onClick={()=>{ onSelect(e); onClose(); }} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 18px", borderBottom:`1px solid ${G.borderB}`, cursor:"pointer", transition:"background 0.15s" }}
+                onMouseEnter={ev=>ev.currentTarget.style.background=`${G.gold}10`}
+                onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
+                <div>
+                  <div style={{ fontFamily:FONT.body, fontSize:14, letterSpacing:1.5, color:"#fff", textTransform:"uppercase" }}>{e}</div>
+                  {primaryMuscle && <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:1, color:G.textMid, marginTop:2 }}>{MUSCLE_LABELS[primaryMuscle[0]]}</div>}
+                </div>
+                {exCat && <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, color:G.purple, background:`${G.purple}22`, border:`1px solid ${G.purple}44`, borderRadius:4, padding:"3px 7px", textTransform:"uppercase", flexShrink:0 }}>{exCat}</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart, sessions = [] }) {
   const [subTab, setSubTab] = useState("track");
   const [sessName, setSessName] = useState(() => {
@@ -583,6 +654,7 @@ function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart, session
   });
   const [restSec, setRestSec] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [pickerFor, setPickerFor] = useState(null);
   const nextIdRef = useRef(2);
 
   useEffect(() => {
@@ -625,6 +697,7 @@ function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart, session
 
   return (
     <div style={{ padding:"20px 18px 0" }}>
+      {pickerFor && <ExercisePicker onSelect={name=>{ updEx(pickerFor,"name",name); updEx(pickerFor,"q",name); updEx(pickerFor,"sugg",false); }} onClose={()=>setPickerFor(null)}/>}
       {restSec && <RestTimer sec={restSec} onDone={() => { setRestSec(null); showToast("✓ REST COMPLETE"); }}/>}
       <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase", marginBottom:16 }}>
         TRAINING <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>HUB</span>
@@ -661,6 +734,7 @@ function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart, session
                   <div style={{ display:"flex", alignItems:"center", gap:9, marginBottom:6 }}>
                     <div style={{ width:22, height:22, borderRadius:4, background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT.display, fontSize:12, color:"#0A0810", flexShrink:0 }}>{xi+1}</div>
                     <input value={ex.q||ex.name} onChange={e=>{const v=e.target.value;updEx(ex.id,"q",v);updEx(ex.id,"name",v);updEx(ex.id,"sugg",v.length>=2);}} onBlur={()=>setTimeout(()=>updEx(ex.id,"sugg",false),160)} placeholder="EXERCISE NAME" style={{ ...inp, background:"transparent", border:"none", padding:"3px 0", fontFamily:FONT.display, fontSize:15, letterSpacing:2, flex:1, width:"auto", color:"#fff" }}/>
+                    <button onClick={()=>setPickerFor(ex.id)} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:5, color:G.textMid, cursor:"pointer", fontSize:13, padding:"3px 7px", flexShrink:0, lineHeight:1 }} title="Browse exercises">⊞</button>
                     {exs.length > 1 && <button onClick={()=>setExs(p=>p.filter(e=>e.id!==ex.id))} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:16, padding:"2px 4px", flexShrink:0 }}>✕</button>}
                   </div>
                   {ex.sugg && sugg.length > 0 && (
