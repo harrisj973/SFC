@@ -1309,21 +1309,42 @@ function NutritionScreen({ showToast }) {
     }
   };
 
-  const lookupBarcode = (code) => {
-    setScanMode("analyzing"); setScanLabel("LOOKING UP BARCODE..."); setScanProgress(0);
-    let p = 0;
-    scanTimerRef.current = setInterval(() => {
-      p += 25;
-      setScanProgress(Math.min(p, 100));
-      if (p >= 100) {
-        clearInterval(scanTimerRef.current);
-        setTimeout(() => {
-          const found = BARCODE_DB[code] || BARCODE_DB[Object.keys(BARCODE_DB)[Math.floor(Math.random()*Object.keys(BARCODE_DB).length)]];
-          setScanResult({...found, confidence: 99});
-          setScanMode("barcode_result");
-        }, 300);
+  const lookupBarcode = async (code) => {
+    setScanMode("analyzing"); setScanLabel("LOOKING UP BARCODE..."); setScanProgress(30);
+    try {
+      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
+      const data = await res.json();
+      setScanProgress(80);
+      if (data.status === 1 && data.product) {
+        const p = data.product;
+        const n = p.nutriments || {};
+        const serving = p.serving_quantity ? Number(p.serving_quantity) : 100;
+        const factor = serving / 100;
+        const found = {
+          name: p.product_name || p.generic_name || "Unknown Product",
+          brand: p.brands || "",
+          cal: Math.round((n["energy-kcal_100g"] || n["energy-kcal"] || 0) * factor),
+          pro: Math.round((n.proteins_100g || 0) * factor * 10) / 10,
+          carb: Math.round((n.carbohydrates_100g || 0) * factor * 10) / 10,
+          fat: Math.round((n.fat_100g || 0) * factor * 10) / 10,
+        };
+        setScanProgress(100);
+        setScanResult({ ...found, confidence: 99 });
+        setScanMode("barcode_result");
+      } else if (BARCODE_DB[code]) {
+        setScanProgress(100);
+        setScanResult({ ...BARCODE_DB[code], confidence: 99 });
+        setScanMode("barcode_result");
+      } else {
+        setScanProgress(0);
+        setScanMode("barcode_scanning");
+        showToast("Product not found — try another barcode");
       }
-    }, 150);
+    } catch {
+      setScanProgress(0);
+      setScanMode("barcode_scanning");
+      showToast("Lookup failed — check your connection");
+    }
   };
 
   const resetScan = () => { stopCamera(); clearInterval(scanTimerRef.current); setScanMode("idle"); setScanResult(null); setBarcodeInput(""); setScanProgress(0); };
