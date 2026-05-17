@@ -1836,6 +1836,15 @@ export default function SocialFitClub() {
     return null;
   };
 
+  const loadSessions = async (userId) => {
+    const { data } = await supabase
+      .from("sessions")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (data) setSessions(data.map(s => ({ name:s.name, exs:s.exercises, sets:s.sets, vol:s.volume, pts:s.points, date:s.date })));
+  };
+
   const ensureProfile = async (u) => {
     const existing = await loadProfile(u.id);
     if (!existing) {
@@ -1844,18 +1853,19 @@ export default function SocialFitClub() {
       const { data } = await supabase.from("profiles").insert({ id: u.id, username: base || "ATHLETE", avatar_initials: initials, points: 0, streak: 0 }).select().single();
       if (data) setProfile(data);
     }
+    await loadSessions(u.id);
   };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) loadProfile(session.user.id);
+      if (session?.user) { loadProfile(session.user.id); loadSessions(session.user.id); }
       setAuthReady(true);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) await ensureProfile(session.user);
-      else { setProfile(null); }
+      else { setProfile(null); setSessions([]); }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -1864,6 +1874,7 @@ export default function SocialFitClub() {
     await supabase.auth.signOut();
     setTab("home");
     setSessions([]);
+    setProfile(null);
   };
 
   const showToast = msg => {
@@ -1872,14 +1883,32 @@ export default function SocialFitClub() {
     toastTimer.current = setTimeout(() => setToast(null), 2600);
   };
 
-  const handleSave = sess => {
+  const handleSave = async (sess) => {
+    // Optimistic local update
     setSessions(p => [sess, ...p]);
+    const newPts = (profile?.points || 0) + sess.pts;
+    setProfile(p => ({ ...p, points: newPts }));
     setLeaderboard(p =>
-      p.map(u => u.isMe ? { ...u, pts: u.pts + sess.pts, sessions: u.sessions + 1 } : u)
+      p.map(u => u.isMe ? { ...u, pts: newPts, sessions: u.sessions + 1 } : u)
        .sort((a,b) => b.pts - a.pts)
        .map((u,i) => ({ ...u, rank: i+1 }))
     );
     showToast(`🏆 SESSION SAVED · +${sess.pts} POINTS`);
+
+    // Persist to Supabase
+    const [{ error: sErr }, { error: pErr }] = await Promise.all([
+      supabase.from("sessions").insert({
+        user_id: user.id,
+        name: sess.name,
+        exercises: sess.exs,
+        sets: sess.sets,
+        volume: sess.vol,
+        points: sess.pts,
+        date: sess.date,
+      }),
+      supabase.from("profiles").update({ points: newPts }).eq("id", user.id),
+    ]);
+    if (sErr || pErr) showToast("⚠️ SYNC ERROR — DATA MAY NOT BE SAVED");
   };
 
   const handleQuickStart = (workout) => {
