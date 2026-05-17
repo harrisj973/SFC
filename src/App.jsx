@@ -51,9 +51,9 @@ const EXERCISES = [
 ];
 
 const FEED_DATA = [
-  { id:"f1", user:"MARCUS J.", av:"MJ", time:"2H AGO", txt:"315lb deadlift PR. 5 sets of 3. The iron never lies. 🔥", likes:47, liked:false, comments:3, type:"pr", tag:"315LBS DEADLIFT" },
-  { id:"f2", user:"SOFIA R.", av:"SR", time:"4H AGO", txt:"100 logged workouts on SFC. This community keeps me showing up every single day.", likes:89, liked:true, comments:12, type:"milestone", tag:"100 SESSIONS" },
-  { id:"f3", user:"DEVON K.", av:"DK", time:"YESTERDAY", txt:"Consistency over motivation. Always.", likes:34, liked:false, comments:6, type:"post", tag:null },
+  { id:"f1", user:"MARCUS J.", av:"MJ", time:"2H AGO", txt:"315lb deadlift PR. 5 sets of 3. The iron never lies. 🔥", likes:47, liked:false, commentList:[], type:"pr", tag:"315LBS DEADLIFT" },
+  { id:"f2", user:"SOFIA R.", av:"SR", time:"4H AGO", txt:"100 logged workouts on SFC. This community keeps me showing up every single day.", likes:89, liked:true, commentList:[], type:"milestone", tag:"100 SESSIONS" },
+  { id:"f3", user:"DEVON K.", av:"DK", time:"YESTERDAY", txt:"Consistency over motivation. Always.", likes:34, liked:false, commentList:[], type:"post", tag:null },
 ];
 
 const MACROS_GOAL = { cal:2200, pro:180, carb:220, fat:65 };
@@ -1654,18 +1654,52 @@ function FeedScreen({ showToast, profile }) {
   const [cTxt, setCTxt] = useState("");
   const [showPost, setShowPost] = useState(false);
   const [newTxt, setNewTxt] = useState("");
+  const [newType, setNewType] = useState("post");
+  const [newTag, setNewTag] = useState("");
 
   useEffect(() => {
     localStorage.setItem("sfc_feed", JSON.stringify(feed));
   }, [feed]);
 
-  const toggleLike = id => setFeed(p=>p.map(post=>post.id===id?{...post,liked:!post.liked,likes:post.liked?post.likes-1:post.likes+1}:post));
+  const toggleLike = id => setFeed(p => p.map(post =>
+    post.id === id ? { ...post, liked: !post.liked, likes: post.liked ? post.likes - 1 : post.likes + 1 } : post
+  ));
+
+  const submitComment = (postId) => {
+    if (!cTxt.trim()) return;
+    const comment = { user: profile?.username || "YOU", av: profile?.avatar_initials || "ME", txt: cTxt.trim(), time: "JUST NOW" };
+    setFeed(p => p.map(x => x.id === postId
+      ? { ...x, commentList: [...(x.commentList || []), comment] }
+      : x
+    ));
+    setCTxt("");
+  };
+
+  const submitPost = () => {
+    if (!newTxt.trim()) return;
+    const tag = (newType !== "post" && newTag.trim()) ? newTag.trim().toUpperCase() : null;
+    setFeed(p => [{
+      id: Date.now().toString(),
+      user: profile?.username || "YOU",
+      av: profile?.avatar_initials || "ME",
+      time: "JUST NOW",
+      txt: newTxt.trim(),
+      likes: 0, liked: false,
+      commentList: [],
+      type: newType,
+      tag,
+    }, ...p]);
+    setNewTxt(""); setNewTag(""); setNewType("post"); setShowPost(false);
+    showToast("🔥 POST SHARED WITH THE SQUAD!");
+  };
 
   const typeConfig = {
-    pr: { color:G.gold, ico:"🏆", label:"PR ALERT" },
-    milestone: { color:G.purpleLight, ico:"⭐", label:"MILESTONE" },
-    post: { color:G.textMid, ico:"📢", label:"POST" },
+    pr: { color: G.gold, ico: "🏆", label: "PR ALERT" },
+    milestone: { color: G.purpleLight, ico: "⭐", label: "MILESTONE" },
+    post: { color: G.textMid, ico: "📢", label: "POST" },
   };
+
+  const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"9px 12px", color:"#fff", fontSize:13, outline:"none", fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" };
 
   return (
     <div style={{ padding:"20px 18px 0" }}>
@@ -1693,6 +1727,7 @@ function FeedScreen({ showToast, profile }) {
 
       {feed.map(post => {
         const tc = typeConfig[post.type] || typeConfig.post;
+        const comments = post.commentList || [];
         return (
           <ChromeCard key={post.id} style={{ marginBottom:13, overflow:"hidden" }}>
             <div style={{ height:2, background:`linear-gradient(90deg,${tc.color},transparent)`, boxShadow:`0 0 8px ${tc.color}66` }}/>
@@ -1718,20 +1753,33 @@ function FeedScreen({ showToast, profile }) {
             <div style={{ padding:"10px 13px 0", fontFamily:FONT.body, fontSize:14, color:G.text, lineHeight:1.55, letterSpacing:0.3 }}>{post.txt}</div>
 
             <div style={{ padding:"10px 13px 12px", display:"flex", gap:6, alignItems:"center" }}>
-              <button onClick={()=>toggleLike(post.id)} style={{ display:"flex", alignItems:"center", gap:5, background: post.liked?`${G.gold}15`:"transparent", border:`1px solid ${post.liked?G.gold+"55":G.borderB}`, borderRadius:20, padding:"5px 11px", color:post.liked?G.gold:G.textMid, fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, cursor:"pointer", transition:"all 0.2s" }}>
-                {post.liked?"❤️":"🤍"} {post.likes}
+              <button onClick={()=>toggleLike(post.id)} style={{ display:"flex", alignItems:"center", gap:5, background:post.liked?`${G.gold}15`:"transparent", border:`1px solid ${post.liked?G.gold+"55":G.borderB}`, borderRadius:20, padding:"5px 11px", color:post.liked?G.gold:G.textMid, fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, cursor:"pointer", transition:"all 0.2s" }}>
+                {post.liked ? "❤️" : "🤍"} {post.likes}
               </button>
-              <button onClick={()=>setActiveComment(activeComment===post.id?null:post.id)} style={{ display:"flex", alignItems:"center", gap:5, background: activeComment===post.id?`${G.purpleLight}15`:"transparent", border:`1px solid ${activeComment===post.id?G.purpleLight+"55":G.borderB}`, borderRadius:20, padding:"5px 11px", color:activeComment===post.id?G.purpleLight:G.textMid, fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, cursor:"pointer" }}>
-                💬 {post.comments}
+              <button onClick={()=>{ setActiveComment(activeComment===post.id?null:post.id); setCTxt(""); }} style={{ display:"flex", alignItems:"center", gap:5, background:activeComment===post.id?`${G.purpleLight}15`:"transparent", border:`1px solid ${activeComment===post.id?G.purpleLight+"55":G.borderB}`, borderRadius:20, padding:"5px 11px", color:activeComment===post.id?G.purpleLight:G.textMid, fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, cursor:"pointer" }}>
+                💬 {comments.length}
               </button>
-              <button style={{ marginLeft:"auto", background:"transparent", border:`1px solid ${G.borderB}`, borderRadius:20, padding:"5px 11px", color:G.textMid, fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, cursor:"pointer" }}>✉️ DM</button>
+              <button onClick={()=>showToast("💬 DM feature coming soon")} style={{ marginLeft:"auto", background:"transparent", border:`1px solid ${G.borderB}`, borderRadius:20, padding:"5px 11px", color:G.textMid, fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, cursor:"pointer" }}>✉️ DM</button>
             </div>
 
-            {activeComment===post.id && (
+            {activeComment === post.id && (
               <div style={{ borderTop:`1px solid ${G.borderB}`, padding:"11px 13px" }}>
+                {comments.length > 0 && (
+                  <div style={{ marginBottom:10 }}>
+                    {comments.map((c, i) => (
+                      <div key={i} style={{ display:"flex", gap:8, marginBottom:8, alignItems:"flex-start" }}>
+                        <AvatarBadge initials={c.av} size={26}/>
+                        <div style={{ flex:1, background:"rgba(0,0,0,0.3)", borderRadius:8, padding:"6px 10px" }}>
+                          <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, color:G.gold, textTransform:"uppercase", marginBottom:2 }}>{c.user} · <span style={{ color:G.textDim, fontSize:9 }}>{c.time}</span></div>
+                          <div style={{ fontFamily:FONT.body, fontSize:12, color:G.text, letterSpacing:0.3 }}>{c.txt}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div style={{ display:"flex", gap:8 }}>
-                  <input value={cTxt} onChange={e=>setCTxt(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&cTxt.trim()){setFeed(p=>p.map(x=>x.id===post.id?{...x,comments:x.comments+1}:x));setCTxt("");}}} placeholder="YOUR COMMENT..." style={{ flex:1, background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:20, padding:"8px 13px", color:"#fff", fontSize:12, outline:"none", fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" }}/>
-                  <button onClick={()=>{if(!cTxt.trim())return;setFeed(p=>p.map(x=>x.id===post.id?{...x,comments:x.comments+1}:x));setCTxt("");}} style={{ width:38, height:38, borderRadius:"50%", background:cTxt.trim()?`linear-gradient(135deg,${G.gold},${G.goldDark})`:"rgba(255,255,255,0.06)", border:"none", color:cTxt.trim()?"#0A0810":G.textDim, cursor:cTxt.trim()?"pointer":"default", fontSize:16, flexShrink:0 }}>↑</button>
+                  <input value={cTxt} onChange={e=>setCTxt(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") submitComment(post.id); }} placeholder="ADD A COMMENT..." style={{ flex:1, background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:20, padding:"8px 13px", color:"#fff", fontSize:12, outline:"none", fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" }}/>
+                  <button onClick={()=>submitComment(post.id)} style={{ width:38, height:38, borderRadius:"50%", background:cTxt.trim()?`linear-gradient(135deg,${G.gold},${G.goldDark})`:"rgba(255,255,255,0.06)", border:"none", color:cTxt.trim()?"#0A0810":G.textDim, cursor:cTxt.trim()?"pointer":"default", fontSize:16, flexShrink:0 }}>↑</button>
                 </div>
               </div>
             )}
@@ -1744,8 +1792,20 @@ function FeedScreen({ showToast, profile }) {
           <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"16px 16px 0 0", padding:"22px 18px 48px", border:`1px solid ${G.border}`, borderBottom:"none" }}>
             <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"0 auto 18px" }}/>
             <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:14 }}>SHARE WITH THE SQUAD</div>
+
+            {/* Post type selector */}
+            <div style={{ display:"flex", gap:6, marginBottom:12 }}>
+              {[{id:"post",l:"📢 POST"},{id:"pr",l:"🏆 PR"},{id:"milestone",l:"⭐ MILESTONE"}].map(t => (
+                <button key={t.id} onClick={()=>setNewType(t.id)} style={{ flex:1, padding:"8px 4px", borderRadius:6, border:`1px solid ${newType===t.id?G.gold:G.borderB}`, background:newType===t.id?`${G.gold}18`:"transparent", color:newType===t.id?G.gold:G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
+              ))}
+            </div>
+
+            {newType !== "post" && (
+              <input value={newTag} onChange={e=>setNewTag(e.target.value)} placeholder={newType==="pr" ? "E.G. 315LBS DEADLIFT" : "E.G. 100 SESSIONS"} style={{ ...inp, width:"100%", boxSizing:"border-box", marginBottom:10 }}/>
+            )}
+
             <textarea value={newTxt} onChange={e=>setNewTxt(e.target.value)} placeholder="WHAT DID YOU CRUSH TODAY..." style={{ width:"100%", padding:"12px 13px", borderRadius:7, background:"rgba(0,0,0,0.5)", border:`1px solid ${G.borderB}`, color:"#fff", fontSize:13, outline:"none", resize:"none", height:90, boxSizing:"border-box", lineHeight:1.5, marginBottom:13, fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" }}/>
-            <NeonBtn onClick={()=>{if(!newTxt.trim())return;setFeed(p=>[{id:Date.now().toString(),user:profile?.username||"YOU",av:profile?.avatar_initials||"ME",time:"JUST NOW",txt:newTxt,likes:0,liked:false,comments:0,type:"post",tag:null},...p]);setNewTxt("");setShowPost(false);showToast("POST SHARED!");}} full>POST TO SQUAD ◆</NeonBtn>
+            <NeonBtn onClick={submitPost} full>POST TO SQUAD ◆</NeonBtn>
           </div>
         </div>
       )}
