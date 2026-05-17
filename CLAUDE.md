@@ -15,7 +15,7 @@ No test suite is configured. Deployment is via GitHub Actions → GitHub Pages o
 
 ## Architecture
 
-The entire app lives in a **single file**: `src/App.jsx` (~2200 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+The entire app lives in a **single file**: `src/App.jsx` (~2230 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
 
 ### Backend: Supabase
 
