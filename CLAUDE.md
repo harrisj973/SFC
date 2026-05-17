@@ -15,7 +15,7 @@ No test suite is configured. Deployment is via GitHub Actions → GitHub Pages o
 
 ## Architecture
 
-The entire app lives in a **single file**: `src/App.jsx` (~1900 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+The entire app lives in a **single file**: `src/App.jsx` (~2040 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
 
 ### Backend: Supabase
 
@@ -85,7 +85,7 @@ Never hardcode colours or fonts — always use `G` and `FONT`.
 
 ### Static / fixture data
 
-Module-level constants: `EXERCISES`, `LEADERBOARD` (kept as fallback reference but not used at runtime), `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SCAN_MEALS`, `MACROS_GOAL`, `WEEKLY_VOLUME`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`.
+Module-level constants: `EXERCISES`, `LEADERBOARD` (fallback; not used at runtime), `FOODS`, `FOOD_CATS`, `BARCODE_DB` (fallback for the 8 seeded products; real lookups go to Open Food Facts), `SCAN_MEALS` (unused; meal scan now calls the Edge Function), `MACROS_GOAL`, `WEEKLY_VOLUME`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`.
 
 ### Muscle Heat Map
 
@@ -94,6 +94,11 @@ Module-level constants: `EXERCISES`, `LEADERBOARD` (kept as fallback reference b
 ### Shared atoms
 
 `ChromeCard`, `NeonBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `GlowDot`, `RestTimer` — all defined in `App.jsx`.
+
+### NutritionScreen — real external integrations
+
+- **Barcode scan**: `BarcodeDetector` API reads the code live from the camera; result is looked up against the Open Food Facts API (`world.openfoodfacts.org/api/v0/product/{code}.json`). `BARCODE_DB` is a local fallback for 8 pre-seeded products only.
+- **Meal scan**: user taps "CAPTURE & ANALYZE" to snapshot the live video onto a `<canvas>`, the JPEG base64 is sent to the `analyze-meal` Supabase Edge Function (`supabase/functions/analyze-meal/index.ts`), which calls the Anthropic API (Claude Haiku vision) using the `ANTHROPIC_API_KEY` secret stored in Supabase. Returns `{ name, cal, pro, carb, fat, confidence }`.
 
 ### Styling conventions
 
