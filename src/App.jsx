@@ -1681,7 +1681,117 @@ function FeedScreen({ showToast, profile }) {
   );
 }
 
-function MoreScreen({ showToast, profile, onSignOut }) {
+function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
+  const [state, setState] = useState("idle"); // idle | loading | result | error
+  const [result, setResult] = useState(null);
+
+  const fetchCoach = async () => {
+    setState("loading");
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-coach", {
+        body: { sessions, profile, muscleScores },
+      });
+      if (error || data?.error) throw new Error(error?.message || data?.error);
+      setResult(data);
+      setState("result");
+    } catch {
+      setState("error");
+    }
+  };
+
+  useEffect(() => { fetchCoach(); }, []); // eslint-disable-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
+
+  const typeColors = { workout: G.gold, recovery: G.blue, nutrition: G.green };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.96)", zIndex:400, display:"flex", alignItems:"flex-end" }} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.gold}44`, borderBottom:"none", maxHeight:"88vh", overflowY:"auto", paddingBottom:48 }}>
+
+        {/* Handle bar */}
+        <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"14px auto 0" }}/>
+
+        {/* Header */}
+        <div style={{ padding:"14px 18px 0", display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+          <div style={{ width:44, height:44, borderRadius:12, background:`linear-gradient(135deg,${G.purple},${G.purpleBright})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, boxShadow:G.purpleGlow, flexShrink:0 }}>🤖</div>
+          <div>
+            <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>AI COACH</div>
+            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>Powered by Claude · Personalized for you</div>
+          </div>
+          <button onClick={onClose} style={{ marginLeft:"auto", background:"none", border:"none", color:G.textMid, cursor:"pointer", fontSize:18, padding:"4px 6px", flexShrink:0 }}>✕</button>
+        </div>
+
+        <div style={{ height:1, background:`linear-gradient(90deg,transparent,${G.gold}44,transparent)`, marginBottom:18 }}/>
+
+        {/* Loading */}
+        {state === "loading" && (
+          <div style={{ padding:"48px 18px", textAlign:"center" }}>
+            <div style={{ fontSize:40, marginBottom:14 }}>🤖</div>
+            <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:3, color:G.gold, textTransform:"uppercase", marginBottom:8 }}>ANALYZING YOUR TRAINING...</div>
+            <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>Claude is reviewing your sessions & muscle data</div>
+            <div style={{ width:160, height:3, background:"rgba(255,255,255,0.07)", borderRadius:2, margin:"20px auto 0", overflow:"hidden" }}>
+              <div style={{ height:"100%", width:"60%", background:`linear-gradient(90deg,${G.purple},${G.gold})`, borderRadius:2, animation:"scanLine 1.5s ease-in-out infinite" }}/>
+            </div>
+          </div>
+        )}
+
+        {/* Error */}
+        {state === "error" && (
+          <div style={{ padding:"32px 18px", textAlign:"center" }}>
+            <div style={{ fontSize:36, marginBottom:12 }}>⚠️</div>
+            <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:G.red, textTransform:"uppercase", marginBottom:8 }}>COACH UNAVAILABLE</div>
+            <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1, marginBottom:20 }}>Check your connection and try again.</div>
+            <NeonBtn onClick={fetchCoach} full>RETRY</NeonBtn>
+          </div>
+        )}
+
+        {/* Result */}
+        {state === "result" && result && (
+          <div style={{ padding:"0 18px" }}>
+
+            {/* Greeting */}
+            <div style={{ background:`linear-gradient(135deg,${G.purple}33,${G.purpleBright}22)`, border:`1px solid ${G.purpleLight}44`, borderRadius:12, padding:"16px", marginBottom:14 }}>
+              <div style={{ fontFamily:FONT.body, fontSize:14, color:G.text, letterSpacing:0.5, lineHeight:1.6 }}>{result.greeting}</div>
+            </div>
+
+            {/* Today's focus */}
+            <ChromeCard gold glow style={{ padding:"14px 16px", marginBottom:14 }}>
+              <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:3, textTransform:"uppercase", marginBottom:4 }}>TODAY'S RECOMMENDED FOCUS</div>
+              <div style={{ fontFamily:FONT.display, fontSize:26, color:G.gold, letterSpacing:3, textShadow:G.goldGlow2, textTransform:"uppercase" }}>{result.todayFocus}</div>
+            </ChromeCard>
+
+            {/* Recommendations */}
+            <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:3, color:G.textMid, textTransform:"uppercase", marginBottom:10 }}>YOUR PERSONALIZED PLAN</div>
+            {(result.recommendations || []).map((rec, i) => {
+              const col = typeColors[rec.type] || G.gold;
+              return (
+                <ChromeCard key={i} style={{ padding:"13px 14px", marginBottom:9, borderLeft:`3px solid ${col}` }}>
+                  <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
+                    <div style={{ fontSize:20, flexShrink:0 }}>{rec.icon}</div>
+                    <div>
+                      <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:col, textTransform:"uppercase", marginBottom:4 }}>{rec.title}</div>
+                      <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:0.5, lineHeight:1.55 }}>{rec.text}</div>
+                    </div>
+                  </div>
+                </ChromeCard>
+              );
+            })}
+
+            {/* Motivational */}
+            <div style={{ textAlign:"center", padding:"16px 0 4px" }}>
+              <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:3, color:"#fff", textTransform:"uppercase", lineHeight:1.4 }}>{result.motivational}</div>
+            </div>
+
+            {/* Refresh */}
+            <NeonBtn onClick={fetchCoach} full outline style={{ marginTop:16 }}>🔄 REFRESH COACHING</NeonBtn>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores }) {
+  const [aiCoachOpen, setAiCoachOpen] = useState(false);
   const FEATURES = [
     {id:"live", l:"LIVE TRAINING", ico:"🎥", desc:"Virtual 1-on-1 · from $29/mo", col:G.gold, hot:true},
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
@@ -1699,9 +1809,11 @@ function MoreScreen({ showToast, profile, onSignOut }) {
         MORE <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>TOOLS</span>
       </div>
       <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:18 }}>◆ &nbsp;ALL FEATURES</div>
+      {aiCoachOpen && <AiCoachModal profile={profile} sessions={sessions} muscleScores={muscleScores} onClose={()=>setAiCoachOpen(false)}/>}
+
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:20 }}>
         {FEATURES.map(f => (
-          <button key={f.id} onClick={()=>showToast(`${f.ico} ${f.l} — COMING SOON`)} style={{ background:f.hot?`${f.col}0C`:"rgba(255,255,255,0.03)", border:`1px solid ${f.hot?f.col+"33":G.borderB}`, borderRadius:9, padding:"14px 12px", cursor:"pointer", textAlign:"left", position:"relative", overflow:"hidden" }}>
+          <button key={f.id} onClick={()=>{ if(f.id==="ai") setAiCoachOpen(true); else showToast(`${f.ico} ${f.l} — COMING SOON`); }} style={{ background:f.hot?`${f.col}0C`:"rgba(255,255,255,0.03)", border:`1px solid ${f.hot?f.col+"33":G.borderB}`, borderRadius:9, padding:"14px 12px", cursor:"pointer", textAlign:"left", position:"relative", overflow:"hidden" }}>
             {f.hot && <div style={{ position:"absolute", top:7, right:8, width:6, height:6, borderRadius:"50%", background:f.col, boxShadow:`0 0 6px ${f.col}, 0 0 12px ${f.col}44` }}/>}
             <div style={{ position:"absolute", top:-6, right:-6, fontSize:36, opacity:0.12 }}>{f.ico}</div>
             <div style={{ fontSize:22, marginBottom:7 }}>{f.ico}</div>
@@ -1988,12 +2100,12 @@ export default function SocialFitClub() {
       )}
 
       <div style={{ paddingBottom:82, position:"relative", zIndex:2, minHeight:"100vh" }}>
-        {tab==="home" && <HomeScreen sessions={sessions} leaderboard={leaderboard} onStartWorkout={()=>setTab("train")} onQuickStart={handleQuickStart} showToast={showToast} profile={profile}/>}
+        {tab==="home" && <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile}/>}
         {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions}/>}
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile}/>}
         {tab==="nutrition" && <NutritionScreen showToast={showToast}/>}
         {tab==="feed" && <FeedScreen showToast={showToast} profile={profile}/>}
-        {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut}/>}
+        {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut} sessions={sessions} muscleScores={calcMuscleScores(sessions)}/>}
       </div>
 
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, zIndex:50 }}>
