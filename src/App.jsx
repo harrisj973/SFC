@@ -2570,13 +2570,11 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
   const [healthOpen, setHealthOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const FEATURES = [
-    {id:"live", l:"LIVE TRAINING", ico:"🎥", desc:"Virtual 1-on-1 · from $29/mo", col:G.gold, hot:true},
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
     {id:"reports", l:"WEEKLY REPORTS", ico:"📋", desc:"Personalized coaching notes", col:G.purpleLight, hot:true},
     {id:"form", l:"FORM CHECK", ico:"🏋️", desc:"Expert feedback on your lifts", col:G.gold},
     {id:"health", l:"HEALTH CONNECT", ico:"⌚", desc:"BLE heart rate & fitness devices", col:G.blue, hot:true},
     {id:"ai", l:"AI COACH", ico:"🤖", desc:"Smart daily recommendations", col:G.gold, hot:true},
-    {id:"book", l:"BOOK SESSION", ico:"📅", desc:"In-person & online PT sessions", col:G.purpleLight},
     {id:"partners", l:"ACCOUNTABILITY", ico:"🤝", desc:"Train together, stay consistent", col:G.green},
     {id:"goals", l:"GOALS", ico:"🎯", desc:"Track your fitness targets", col:G.gold},
   ];
