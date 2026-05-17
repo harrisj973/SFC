@@ -50,14 +50,6 @@ const EXERCISES = [
   "Kettlebell Swing","Box Jumps","Jump Rope","Assault Bike",
 ];
 
-const LEADERBOARD = [
-  { rank:1, name:"MARCUS J.", av:"MJ", pts:4820, sessions:38, streak:14, badge:"👑" },
-  { rank:2, name:"SOFIA R.", av:"SR", pts:4210, sessions:34, streak:11, badge:"⚡" },
-  { rank:3, name:"YOU", av:"ME", pts:3650, sessions:28, streak:7, badge:"💪", isMe:true },
-  { rank:4, name:"DEVON K.", av:"DK", pts:3100, sessions:25, streak:5, badge:"🎯" },
-  { rank:5, name:"PRIYA M.", av:"PM", pts:2780, sessions:21, streak:9, badge:"🏃" },
-];
-
 const FEED_DATA = [
   { id:"f1", user:"MARCUS J.", av:"MJ", time:"2H AGO", txt:"315lb deadlift PR. 5 sets of 3. The iron never lies. 🔥", likes:47, liked:false, comments:3, type:"pr", tag:"315LBS DEADLIFT" },
   { id:"f2", user:"SOFIA R.", av:"SR", time:"4H AGO", txt:"100 logged workouts on SFC. This community keeps me showing up every single day.", likes:89, liked:true, comments:12, type:"milestone", tag:"100 SESSIONS" },
@@ -137,16 +129,6 @@ const BARCODE_DB = {
   "611247531888": {name:"Rx Bar Chocolate Sea Salt",cal:210,pro:12,carb:23,fat:9,brand:"RxBar"},
   "036632008794": {name:"Premier Protein Shake",cal:160,pro:30,carb:5,fat:3,brand:"Premier Protein"},
 };
-const SCAN_MEALS = [
-  {name:"Grilled Chicken & Rice",cal:380,pro:42,carb:32,fat:6,confidence:96},
-  {name:"Scrambled Eggs (3)",cal:218,pro:18,carb:1.4,fat:16,confidence:94},
-  {name:"Oatmeal with Banana",cal:285,pro:8,carb:58,fat:4,confidence:91},
-  {name:"Protein Smoothie",cal:310,pro:28,carb:35,fat:6,confidence:88},
-  {name:"Steak & Vegetables",cal:420,pro:48,carb:18,fat:14,confidence:93},
-  {name:"Salmon with Broccoli",cal:365,pro:38,carb:12,fat:16,confidence:95},
-  {name:"Burrito Bowl",cal:650,pro:45,carb:72,fat:16,confidence:87},
-  {name:"Greek Yogurt Parfait",cal:280,pro:22,carb:38,fat:4,confidence:92},
-];
 const REST_OPTIONS = [
   { label:"45S", sec:45 }, { label:"1 MIN", sec:60 },
   { label:"1:30", sec:90 }, { label:"2 MIN", sec:120 },
@@ -236,15 +218,6 @@ function calcMuscleScores(sessions) {
   return out;
 }
 
-function GlowDot({ color = G.gold, size = 8 }) {
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: "50%",
-      background: color, flexShrink: 0,
-      boxShadow: `0 0 ${size}px ${color}, 0 0 ${size*2}px ${color}44`,
-    }} />
-  );
-}
 
 function SectionLabel({ children, accent = true }) {
   return (
@@ -402,7 +375,7 @@ function GridBg() {
 function RestTimer({ sec, onDone }) {
   const [rem, setRem] = useState(sec);
   useEffect(() => {
-    setRem(sec);
+    setRem(sec); // eslint-disable-line react-hooks/set-state-in-effect
     const t = setInterval(() => setRem(r => { if (r <= 1) { clearInterval(t); onDone(); return 0; } return r - 1; }), 1000);
     return () => clearInterval(t);
   }, [sec, onDone]);
@@ -422,7 +395,7 @@ function RestTimer({ sec, onDone }) {
   );
 }
 
-function HomeScreen({ sessions, leaderboard, onStartWorkout, onQuickStart, showToast, profile }) {
+function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile }) {
   const [period, setPeriod] = useState("weekly");
   const maxVol = Math.max(...WEEKLY_VOLUME);
   const myRank = leaderboard.find(u => u.isMe)?.rank || 3;
@@ -566,13 +539,13 @@ function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart, session
 
   useEffect(() => {
     if (quickStart) {
-      setSessName(quickStart.name);
+      setSessName(quickStart.name); // eslint-disable-line react-hooks/set-state-in-effect
       setExs(quickStart.exs.map((name, i) => ({ id: i+1, name, sets:[{r:"",w:""}], rest:60, q:name, sugg:false })));
       setSubTab("track");
       if (onClearQuickStart) onClearQuickStart();
       showToast(`✓ ${quickStart.name} loaded — add your sets!`);
     }
-  }, [quickStart]);
+  }, [quickStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totSets = exs.reduce((a,e) => a + e.sets.filter(s=>s.r&&s.w).length, 0);
   const totVol = exs.reduce((a,e) => a + e.sets.reduce((b,s) => b+(parseFloat(s.w)||0)*(parseInt(s.r)||0),0),0);
@@ -790,7 +763,7 @@ function BodyBase() {
   );
 }
 
-function MuscleHeatMap({ sessions, showToast }) {
+function MuscleHeatMap({ sessions }) {
   const [view, setView] = useState("front");
   const [period, setPeriod] = useState("week");
   const [sel, setSel] = useState(null);
@@ -1327,7 +1300,7 @@ function NutritionScreen({ showToast }) {
           try {
             const codes = await detector.detect(videoRef.current);
             if (codes.length > 0) { stopCamera(); lookupBarcode(codes[0].rawValue); return; }
-          } catch {}
+          } catch { /* detection error — skip frame and retry */ }
           scanAnimRef.current = requestAnimationFrame(detect);
         };
         scanAnimRef.current = requestAnimationFrame(detect);
@@ -1758,7 +1731,7 @@ function MoreScreen({ showToast, profile, onSignOut }) {
         </div>
         <div style={{ fontFamily:FONT.display, fontSize:22, color:G.gold, letterSpacing:1 }}>💪</div>
       </ChromeCard>
-      {[{l:"ADMIN DASHBOARD",ico:"👑",col:G.gold},{l:"NOTIFICATION SETTINGS",ico:"🔔",col:G.textMid},{l:"PRIVACY & SECURITY",ico:"🔒",col:G.textMid},{l:"HELP & SUPPORT",ico:"❓",col:G.textMid}].map((item,i)=>(
+      {[{l:"ADMIN DASHBOARD",ico:"👑",col:G.gold},{l:"NOTIFICATION SETTINGS",ico:"🔔",col:G.textMid},{l:"PRIVACY & SECURITY",ico:"🔒",col:G.textMid},{l:"HELP & SUPPORT",ico:"❓",col:G.textMid}].map((item)=>(
         <div key={item.l} onClick={()=>showToast(item.l)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
           <span style={{ fontSize:18, flexShrink:0 }}>{item.ico}</span>
           <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:item.col, textTransform:"uppercase" }}>{item.l}</div>
@@ -1934,7 +1907,7 @@ export default function SocialFitClub() {
       else { setProfile(null); setSessions([]); }
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!user) return;
@@ -1945,7 +1918,7 @@ export default function SocialFitClub() {
       })
       .subscribe();
     return () => supabase.removeChannel(lbChannel);
-  }, [user?.id]);
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
