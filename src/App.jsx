@@ -311,6 +311,25 @@ function calcMuscleScores(sessions) {
 }
 
 
+function calcPRs(sessions) {
+  const prs = {};
+  for (const sess of sessions) {
+    for (const ex of (sess.exs || [])) {
+      if (!ex.name) continue;
+      for (const set of (ex.sets || [])) {
+        const w = parseFloat(set.w) || 0;
+        const r = parseInt(set.r) || 0;
+        if (!w || !r) continue;
+        const est1rm = Math.round(w * (1 + r / 30));
+        if (!prs[ex.name] || est1rm > prs[ex.name].est1rm) {
+          prs[ex.name] = { weight: w, reps: r, est1rm, date: sess.date };
+        }
+      }
+    }
+  }
+  return prs;
+}
+
 function SectionLabel({ children, accent = true }) {
   return (
     <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
@@ -705,6 +724,9 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [deletingId, setDeletingId] = useState(null);
+  const [templates, setTemplates] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sfc_templates") || "[]"); } catch { return []; }
+  });
   const nextIdRef = useRef(2);
 
   useEffect(() => {
@@ -724,9 +746,32 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   const totSets = exs.reduce((a,e) => a + e.sets.filter(s=>s.r&&s.w).length, 0);
   const totVol = exs.reduce((a,e) => a + e.sets.reduce((b,s) => b+(parseFloat(s.w)||0)*(parseInt(s.r)||0),0),0);
   const pts = totSets * 10 + Math.floor(totVol / 100) * 5;
+  const prs = calcPRs(sessions);
   const getSugg = q => !q || q.length < 2 ? [] : EXERCISES.filter(e => e.toLowerCase().includes(q.toLowerCase())).slice(0,5);
   const updEx = (id, f, v) => setExs(p => p.map(e => e.id===id ? {...e,[f]:v} : e));
   const updSet = (xid, si, f, v) => setExs(p => p.map(e => e.id!==xid ? e : {...e, sets:e.sets.map((s,i)=>i===si?{...s,[f]:v}:s)}));
+
+  const saveTemplate = (s) => {
+    const exNames = (s.exs || []).map(e => e.name).filter(Boolean);
+    if (!exNames.length) { showToast("No exercises to save"); return; }
+    const tmpl = { id: Date.now(), name: s.name, exs: exNames };
+    const next = [tmpl, ...templates];
+    setTemplates(next);
+    localStorage.setItem("sfc_templates", JSON.stringify(next));
+    showToast("✓ TEMPLATE SAVED!");
+  };
+  const loadTemplate = (tmpl) => {
+    setSessName(tmpl.name);
+    setExs(tmpl.exs.map((name, i) => ({ id: i+1, name, sets:[{r:"",w:""}], rest:60, q:name, sugg:false })));
+    nextIdRef.current = tmpl.exs.length + 1;
+    setSubTab("track");
+    showToast(`✓ ${tmpl.name} loaded!`);
+  };
+  const deleteTemplate = (id) => {
+    const next = templates.filter(t => t.id !== id);
+    setTemplates(next);
+    localStorage.setItem("sfc_templates", JSON.stringify(next));
+  };
 
   const doSave = () => {
     const valid = exs.filter(e => e.name && e.sets.some(s=>s.r||s.w));
@@ -743,7 +788,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   };
 
   const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:5, padding:"9px 11px", color:"#fff", fontSize:14, outline:"none", boxSizing:"border-box", width:"100%", fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" };
-  const SUB_TABS = [{ id:"track", l:"TRACK" }, { id:"log", l:"HISTORY" }, { id:"programs", l:"PROGRAMS" }];
+  const SUB_TABS = [{ id:"track", l:"TRACK" }, { id:"log", l:"HISTORY" }, { id:"prs", l:"PRs" }, { id:"programs", l:"PROGRAMS" }];
 
   return (
     <div style={{ padding:"20px 18px 0" }}>
@@ -778,8 +823,25 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
 
           {exs.map((ex, xi) => {
             const sugg = getSugg(ex.q);
+            const liveNewPr = ex.name ? (() => {
+              for (const set of ex.sets) {
+                const w = parseFloat(set.w) || 0;
+                const r = parseInt(set.r) || 0;
+                if (!w || !r) continue;
+                const est = Math.round(w * (1 + r / 30));
+                const existing = prs[ex.name];
+                if (!existing || est > existing.est1rm) return true;
+              }
+              return false;
+            })() : false;
             return (
               <ChromeCard key={ex.id} style={{ marginBottom:12, overflow:"visible" }}>
+                {liveNewPr && (
+                  <div style={{ background:`linear-gradient(135deg,${G.gold}28,${G.goldDark}18)`, borderBottom:`1px solid ${G.gold}44`, borderRadius:"10px 10px 0 0", padding:"5px 12px", display:"flex", alignItems:"center", gap:6 }}>
+                    <span style={{ fontSize:13 }}>🏆</span>
+                    <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:2, color:G.gold, textShadow:G.goldGlow2 }}>NEW PERSONAL RECORD</div>
+                  </div>
+                )}
                 <div style={{ padding:"12px 12px 0", position:"relative" }}>
                   <div style={{ display:"flex", alignItems:"center", gap:9, marginBottom:6 }}>
                     <div style={{ width:22, height:22, borderRadius:4, background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT.display, fontSize:12, color:"#0A0810", flexShrink:0 }}>{xi+1}</div>
@@ -814,7 +876,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                 ))}
 
                 <div style={{ padding:"9px 12px 12px" }}>
-                  <button onClick={()=>setExs(p=>p.map(e=>e.id===ex.id?{...e,sets:[...e.sets,{r:"",w:""}]}:e))} style={{ background:"transparent", border:`1px dashed ${G.borderB}`, borderRadius:5, padding:"6px", width:"100%", color:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:2, cursor:"pointer", marginBottom:9, textTransform:"uppercase" }}>+ ADD SET</button>
+                  <button onClick={()=>{ const last=ex.sets[ex.sets.length-1]; setExs(p=>p.map(e=>e.id===ex.id?{...e,sets:[...e.sets,{r:"",w:""}]}:e)); if(last.r&&last.w) setRestSec(ex.rest); }} style={{ background:"transparent", border:`1px dashed ${G.borderB}`, borderRadius:5, padding:"6px", width:"100%", color:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:2, cursor:"pointer", marginBottom:9, textTransform:"uppercase" }}>+ ADD SET</button>
                   <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                     <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1.5, flexShrink:0, textTransform:"uppercase" }}>Rest:</div>
                     <div style={{ display:"flex", gap:4, flex:1 }}>
@@ -894,6 +956,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                     </div>
                     {canAct && (
                       <div style={{ display:"flex", flexDirection:"column", gap:5, flexShrink:0 }}>
+                        <button onClick={()=>saveTemplate(s)} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:5, color:G.textMid, cursor:"pointer", fontSize:12, padding:"4px 7px", lineHeight:1 }} title="Save as template">📋</button>
                         <button onClick={()=>{ setEditingId(sid); setEditName(s.name); }} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:5, color:G.textMid, cursor:"pointer", fontSize:12, padding:"4px 7px", lineHeight:1 }} title="Rename">✏️</button>
                         <button onClick={()=>setDeletingId(sid)} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:5, color:G.textMid, cursor:"pointer", fontSize:12, padding:"4px 7px", lineHeight:1 }} title="Delete">🗑️</button>
                       </div>
@@ -906,8 +969,57 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
         </div>
       )}
 
+      {subTab==="prs" && (
+        <div>
+          <SectionLabel>Personal Records</SectionLabel>
+          {Object.keys(prs).length === 0 ? (
+            <div style={{ textAlign:"center", padding:"44px 0", color:G.textDim }}>
+              <div style={{ fontFamily:FONT.display, fontSize:36, letterSpacing:4, marginBottom:8 }}>NO PRs YET</div>
+              <div style={{ fontFamily:FONT.body, fontSize:12, letterSpacing:2, textTransform:"uppercase" }}>Log workouts to set your first records</div>
+              <NeonBtn onClick={()=>setSubTab("track")} style={{ marginTop:20 }}>START TRAINING</NeonBtn>
+            </div>
+          ) : (
+            Object.entries(prs)
+              .sort(([,a],[,b]) => b.est1rm - a.est1rm)
+              .map(([name, pr]) => (
+                <ChromeCard key={name} style={{ padding:"12px 14px", marginBottom:8, display:"flex", gap:12, alignItems:"center" }}>
+                  <div style={{ fontSize:22, flexShrink:0 }}>🏆</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{name}</div>
+                    <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{pr.weight} lbs × {pr.reps} reps · {pr.date}</div>
+                  </div>
+                  <div style={{ textAlign:"right", flexShrink:0 }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:20, color:G.gold, textShadow:G.goldGlow2, letterSpacing:1 }}>{pr.est1rm}</div>
+                    <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>1RM EST</div>
+                  </div>
+                </ChromeCard>
+              ))
+          )}
+        </div>
+      )}
+
       {subTab==="programs" && (
         <div>
+          {templates.length > 0 && (
+            <>
+              <SectionLabel>My Templates</SectionLabel>
+              {templates.map(tmpl => (
+                <ChromeCard key={tmpl.id} style={{ padding:"12px 14px", marginBottom:9 }}>
+                  <div style={{ display:"flex", gap:12, alignItems:"center" }}>
+                    <div style={{ fontSize:22, flexShrink:0 }}>📋</div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{tmpl.name}</div>
+                      <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{tmpl.exs.length} exercises</div>
+                    </div>
+                    <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                      <button onClick={()=>loadTemplate(tmpl)} style={{ background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", borderRadius:5, padding:"6px 12px", color:"#0A0810", fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>LOAD</button>
+                      <button onClick={()=>deleteTemplate(tmpl.id)} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:5, padding:"6px 8px", color:G.textDim, fontFamily:FONT.body, fontSize:11, cursor:"pointer" }}>✕</button>
+                    </div>
+                  </div>
+                </ChromeCard>
+              ))}
+            </>
+          )}
           <SectionLabel>Training Programs</SectionLabel>
           {[
             { name:"GOLDEN ERA HYPERTROPHY", type:"BODYBUILDING", level:"INTERMEDIATE", weeks:12, desc:"Classic high-volume bodybuilding. The Arnold blueprint.", ico:"🏆" },
@@ -1418,6 +1530,44 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
               <button onClick={saveBodyEntry} style={{ width:"100%", background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", borderRadius:6, padding:"10px", color:"#0A0810", fontFamily:FONT.display, fontSize:14, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>SAVE</button>
             </ChromeCard>
           )}
+          {bodyLog.length >= 3 && (() => {
+            const pts2 = [...bodyLog].reverse();
+            const weights = pts2.map(e => e.weight);
+            const minW = Math.min(...weights);
+            const maxW = Math.max(...weights);
+            const range = maxW - minW || 1;
+            const W = 280; const H = 52;
+            const coords = pts2.map((e, i) => ({
+              x: (i / (pts2.length - 1)) * W,
+              y: H - ((e.weight - minW) / range) * (H - 10) - 5,
+            }));
+            const polyPts = coords.map(c => `${c.x},${c.y}`).join(" ");
+            return (
+              <ChromeCard style={{ padding:"14px", marginBottom:12 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>WEIGHT TREND</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>{bodyLog.length} entries</div>
+                </div>
+                <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow:"visible", display:"block" }}>
+                  <defs>
+                    <linearGradient id="wGrad" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stopColor={G.gold} stopOpacity="0.25"/>
+                      <stop offset="100%" stopColor={G.gold} stopOpacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <polygon points={`0,${H} ${polyPts} ${W},${H}`} fill="url(#wGrad)"/>
+                  <polyline points={polyPts} fill="none" stroke={G.gold} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ filter:`drop-shadow(0 0 3px ${G.gold})` }}/>
+                  {coords.map((c, i) => (
+                    <circle key={i} cx={c.x} cy={c.y} r={i===coords.length-1?4:2.5} fill={i===coords.length-1?G.gold:"#0A0810"} stroke={G.gold} strokeWidth="1.5"/>
+                  ))}
+                </svg>
+                <div style={{ display:"flex", justifyContent:"space-between", marginTop:5 }}>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>{pts2[0]?.date}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>{pts2[pts2.length-1]?.date}</div>
+                </div>
+              </ChromeCard>
+            );
+          })()}
           {bodyLog.length > 0 && (
             <div style={{ marginBottom:14 }}>
               <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>HISTORY</div>
