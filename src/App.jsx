@@ -355,6 +355,23 @@ function calcPRs(sessions) {
   return prs;
 }
 
+function getLastExercisePerformance(exName, sessions) {
+  if (!exName) return null;
+  for (const sess of sessions) {
+    const ex = (sess.exs || []).find(e => e.name === exName);
+    if (ex) {
+      const validSets = (ex.sets || []).filter(s => s.r && s.w);
+      if (validSets.length > 0) return { date: sess.date || (sess.createdAt || "").slice(0, 10), sets: validSets };
+    }
+  }
+  return null;
+}
+
+function progressWeight(w) {
+  const base = parseFloat(w) || 0;
+  return Math.round((base + 5) / 2.5) * 2.5;
+}
+
 function SectionLabel({ children, accent = true }) {
   return (
     <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
@@ -798,6 +815,29 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
     localStorage.setItem("sfc_templates", JSON.stringify(next));
   };
 
+  const selectExercise = (exId, name) => {
+    const last = getLastExercisePerformance(name, sessions);
+    if (last && last.sets.length > 0) {
+      const progressed = last.sets.map(s => ({ r: String(s.r), w: String(progressWeight(s.w)) }));
+      setExs(p => p.map(e => e.id !== exId ? e : { ...e, name, q: name, sugg: false, sets: progressed }));
+      showToast(`⚡ Loaded with +5 lbs progression from ${last.date}`);
+    } else {
+      updEx(exId, "name", name); updEx(exId, "q", name); updEx(exId, "sugg", false);
+    }
+  };
+
+  const loadLastWithProgress = (exId, last) => {
+    const progressed = last.sets.map(s => ({ r: String(s.r), w: String(progressWeight(s.w)) }));
+    setExs(p => p.map(e => e.id !== exId ? e : { ...e, sets: progressed }));
+    showToast("⚡ +5 lbs progression loaded!");
+  };
+
+  const loadLastSame = (exId, last) => {
+    const same = last.sets.map(s => ({ r: String(s.r), w: String(s.w) }));
+    setExs(p => p.map(e => e.id !== exId ? e : { ...e, sets: same }));
+    showToast("✓ Last session loaded");
+  };
+
   const doSave = () => {
     const valid = exs.filter(e => e.name && e.sets.some(s=>s.r||s.w));
     if (!valid.length) { showToast("Add at least one exercise."); return; }
@@ -817,7 +857,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
 
   return (
     <div style={{ padding:"20px 18px 0" }}>
-      {pickerFor && <ExercisePicker onSelect={name=>{ updEx(pickerFor,"name",name); updEx(pickerFor,"q",name); updEx(pickerFor,"sugg",false); }} onClose={()=>setPickerFor(null)}/>}
+      {pickerFor && <ExercisePicker onSelect={name=>{ selectExercise(pickerFor, name); }} onClose={()=>setPickerFor(null)}/>}
       {restSec && <RestTimer sec={restSec} onDone={() => { setRestSec(null); showToast("✓ REST COMPLETE"); }}/>}
       <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase", marginBottom:16 }}>
         TRAINING <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>HUB</span>
@@ -877,7 +917,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                   {ex.sugg && sugg.length > 0 && (
                     <div style={{ position:"absolute", top:"100%", left:0, right:0, background:"#0F0E22", border:`1px solid ${G.gold}55`, borderRadius:"0 0 8px 8px", zIndex:200, boxShadow:`0 8px 32px rgba(0,0,0,0.7)` }}>
                       {sugg.map((s)=>(
-                        <div key={s} onMouseDown={()=>{updEx(ex.id,"name",s);updEx(ex.id,"q",s);updEx(ex.id,"sugg",false);}} style={{ padding:"10px 14px", cursor:"pointer", fontFamily:FONT.body, fontSize:13, letterSpacing:1.5, textTransform:"uppercase", color:G.text, borderBottom:`1px solid ${G.borderB}` }}>
+                        <div key={s} onMouseDown={()=>selectExercise(ex.id, s)} style={{ padding:"10px 14px", cursor:"pointer", fontFamily:FONT.body, fontSize:13, letterSpacing:1.5, textTransform:"uppercase", color:G.text, borderBottom:`1px solid ${G.borderB}` }}>
                           ▸ &nbsp;{s}
                         </div>
                       ))}
@@ -885,20 +925,54 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                   )}
                 </div>
 
+                {(() => {
+                  const lastPerf = getLastExercisePerformance(ex.name, sessions);
+                  const alreadyLoaded = lastPerf && ex.sets.length === lastPerf.sets.length &&
+                    ex.sets.every(s => s.r || s.w);
+                  return lastPerf ? (
+                    <div style={{ margin:"4px 12px 6px", background:`linear-gradient(135deg,${G.purpleLight}0D,${G.purple}09)`, border:`1px solid ${G.purpleLight}30`, borderRadius:8 }}>
+                      <div style={{ padding:"9px 12px", display:"flex", alignItems:"center", gap:10 }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontFamily:FONT.body, fontSize:8, color:G.purpleLight, letterSpacing:2, textTransform:"uppercase", marginBottom:3 }}>LAST SESSION · {lastPerf.date}</div>
+                          <div style={{ fontFamily:FONT.display, fontSize:12, color:G.textMid, letterSpacing:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                            {lastPerf.sets.map(s => `${s.r}×${s.w}`).join("  ·  ")}
+                          </div>
+                        </div>
+                        <div style={{ display:"flex", gap:5, flexShrink:0 }}>
+                          <button onClick={()=>loadLastWithProgress(ex.id, lastPerf)} style={{ background:`linear-gradient(135deg,${G.purpleLight},${G.purple})`, border:"none", borderRadius:6, padding:"6px 10px", color:"#fff", fontFamily:FONT.display, fontSize:10, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}>+5 LBS ⬆</button>
+                          <button onClick={()=>loadLastSame(ex.id, lastPerf)} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"6px 8px", color:G.textDim, fontFamily:FONT.body, fontSize:9, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>SAME</button>
+                        </div>
+                      </div>
+                      {!alreadyLoaded && (
+                        <div style={{ borderTop:`1px solid ${G.purpleLight}15`, padding:"5px 12px 6px", display:"flex", gap:4, alignItems:"center" }}>
+                          <div style={{ width:5, height:5, borderRadius:"50%", background:G.purpleLight, boxShadow:`0 0 4px ${G.purpleLight}` }}/>
+                          <div style={{ fontFamily:FONT.body, fontSize:9, color:G.purpleLight, letterSpacing:1.5, textTransform:"uppercase" }}>
+                            Suggested: {lastPerf.sets.map(s => `${s.r} reps @ ${progressWeight(s.w)} lbs`).join("  ·  ")}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
+
                 <div style={{ display:"grid", gridTemplateColumns:"28px 1fr 1fr 28px", gap:6, padding:"6px 12px 3px", alignItems:"center" }}>
-                  {["SET","REPS","WEIGHT",""].map((h,i)=>(
+                  {["SET","REPS","WEIGHT (LBS)",""].map((h,i)=>(
                     <div key={i} style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase" }}>{h}</div>
                   ))}
                 </div>
 
-                {ex.sets.map((set,si)=>(
-                  <div key={si} style={{ display:"grid", gridTemplateColumns:"28px 1fr 1fr 28px", gap:6, padding:"3px 12px", alignItems:"center" }}>
-                    <div style={{ width:22, height:22, borderRadius:4, background: set.r&&set.w ? `linear-gradient(135deg,${G.gold},${G.goldDark})` : "rgba(255,255,255,0.05)", border:`1px solid ${set.r&&set.w ? G.gold+"88" : G.borderB}`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT.display, fontSize:11, color: set.r&&set.w ? "#0A0810" : G.textDim }}>{si+1}</div>
-                    <input type="number" inputMode="numeric" placeholder="—" value={set.r} onChange={e=>updSet(ex.id,si,"r",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color: set.r ? G.gold : G.textDim }}/>
-                    <input type="number" inputMode="decimal" placeholder="—" value={set.w} onChange={e=>updSet(ex.id,si,"w",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color: set.w ? G.gold : G.textDim }}/>
-                    <button onClick={()=>{if(ex.sets.length>1)setExs(p=>p.map(e=>e.id!==ex.id?e:{...e,sets:e.sets.filter((_,j)=>j!==si)}));}} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:13 }}>✕</button>
-                  </div>
-                ))}
+                {ex.sets.map((set,si)=>{
+                  const lastPerf2 = getLastExercisePerformance(ex.name, sessions);
+                  const prevSet = lastPerf2?.sets[si];
+                  return (
+                    <div key={si} style={{ display:"grid", gridTemplateColumns:"28px 1fr 1fr 28px", gap:6, padding:"3px 12px", alignItems:"center" }}>
+                      <div style={{ width:22, height:22, borderRadius:4, background: set.r&&set.w ? `linear-gradient(135deg,${G.gold},${G.goldDark})` : "rgba(255,255,255,0.05)", border:`1px solid ${set.r&&set.w ? G.gold+"88" : G.borderB}`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT.display, fontSize:11, color: set.r&&set.w ? "#0A0810" : G.textDim }}>{si+1}</div>
+                      <input type="number" inputMode="numeric" placeholder={prevSet ? String(prevSet.r) : "—"} value={set.r} onChange={e=>updSet(ex.id,si,"r",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color: set.r ? G.gold : G.textDim }}/>
+                      <input type="number" inputMode="decimal" placeholder={prevSet ? String(progressWeight(prevSet.w)) : "—"} value={set.w} onChange={e=>updSet(ex.id,si,"w",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color: set.w ? G.gold : G.textDim }}/>
+                      <button onClick={()=>{if(ex.sets.length>1)setExs(p=>p.map(e=>e.id!==ex.id?e:{...e,sets:e.sets.filter((_,j)=>j!==si)}));}} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:13 }}>✕</button>
+                    </div>
+                  );
+                })}
 
                 <div style={{ padding:"9px 12px 12px" }}>
                   <button onClick={()=>{ const last=ex.sets[ex.sets.length-1]; setExs(p=>p.map(e=>e.id===ex.id?{...e,sets:[...e.sets,{r:"",w:""}]}:e)); if(last.r&&last.w) setRestSec(ex.rest); }} style={{ background:"transparent", border:`1px dashed ${G.borderB}`, borderRadius:5, padding:"6px", width:"100%", color:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:2, cursor:"pointer", marginBottom:9, textTransform:"uppercase" }}>+ ADD SET</button>
