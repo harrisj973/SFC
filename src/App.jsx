@@ -2299,21 +2299,25 @@ function SocialFitClubInner() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [authReady, setAuthReady] = useState(false);
+  const [dataLoadFailed, setDataLoadFailed] = useState(false);
   const toastTimer = useRef(null);
 
   const loadProfile = async (userId) => {
-    const { data } = await supabase.from("profiles").select("id, username, avatar_initials, points, streak, sessions_count").eq("id", userId).single();
+    const { data, error } = await supabase.from("profiles").select("id, username, avatar_initials, points, streak, sessions_count").eq("id", userId).single();
     if (data) { setProfile(data); return data; }
+    // PGRST116 = row not found (new user, not a network issue)
+    if (error && error.code !== "PGRST116") setDataLoadFailed(true);
     return null;
   };
 
   const loadSessions = async (userId) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("sessions")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
     if (data) setSessions(data.map(s => ({ name:s.name, exs:s.exercises, sets:s.sets, vol:s.volume, pts:s.points, date:s.date, createdAt:s.created_at })));
+    else if (error) setDataLoadFailed(true);
   };
 
   const loadLeaderboard = async (currentUserId) => {
@@ -2430,7 +2434,19 @@ function SocialFitClubInner() {
   ];
 
   if (!authReady) return <div style={{ minHeight:"100vh", background:G.bg }}/>;
-  if (!user || !profile) return <LoginScreen/>;
+  if (!user) return <LoginScreen/>;
+  if (!profile && dataLoadFailed) {
+    const retry = () => { setDataLoadFailed(false); ensureProfile(user); };
+    return (
+      <div style={{ minHeight:"100vh", background:G.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, textAlign:"center" }}>
+        <div style={{ fontSize:48, marginBottom:16 }}>📡</div>
+        <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", textTransform:"uppercase", marginBottom:8 }}>CONNECTION ERROR</div>
+        <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:1, marginBottom:28, maxWidth:280 }}>Couldn't reach the server. Check your connection and try again.</div>
+        <button onClick={retry} style={{ background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", borderRadius:8, padding:"13px 32px", fontFamily:FONT.display, fontSize:16, letterSpacing:3, color:"#0A0810", cursor:"pointer", textTransform:"uppercase", boxShadow:G.goldGlow2 }}>RETRY</button>
+      </div>
+    );
+  }
+  if (!profile) return <div style={{ minHeight:"100vh", background:G.bg }}/>;
 
   return (
     <div style={{ minHeight:"100vh", background:G.bg, color:G.text, fontFamily:FONT.body, maxWidth:480, margin:"0 auto", position:"relative", userSelect:"none" }}>
