@@ -1495,6 +1495,13 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
             })();
             const todayCal = todayNutrition.reduce((a,i)=>a+(i.cal||0),0);
             const todayPro = todayNutrition.reduce((a,i)=>a+(i.pro||0),0);
+            const todayWaterOz = (() => {
+              try {
+                const s = JSON.parse(localStorage.getItem("sfc_water_log")||"null");
+                if(s?.date===now.toISOString().slice(0,10)) return (s.entries||[]).reduce((a,v)=>a+v,0);
+              } catch { /* ignore */ }
+              return 0;
+            })();
             const stats2 = [
               { l:"AVG SETS/SESSION", v:avgSets,              ico:"💪" },
               { l:"AVG VOL/SESSION",  v:`${avgVol} lbs`,      ico:"⚡" },
@@ -1502,6 +1509,7 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
               { l:"TOP EXERCISE",     v:topEx,                ico:"🏋️" },
               { l:"TODAY'S CALS",     v:todayCal>0?`${todayCal} kcal`:"—", ico:"🔥" },
               { l:"TODAY'S PROTEIN",  v:todayPro>0?`${todayPro}g`:"—", ico:"🥩" },
+              { l:"TODAY'S WATER",    v:todayWaterOz>0?`${todayWaterOz}oz`:"—", ico:"💧" },
             ];
             return (
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:16 }}>
@@ -1685,12 +1693,42 @@ function NutritionScreen({ showToast }) {
   const [suppTypeFilter, setSuppTypeFilter] = useState("ALL");
   const [scanTarget, setScanTarget] = useState("food");
 
+  const savedWater = (() => {
+    try {
+      const s = localStorage.getItem("sfc_water_log");
+      if (!s) return [];
+      const p = JSON.parse(s);
+      return p.date === today ? (p.entries || []) : [];
+    } catch { return []; }
+  })();
+  const [waterEntries, setWaterEntries] = useState(savedWater);
+  const [waterGoal, setWaterGoal] = useState(() => {
+    try { return Number(localStorage.getItem("sfc_water_goal") || 64) || 64; } catch { return 64; }
+  });
+  const [waterCustom, setWaterCustom] = useState("");
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalDraft, setGoalDraft] = useState("");
+
   useEffect(() => {
     localStorage.setItem("sfc_nutrition_log", JSON.stringify({ date: today, items: log }));
   }, [log, today]);
   useEffect(() => {
     localStorage.setItem("sfc_supplement_log", JSON.stringify({ date: today, items: suppLog }));
   }, [suppLog, today]);
+  useEffect(() => {
+    localStorage.setItem("sfc_water_log", JSON.stringify({ date: today, entries: waterEntries }));
+  }, [waterEntries, today]);
+
+  const waterOz = waterEntries.reduce((a, v) => a + v, 0);
+  const waterPct = Math.min(100, (waterOz / waterGoal) * 100);
+  const addWater = (oz) => { setWaterEntries(p => [...p, oz]); showToast(`💧 +${oz}oz logged!`); };
+  const undoWater = () => setWaterEntries(p => p.slice(0, -1));
+  const saveGoal = () => {
+    const g = Math.max(8, parseInt(goalDraft) || 64);
+    setWaterGoal(g);
+    localStorage.setItem("sfc_water_goal", String(g));
+    setEditingGoal(false);
+  };
   const [selMeal, setSelMeal] = useState("LUNCH");
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("ALL");
@@ -2097,6 +2135,64 @@ function NutritionScreen({ showToast }) {
               <NeonBtn onClick={()=>{setLog(p=>[...p,{...f,id:Date.now(),meal:selMeal}]);showToast(`✓ Added to ${selMeal}`);}} small>+</NeonBtn>
             </ChromeCard>
           ))}
+        </div>
+      )}
+
+      {view==="log" && (
+        <div style={{ background:`linear-gradient(135deg,rgba(77,166,255,0.07),rgba(10,8,24,0.9))`, border:`1px solid ${G.blue}44`, borderRadius:10, padding:"16px", marginBottom:16 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{ fontSize:24 }}>💧</div>
+              <div>
+                <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:2, color:"#fff" }}>WATER INTAKE</div>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.blue, letterSpacing:1.5, textTransform:"uppercase", marginTop:1 }}>
+                  {waterOz} oz · {(waterOz / 8).toFixed(1)} cups
+                </div>
+              </div>
+            </div>
+            {editingGoal ? (
+              <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                <input autoFocus type="number" inputMode="numeric" value={goalDraft} onChange={e=>setGoalDraft(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveGoal()} style={{ width:58, background:"rgba(0,0,0,0.5)", border:`1px solid ${G.blue}66`, borderRadius:5, padding:"5px 8px", color:G.blue, fontSize:14, outline:"none", fontFamily:FONT.display, letterSpacing:1 }}/>
+                <span style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim }}>oz</span>
+                <button onClick={saveGoal} style={{ background:G.blue, border:"none", borderRadius:5, padding:"5px 10px", color:"#0A0810", fontFamily:FONT.display, fontSize:12, letterSpacing:1, cursor:"pointer" }}>✓</button>
+                <button onClick={()=>setEditingGoal(false)} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:14 }}>✕</button>
+              </div>
+            ) : (
+              <button onClick={()=>{ setGoalDraft(String(waterGoal)); setEditingGoal(true); }} style={{ background:`${G.blue}12`, border:`1px solid ${G.blue}33`, borderRadius:6, padding:"5px 10px", color:G.blue, fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>
+                GOAL: {waterGoal}oz ✏
+              </button>
+            )}
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ position:"relative", height:10, background:`${G.blue}14`, borderRadius:5, marginBottom:4, overflow:"hidden", border:`1px solid ${G.blue}22` }}>
+            <div style={{ height:"100%", width:`${waterPct}%`, background:`linear-gradient(90deg,${G.blue}88,${G.blue})`, borderRadius:5, boxShadow:`0 0 10px ${G.blue}55`, transition:"width 0.5s ease" }}/>
+          </div>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:14 }}>
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.blue, letterSpacing:1 }}>{waterOz}oz</div>
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:waterPct>=100?G.blue:G.textDim, letterSpacing:1, fontWeight:waterPct>=100?"bold":"normal" }}>
+              {waterPct >= 100 ? "✓ GOAL REACHED" : `${waterGoal - waterOz}oz remaining`}
+            </div>
+          </div>
+
+          {/* Quick-add buttons */}
+          <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+            {[8, 12, 16, 20].map(oz => (
+              <button key={oz} onClick={()=>addWater(oz)} style={{ flex:1, padding:"9px 4px", borderRadius:7, border:`1px solid ${G.blue}44`, background:`${G.blue}12`, color:G.blue, fontFamily:FONT.display, fontSize:14, letterSpacing:1, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
+                +{oz}
+                <span style={{ fontFamily:FONT.body, fontSize:8, letterSpacing:1, textTransform:"uppercase", color:`${G.blue}AA` }}>oz</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Custom amount + undo */}
+          <div style={{ display:"flex", gap:7 }}>
+            <input type="number" inputMode="numeric" placeholder="Custom oz" value={waterCustom} onChange={e=>setWaterCustom(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"){ const v=parseInt(waterCustom); if(v>0){addWater(v);setWaterCustom("");}} }} style={{ flex:1, background:"rgba(0,0,0,0.4)", border:`1px solid ${G.blue}33`, borderRadius:6, padding:"8px 10px", color:G.blue, fontSize:14, outline:"none", fontFamily:FONT.display, letterSpacing:1, minWidth:0 }}/>
+            <button onClick={()=>{ const v=parseInt(waterCustom); if(v>0){addWater(v);setWaterCustom("");} }} style={{ background:`${G.blue}20`, border:`1px solid ${G.blue}44`, borderRadius:6, padding:"8px 14px", color:G.blue, fontFamily:FONT.display, fontSize:12, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>ADD</button>
+            {waterEntries.length > 0 && (
+              <button onClick={undoWater} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"8px 10px", color:G.textDim, fontFamily:FONT.body, fontSize:11, letterSpacing:1, cursor:"pointer" }}>UNDO</button>
+            )}
+          </div>
         </div>
       )}
 
