@@ -202,7 +202,7 @@ function getHeatColor(score) {
   if (score <= 30) return lerpColor("#1B4FBF","#4DA6FF", score/30);
   if (score <= 60) return lerpColor("#4DA6FF","#FFD700",(score-30)/30);
   if (score <= 85) return lerpColor("#FFD700","#FF6B00",(score-60)/25);
-  return lerpColor("#FF6B00","#FF1744",(score-85)/15);
+  return lerpColor("#FF6B00","#FF1744",Math.min(1,(score-85)/15));
 }
 
 function getHeatGlow(score, color) {
@@ -396,9 +396,10 @@ function GridBg() {
 function RestTimer({ sec, onDone }) {
   const [rem, setRem] = useState(sec);
   useEffect(() => {
+    setRem(sec);
     const t = setInterval(() => setRem(r => { if (r <= 1) { clearInterval(t); onDone(); return 0; } return r - 1; }), 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [sec, onDone]);
   const pct = (rem / sec) * 100;
   const m = Math.floor(rem / 60);
   const s = (rem % 60).toString().padStart(2, "0");
@@ -553,6 +554,7 @@ function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart }) {
   const [exs, setExs] = useState([{ id:1, name:"", sets:[{r:"",w:""}], rest:60, q:"", sugg:false }]);
   const [restSec, setRestSec] = useState(null);
   const [saving, setSaving] = useState(false);
+  const nextIdRef = useRef(2);
 
   useEffect(() => {
     if (quickStart) {
@@ -629,8 +631,8 @@ function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart }) {
                   </div>
                   {ex.sugg && sugg.length > 0 && (
                     <div style={{ position:"absolute", top:"100%", left:0, right:0, background:"#0F0E22", border:`1px solid ${G.gold}55`, borderRadius:"0 0 8px 8px", zIndex:200, boxShadow:`0 8px 32px rgba(0,0,0,0.7)` }}>
-                      {sugg.map((s,i)=>(
-                        <div key={i} onMouseDown={()=>{updEx(ex.id,"name",s);updEx(ex.id,"q",s);updEx(ex.id,"sugg",false);}} style={{ padding:"10px 14px", cursor:"pointer", fontFamily:FONT.body, fontSize:13, letterSpacing:1.5, textTransform:"uppercase", color:G.text, borderBottom:i<sugg.length-1?`1px solid ${G.borderB}`:"none" }}>
+                      {sugg.map((s)=>(
+                        <div key={s} onMouseDown={()=>{updEx(ex.id,"name",s);updEx(ex.id,"q",s);updEx(ex.id,"sugg",false);}} style={{ padding:"10px 14px", cursor:"pointer", fontFamily:FONT.body, fontSize:13, letterSpacing:1.5, textTransform:"uppercase", color:G.text, borderBottom:`1px solid ${G.borderB}` }}>
                           ▸ &nbsp;{s}
                         </div>
                       ))}
@@ -669,7 +671,7 @@ function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart }) {
             );
           })}
 
-          <button onClick={()=>setExs(p=>[...p,{id:Date.now(),name:"",sets:[{r:"",w:""}],rest:60,q:"",sugg:false}])} style={{ width:"100%", padding:"12px", borderRadius:8, border:`1px dashed ${G.gold}44`, background:`${G.gold}06`, color:G.gold, fontFamily:FONT.display, fontSize:14, letterSpacing:3, cursor:"pointer", marginBottom:16, textTransform:"uppercase" }}>+ ADD EXERCISE</button>
+          <button onClick={()=>{const newId=nextIdRef.current++;setExs(p=>[...p,{id:newId,name:"",sets:[{r:"",w:""}],rest:60,q:"",sugg:false}]);}} style={{ width:"100%", padding:"12px", borderRadius:8, border:`1px dashed ${G.gold}44`, background:`${G.gold}06`, color:G.gold, fontFamily:FONT.display, fontSize:14, letterSpacing:3, cursor:"pointer", marginBottom:16, textTransform:"uppercase" }}>+ ADD EXERCISE</button>
 
           <ChromeCard gold style={{ padding:"14px", marginBottom:8 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
@@ -812,20 +814,27 @@ function MuscleHeatMap({ sessions, showToast }) {
     return "—";
   };
 
-  // ── Insights ─────────────────────────────────────────────────────────────
+  // ── Insights — always based on rawScores so period toggle doesn't affect alerts ──
   const allKeys = Object.keys(MUSCLE_LABELS);
-  const maxScore = Math.max(...allKeys.map(k=>sc(k)), 1);
-  const minScore = Math.min(...allKeys.filter(k=>sc(k)>0).map(k=>sc(k)), 100);
-  const overKeys = allKeys.filter(k => sc(k) > 80);
-  const underKeys = allKeys.filter(k => sc(k) < 15).slice(0,3);
-  const imbalanced = maxScore - (minScore < 100 ? minScore : 0) > 55;
+  const raw = key => rawScores[key] || 0;
+  const maxRaw = Math.max(...allKeys.map(k=>raw(k)), 1);
+  const minRaw = Math.min(...allKeys.filter(k=>raw(k)>0).map(k=>raw(k)), 100);
+  const overKeys = allKeys.filter(k => raw(k) > 80);
+  const underKeys = allKeys.filter(k => raw(k) < 15).slice(0,3);
+  const imbalanced = maxRaw - (minRaw < 100 ? minRaw : 0) > 55;
 
   return (
     <div>
       {/* Header controls */}
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
         {[["front","FRONT VIEW"],["back","BACK VIEW"]].map(([v,l]) => (
-          <button key={v} onClick={()=>{setView(v);setSel(null);}} style={{
+          <button key={v} onClick={()=>{
+            setView(v);
+            const frontM=["chest","front_delt","mid_delt","bicep","forearm","upper_abs","lower_abs","oblique","hip_flexor","quad","calf"];
+            const backM=["trap","rear_delt","lat","mid_back","lower_back","tricep","forearm","glute","hamstring","calf"];
+            const vis=v==="front"?frontM:backM;
+            if(sel&&!vis.includes(sel))setSel(null);
+          }} style={{
             flex:1, padding:"9px 4px", borderRadius:6, border:`1px solid ${view===v?G.gold:G.borderB}`,
             background: view===v ? `${G.gold}22` : "transparent",
             color: view===v ? G.gold : G.textMid,
@@ -986,7 +995,7 @@ function MuscleHeatMap({ sessions, showToast }) {
               {[
                 ["HEAT",`${Math.round(sc(sel))}%`],
                 ["SETS",muscleSets(sel)],
-                ["RECOVERY",`${Math.max(0,Math.round(100-sc(sel)*1.2))}%`],
+                ["RECOVERY",`${Math.max(0,Math.round(100-(rawScores[sel]||0)*1.2))}%`],
                 ["LAST",lastTrained(sel)],
               ].map(([l,v])=>(
                 <div key={l} style={{ textAlign:"center" }}>
@@ -1065,10 +1074,12 @@ function MuscleHeatMap({ sessions, showToast }) {
 
 function ProgressScreen({ showToast, sessions = [] }) {
   const [activeTab, setActiveTab] = useState("stats");
-  const [streak] = useState(14);
+  const streak = sessions.length;
   const [freezes, setFreezes] = useState(2);
   const MILESTONES = [7,14,30,60,90,180,365];
   const nextMs = MILESTONES.find(m => m > streak) || 365;
+  const totalVol = sessions.reduce((a,s) => a + (s.vol||0), 0);
+  const fmtVol = v => v >= 1000 ? `${(v/1000).toFixed(1)}K` : String(v);
   const PHOTOS = [
     { date:"JAN 6", wk:1, wt:198, bf:22.0, ms:false },
     { date:"FEB 3", wk:5, wt:192, bf:20.1, ms:true, msTxt:"FIRST 5LBS LOST 🎉" },
@@ -1090,7 +1101,7 @@ function ProgressScreen({ showToast, sessions = [] }) {
       {activeTab==="stats" && (
         <div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:14 }}>
-            {[{l:"SESSIONS",v:"28",ico:"🏋️"},{l:"TOTAL VOL",v:"142K",ico:"⚡"},{l:"BEST WEEK",v:"24.6K",ico:"📈"}].map(s=>(
+            {[{l:"SESSIONS",v:String(sessions.length),ico:"🏋️"},{l:"TOTAL VOL",v:fmtVol(Math.round(totalVol)),ico:"⚡"},{l:"BEST WEEK",v:fmtVol(Math.round(totalVol)),ico:"📈"}].map(s=>(
               <StatPill key={s.l} label={s.l} value={s.v} icon={s.ico}/>
             ))}
           </div>
@@ -1429,8 +1440,8 @@ function NutritionScreen({ showToast }) {
           <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>
             {filteredFoods.length} RESULTS{catFilter!=="ALL"?` · ${catFilter}`:""}
           </div>
-          {filteredFoods.slice(0,25).map((f,i)=>(
-            <ChromeCard key={i} style={{ padding:"10px 12px", marginBottom:7, display:"flex", alignItems:"center", gap:10 }}>
+          {filteredFoods.slice(0,25).map((f)=>(
+            <ChromeCard key={f.name} style={{ padding:"10px 12px", marginBottom:7, display:"flex", alignItems:"center", gap:10 }}>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
                   <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:1.5, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.name}</div>
