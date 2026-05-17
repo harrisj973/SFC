@@ -71,7 +71,7 @@ Root state passed as props:
 | Component | Key props |
 |---|---|
 | `HomeScreen` | `sessions`, `leaderboard`, `profile`, `onQuickStart`, `showToast` |
-| `TrainScreen` | `sessions`, `onSave`, `quickStart`, `onClearQuickStart`, `showToast` |
+| `TrainScreen` | `sessions`, `onSave`, `onDelete`, `onEdit`, `quickStart`, `onClearQuickStart`, `showToast` |
 | `ProgressScreen` | `sessions`, `profile`, `showToast` |
 | `NutritionScreen` | `showToast` |
 | `FeedScreen` | `profile`, `showToast` |
@@ -98,6 +98,8 @@ Root state passed as props:
 | `sfc_pledge` | string-encoded integer 1–7, weekly session commitment | Never |
 | `sfc_body_log` | `[{ date, weight, bf }]` body check-in history, newest first | Never |
 | `sfc_ble_device` | last paired Bluetooth device name | Never |
+| `sfc_supplement_log` | `{ date: "YYYY-MM-DD", items: [] }` supplement log | Auto-cleared when date changes |
+| `sfc_notif_prefs` | `{ enabled, reminderTime, streakAlert }` notification settings | Never |
 
 ### Module-level helpers
 
@@ -164,10 +166,16 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 
 ### Shared UI atoms
 
-`ChromeCard`, `NeonBtn`, `NeonOutlineBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `RestTimer` — all defined in `App.jsx`.
+`ChromeCard`, `NeonBtn`, `NeonOutlineBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `RestTimer`, `TogglePill` — all defined in `App.jsx`.
 
 ### Module-level constants
 
-`ADMIN_EMAIL`, `EXERCISES`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `MACROS_GOAL`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `FEED_DATA` (default feed seed), `REST_OPTIONS`.
+`ADMIN_EMAIL`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `FEED_DATA` (default feed seed), `REST_OPTIONS`.
+
+### NutritionScreen tabs
+
+Four tabs: `📋 LOG` (food by meal), `📷 SCAN` (camera AI + barcode), `🔍 SEARCH` (food DB with category filter), `💊 SUPPS` (supplement tracker).
+
+The `scanTarget` state (`"food"` | `"supplement"`) controls where scan results are routed. When `"supplement"`, only the barcode button is shown (no meal photo scan), and results go to `suppLog` / `sfc_supplement_log`. `SUPPLEMENTS_DB` has 25 entries. Each supplement has `{ name, type, serving, cal, pro, carb, fat, brand }`. `SUPP_TYPE_COLOR` maps type → color token.
 
 Removed constants (no longer in file): `LEADERBOARD`, `SCAN_MEALS`, `WEEKLY_VOLUME`.

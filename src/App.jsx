@@ -161,6 +161,35 @@ const BARCODE_DB = {
   "853643007104": {name:"Good Culture Cottage Cheese 5.3oz",cal:110,pro:14,carb:5,fat:4,brand:"Good Culture"},
   "096619250486": {name:"Kirkland Protein Bar Chocolate Brownie",cal:190,pro:21,carb:21,fat:7,brand:"Kirkland"},
 };
+const SUPP_TYPES = ["ALL","PROTEIN","AMINO","PRE-WORKOUT","VITAMIN","MINERAL","STRENGTH","ENERGY","RECOVERY","SLEEP","ADAPTOGEN","HYDRATION","OMEGA"];
+const SUPP_TYPE_COLOR = { PROTEIN:G.gold, AMINO:G.purpleLight, "PRE-WORKOUT":"#FF6B00", VITAMIN:"#00FF88", MINERAL:G.blue, STRENGTH:G.gold, ENERGY:"#FF3D5A", RECOVERY:G.purpleLight, SLEEP:G.blue, ADAPTOGEN:"#00FF88", HYDRATION:G.blue, OMEGA:"#4DA6FF" };
+const SUPPLEMENTS_DB = [
+  { name:"Whey Protein",        type:"PROTEIN",     serving:"1 scoop (30g)", cal:120, pro:24, carb:3,   fat:1.5, brand:"Generic" },
+  { name:"Casein Protein",      type:"PROTEIN",     serving:"1 scoop (33g)", cal:110, pro:23, carb:3,   fat:1,   brand:"Generic" },
+  { name:"Plant Protein",       type:"PROTEIN",     serving:"1 scoop (30g)", cal:110, pro:20, carb:5,   fat:2,   brand:"Generic" },
+  { name:"Mass Gainer",         type:"PROTEIN",     serving:"3 scoops (250g)",cal:1250,pro:50, carb:248, fat:3.5, brand:"Generic" },
+  { name:"Creatine Monohydrate",type:"STRENGTH",    serving:"5g",            cal:0,   pro:0,  carb:0,   fat:0,   brand:"Generic" },
+  { name:"Pre-Workout",         type:"PRE-WORKOUT", serving:"1 scoop (15g)", cal:10,  pro:1,  carb:2,   fat:0,   brand:"Generic" },
+  { name:"BCAAs",               type:"AMINO",       serving:"7g",            cal:20,  pro:5,  carb:0,   fat:0,   brand:"Generic" },
+  { name:"L-Glutamine",         type:"AMINO",       serving:"5g",            cal:20,  pro:5,  carb:0,   fat:0,   brand:"Generic" },
+  { name:"L-Citrulline",        type:"AMINO",       serving:"6g",            cal:24,  pro:6,  carb:0,   fat:0,   brand:"Generic" },
+  { name:"Beta-Alanine",        type:"PRE-WORKOUT", serving:"3.2g",          cal:8,   pro:2,  carb:0,   fat:0,   brand:"Generic" },
+  { name:"Caffeine",            type:"ENERGY",      serving:"200mg cap",     cal:0,   pro:0,  carb:0,   fat:0,   brand:"Generic" },
+  { name:"Fish Oil (Omega-3)",  type:"OMEGA",       serving:"2 softgels",    cal:20,  pro:0,  carb:0,   fat:2,   brand:"Generic" },
+  { name:"Vitamin D3",          type:"VITAMIN",     serving:"1 capsule",     cal:0,   pro:0,  carb:0,   fat:0,   brand:"Generic" },
+  { name:"Vitamin C",           type:"VITAMIN",     serving:"500mg tab",     cal:2,   pro:0,  carb:0,   fat:0,   brand:"Generic" },
+  { name:"Vitamin B12",         type:"VITAMIN",     serving:"1 tablet",      cal:0,   pro:0,  carb:0,   fat:0,   brand:"Generic" },
+  { name:"Multivitamin",        type:"VITAMIN",     serving:"1 tablet",      cal:5,   pro:0,  carb:1,   fat:0,   brand:"Generic" },
+  { name:"Magnesium Glycinate", type:"MINERAL",     serving:"400mg",         cal:0,   pro:0,  carb:0,   fat:0,   brand:"Generic" },
+  { name:"Zinc",                type:"MINERAL",     serving:"25mg cap",      cal:0,   pro:0,  carb:0,   fat:0,   brand:"Generic" },
+  { name:"Electrolytes",        type:"HYDRATION",   serving:"1 packet",      cal:10,  pro:0,  carb:2,   fat:0,   brand:"Generic" },
+  { name:"Collagen Peptides",   type:"RECOVERY",    serving:"10g",           cal:40,  pro:9,  carb:0,   fat:0,   brand:"Generic" },
+  { name:"Ashwagandha",         type:"ADAPTOGEN",   serving:"600mg cap",     cal:5,   pro:0,  carb:1,   fat:0,   brand:"Generic" },
+  { name:"Melatonin",           type:"SLEEP",       serving:"5mg tablet",    cal:0,   pro:0,  carb:0,   fat:0,   brand:"Generic" },
+  { name:"Turmeric/Curcumin",   type:"ADAPTOGEN",   serving:"500mg cap",     cal:5,   pro:0,  carb:1,   fat:0,   brand:"Generic" },
+  { name:"CoQ10",               type:"RECOVERY",    serving:"100mg softgel", cal:5,   pro:0,  carb:0,   fat:0.5, brand:"Generic" },
+  { name:"Probiotics",          type:"RECOVERY",    serving:"1 capsule",     cal:5,   pro:0,  carb:1,   fat:0,   brand:"Generic" },
+];
 const REST_OPTIONS = [
   { label:"45S", sec:45 }, { label:"1 MIN", sec:60 },
   { label:"1:30", sec:90 }, { label:"2 MIN", sec:120 },
@@ -1468,10 +1497,25 @@ function NutritionScreen({ showToast }) {
     } catch { return []; }
   })();
   const [log, setLog] = useState(savedLog);
+  const savedSuppLog = (() => {
+    try {
+      const s = localStorage.getItem("sfc_supplement_log");
+      if (!s) return [];
+      const parsed = JSON.parse(s);
+      return parsed.date === today ? parsed.items : [];
+    } catch { return []; }
+  })();
+  const [suppLog, setSuppLog] = useState(savedSuppLog);
+  const [suppSearch, setSuppSearch] = useState("");
+  const [suppTypeFilter, setSuppTypeFilter] = useState("ALL");
+  const [scanTarget, setScanTarget] = useState("food");
 
   useEffect(() => {
     localStorage.setItem("sfc_nutrition_log", JSON.stringify({ date: today, items: log }));
   }, [log, today]);
+  useEffect(() => {
+    localStorage.setItem("sfc_supplement_log", JSON.stringify({ date: today, items: suppLog }));
+  }, [suppLog, today]);
   const [selMeal, setSelMeal] = useState("LUNCH");
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("ALL");
@@ -1612,20 +1656,32 @@ function NutritionScreen({ showToast }) {
     }
   };
 
-  const resetScan = () => { stopCamera(); clearInterval(scanTimerRef.current); setScanMode("idle"); setScanResult(null); setBarcodeInput(""); setScanProgress(0); setManualEntry({ name:"", cal:"", pro:"", carb:"", fat:"" }); };
+  const resetScan = () => { stopCamera(); clearInterval(scanTimerRef.current); setScanMode("idle"); setScanResult(null); setBarcodeInput(""); setScanProgress(0); setManualEntry({ name:"", cal:"", pro:"", carb:"", fat:"" }); setScanTarget("food"); };
   const addScanResult = () => {
     if (!scanResult) return;
-    setLog(p=>[...p,{...scanResult,id:Date.now(),meal:selMeal}]);
-    resetScan(); setView("log");
-    showToast(`✓ ${scanResult.name} added to ${selMeal}`);
+    if (scanTarget === "supplement") {
+      setSuppLog(p=>[...p,{...scanResult,id:Date.now(),type:"SCANNED"}]);
+      resetScan(); setView("supps");
+      showToast(`✓ ${scanResult.name} added to supplements`);
+    } else {
+      setLog(p=>[...p,{...scanResult,id:Date.now(),meal:selMeal}]);
+      resetScan(); setView("log");
+      showToast(`✓ ${scanResult.name} added to ${selMeal}`);
+    }
   };
   const addManualEntry = () => {
     const name = manualEntry.name.trim();
     if (!name) { showToast("Enter a product name"); return; }
     const item = { name, brand: manualEntry.brand || "", cal: parseInt(manualEntry.cal)||0, pro: parseFloat(manualEntry.pro)||0, carb: parseFloat(manualEntry.carb)||0, fat: parseFloat(manualEntry.fat)||0 };
-    setLog(p=>[...p,{...item,id:Date.now(),meal:selMeal}]);
-    resetScan(); setView("log");
-    showToast(`✓ ${item.name} added to ${selMeal}`);
+    if (scanTarget === "supplement") {
+      setSuppLog(p=>[...p,{...item,id:Date.now(),type:"MANUAL"}]);
+      resetScan(); setView("supps");
+      showToast(`✓ ${item.name} added to supplements`);
+    } else {
+      setLog(p=>[...p,{...item,id:Date.now(),meal:selMeal}]);
+      resetScan(); setView("log");
+      showToast(`✓ ${item.name} added to ${selMeal}`);
+    }
   };
 
   const filteredFoods = FOODS.filter(f => {
@@ -1664,8 +1720,8 @@ function NutritionScreen({ showToast }) {
       </ChromeCard>
 
       <div style={{ display:"flex", background:"rgba(0,0,0,0.5)", borderRadius:7, padding:3, gap:3, marginBottom:14, border:`1px solid ${G.borderB}` }}>
-        {[{id:"log",l:"📋 LOG"},{id:"scan",l:"📷 SCAN"},{id:"search",l:"🔍 SEARCH"}].map(t=>(
-          <button key={t.id} onClick={()=>{ setView(t.id); if(t.id==="scan"&&scanMode==="idle") startCameraScan(); }} style={{ flex:1, padding:"8px 4px", borderRadius:5, border:"none", background:view===t.id?`linear-gradient(135deg,${G.gold},${G.goldDark})`:"transparent", color:view===t.id?"#0A0810":G.textMid, fontFamily:FONT.display, fontSize:12, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
+        {[{id:"log",l:"📋 LOG"},{id:"scan",l:"📷 SCAN"},{id:"search",l:"🔍 SEARCH"},{id:"supps",l:"💊 SUPPS"}].map(t=>(
+          <button key={t.id} onClick={()=>{ setView(t.id); if(t.id==="scan"&&scanMode==="idle") startCameraScan(); }} style={{ flex:1, padding:"8px 4px", borderRadius:5, border:"none", background:view===t.id?`linear-gradient(135deg,${G.gold},${G.goldDark})`:"transparent", color:view===t.id?"#0A0810":G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
         ))}
       </div>
 
@@ -1778,10 +1834,14 @@ function NutritionScreen({ showToast }) {
             </div>
             <div style={{ padding:"12px", borderTop:`1px solid ${G.borderB}` }}>
               {scanMode==="idle" && (
-                <div style={{ display:"flex", gap:9 }}>
-                  <NeonBtn onClick={startCameraScan} style={{ flex:2 }}>📷 SCAN MEAL</NeonBtn>
-                  <NeonBtn onClick={startBarcodeScan} outline style={{ flex:1, fontSize:12 }}>📊 BARCODE</NeonBtn>
-                </div>
+                scanTarget === "supplement" ? (
+                  <NeonBtn onClick={startBarcodeScan} full>📊 SCAN SUPPLEMENT BARCODE</NeonBtn>
+                ) : (
+                  <div style={{ display:"flex", gap:9 }}>
+                    <NeonBtn onClick={startCameraScan} style={{ flex:2 }}>📷 SCAN MEAL</NeonBtn>
+                    <NeonBtn onClick={startBarcodeScan} outline style={{ flex:1, fontSize:12 }}>📊 BARCODE</NeonBtn>
+                  </div>
+                )
               )}
               {scanMode==="camera" && <NeonBtn onClick={resetScan} outline full>CANCEL</NeonBtn>}
               {scanMode==="barcode_scanning" && (
@@ -1792,27 +1852,31 @@ function NutritionScreen({ showToast }) {
               )}
               {(scanMode==="result"||scanMode==="barcode_result") && (
                 <div>
-                  <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:10 }}>
-                    {MEALS.map(m=>(
-                      <button key={m} onClick={()=>setSelMeal(m)} style={{ padding:"4px 9px", borderRadius:4, border:`1px solid ${selMeal===m?G.gold:G.borderB}`, background:selMeal===m?`${G.gold}18`:"transparent", color:selMeal===m?G.gold:G.textDim, fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>{m}</button>
-                    ))}
-                  </div>
+                  {scanTarget === "food" && (
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:10 }}>
+                      {MEALS.map(m=>(
+                        <button key={m} onClick={()=>setSelMeal(m)} style={{ padding:"4px 9px", borderRadius:4, border:`1px solid ${selMeal===m?G.gold:G.borderB}`, background:selMeal===m?`${G.gold}18`:"transparent", color:selMeal===m?G.gold:G.textDim, fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>{m}</button>
+                      ))}
+                    </div>
+                  )}
                   <div style={{ display:"flex", gap:9 }}>
                     <NeonBtn onClick={resetScan} outline style={{ flex:1 }}>RESCAN</NeonBtn>
-                    <NeonBtn onClick={addScanResult} style={{ flex:2 }}>ADD TO {selMeal} ◆</NeonBtn>
+                    <NeonBtn onClick={addScanResult} style={{ flex:2 }}>{scanTarget==="supplement"?"ADD TO SUPPLEMENTS ◆":`ADD TO ${selMeal} ◆`}</NeonBtn>
                   </div>
                 </div>
               )}
               {scanMode==="barcode_not_found" && (
                 <div>
-                  <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:10 }}>
-                    {MEALS.map(m=>(
-                      <button key={m} onClick={()=>setSelMeal(m)} style={{ padding:"4px 9px", borderRadius:4, border:`1px solid ${selMeal===m?G.gold:G.borderB}`, background:selMeal===m?`${G.gold}18`:"transparent", color:selMeal===m?G.gold:G.textDim, fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>{m}</button>
-                    ))}
-                  </div>
+                  {scanTarget === "food" && (
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:10 }}>
+                      {MEALS.map(m=>(
+                        <button key={m} onClick={()=>setSelMeal(m)} style={{ padding:"4px 9px", borderRadius:4, border:`1px solid ${selMeal===m?G.gold:G.borderB}`, background:selMeal===m?`${G.gold}18`:"transparent", color:selMeal===m?G.gold:G.textDim, fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>{m}</button>
+                      ))}
+                    </div>
+                  )}
                   <div style={{ display:"flex", gap:9 }}>
                     <NeonBtn onClick={resetScan} outline style={{ flex:1 }}>CANCEL</NeonBtn>
-                    <NeonBtn onClick={addManualEntry} style={{ flex:2 }}>ADD TO {selMeal} ◆</NeonBtn>
+                    <NeonBtn onClick={addManualEntry} style={{ flex:2 }}>{scanTarget==="supplement"?"ADD TO SUPPLEMENTS ◆":`ADD TO ${selMeal} ◆`}</NeonBtn>
                   </div>
                 </div>
               )}
@@ -1887,6 +1951,81 @@ function NutritionScreen({ showToast }) {
           </div>
         );
       })}
+
+      {view==="supps" && (() => {
+        const filteredSupps = SUPPLEMENTS_DB.filter(s => {
+          const matchType = suppTypeFilter==="ALL" || s.type===suppTypeFilter;
+          const matchQ = !suppSearch || s.name.toLowerCase().includes(suppSearch.toLowerCase());
+          return matchType && matchQ;
+        });
+        const suppTotals = suppLog.reduce((a,s)=>({ cal:a.cal+(s.cal||0), pro:a.pro+(s.pro||0) }),{ cal:0, pro:0 });
+        return (
+          <div>
+            {/* Today summary */}
+            <ChromeCard style={{ padding:"13px 14px", marginBottom:12, display:"flex", alignItems:"center", gap:14 }}>
+              <div style={{ fontSize:30 }}>💊</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:"#fff", marginBottom:3 }}>TODAY'S SUPPLEMENTS</div>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase" }}>
+                  {suppLog.length} logged · {suppTotals.pro}G protein · {suppTotals.cal} cal
+                </div>
+              </div>
+              <NeonBtn onClick={()=>{ setScanTarget("supplement"); setView("scan"); startBarcodeScan(); }} small>📊 SCAN</NeonBtn>
+            </ChromeCard>
+
+            {/* Logged supplements */}
+            {suppLog.length > 0 && (
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:8 }}>LOGGED TODAY</div>
+                {suppLog.map(s => {
+                  const col = SUPP_TYPE_COLOR[s.type] || G.purpleLight;
+                  return (
+                    <ChromeCard key={s.id} style={{ padding:"10px 12px", marginBottom:6, display:"flex", alignItems:"center", gap:10 }}>
+                      <div style={{ width:8, height:8, borderRadius:"50%", background:col, boxShadow:`0 0 6px ${col}`, flexShrink:0 }}/>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:1.5, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name}</div>
+                        <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:1 }}>
+                          {s.serving || "1 serving"}{s.brand && s.brand !== "Generic" ? ` · ${s.brand}` : ""} · {s.cal} cal · P:{s.pro}g
+                        </div>
+                      </div>
+                      {s.type && <span style={{ fontFamily:FONT.body, fontSize:8, letterSpacing:1.5, color:col, background:`${col}18`, border:`1px solid ${col}33`, borderRadius:4, padding:"2px 7px", flexShrink:0, textTransform:"uppercase" }}>{s.type}</span>}
+                      <button onClick={()=>setSuppLog(p=>p.filter(x=>x.id!==s.id))} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:14, padding:"2px 5px", flexShrink:0 }}>✕</button>
+                    </ChromeCard>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Browse / search */}
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:8 }}>ADD SUPPLEMENT</div>
+            <div style={{ position:"relative", marginBottom:10 }}>
+              <span style={{ position:"absolute", left:11, top:"50%", transform:"translateY(-50%)", fontSize:13, color:G.textDim, pointerEvents:"none" }}>🔍</span>
+              <input value={suppSearch} onChange={e=>setSuppSearch(e.target.value)} placeholder="SEARCH SUPPLEMENTS..." style={{ background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"9px 12px 9px 34px", color:"#fff", fontSize:12, outline:"none", boxSizing:"border-box", width:"100%", fontFamily:FONT.body, letterSpacing:1.5, textTransform:"uppercase" }}/>
+              {suppSearch && <button onClick={()=>setSuppSearch("")} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:13 }}>✕</button>}
+            </div>
+            <div style={{ display:"flex", overflowX:"auto", gap:5, marginBottom:12, scrollbarWidth:"none" }}>
+              {SUPP_TYPES.map(t => (
+                <button key={t} onClick={()=>setSuppTypeFilter(t)} style={{ flexShrink:0, padding:"4px 10px", borderRadius:4, border:`1px solid ${suppTypeFilter===t?(SUPP_TYPE_COLOR[t]||G.gold):G.borderB}`, background:suppTypeFilter===t?`${SUPP_TYPE_COLOR[t]||G.gold}18`:"transparent", color:suppTypeFilter===t?(SUPP_TYPE_COLOR[t]||G.gold):G.textDim, fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}>{t}</button>
+              ))}
+            </div>
+            {filteredSupps.map(s => {
+              const col = SUPP_TYPE_COLOR[s.type] || G.purpleLight;
+              return (
+                <ChromeCard key={s.name} style={{ padding:"10px 12px", marginBottom:7, display:"flex", alignItems:"center", gap:10 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                      <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:1.5, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name}</div>
+                      <span style={{ fontFamily:FONT.body, fontSize:8, letterSpacing:1, color:col, background:`${col}15`, border:`1px solid ${col}33`, borderRadius:3, padding:"1px 5px", flexShrink:0, textTransform:"uppercase" }}>{s.type}</span>
+                    </div>
+                    <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase" }}>{s.serving} · {s.cal} cal · P:{s.pro}g · C:{s.carb}g · F:{s.fat}g</div>
+                  </div>
+                  <NeonBtn onClick={()=>{ setSuppLog(p=>[...p,{...s,id:Date.now()}]); showToast(`✓ ${s.name} logged`); }} small>+</NeonBtn>
+                </ChromeCard>
+              );
+            })}
+          </div>
+        );
+      })()}
     </div>
   );
 }
