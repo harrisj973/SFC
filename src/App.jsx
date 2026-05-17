@@ -457,7 +457,7 @@ function HomeScreen({ sessions, leaderboard, onStartWorkout, onQuickStart, showT
           </div>
         </div>
         <div style={{ display:"flex", gap:8, marginTop:14 }}>
-          {[{l:"RANK",v:`#${myRank}`,ico:"👑"},{l:"STREAK",v:"7D",ico:"🔥"},{l:"THIS WK",v:`${sessions.length}`,ico:"💪"}].map(s=>(
+          {[{l:"RANK",v:`#${myRank}`,ico:"👑"},{l:"STREAK",v:`${profile?.streak||0}D`,ico:"🔥"},{l:"THIS WK",v:`${sessions.length}`,ico:"💪"}].map(s=>(
             <div key={s.l} style={{ flex:1, background:"rgba(0,0,0,0.3)", borderRadius:6, padding:"9px 6px", textAlign:"center", border:`1px solid rgba(253,185,39,0.15)` }}>
               <div style={{ fontSize:14, marginBottom:3 }}>{s.ico}</div>
               <div style={{ fontFamily:FONT.display, fontSize:18, color:G.gold, letterSpacing:1 }}>{s.v}</div>
@@ -520,6 +520,7 @@ function HomeScreen({ sessions, leaderboard, onStartWorkout, onQuickStart, showT
         </div>
       </div>
 
+      {leaderboard.length >= 3 && (
       <div style={{ display:"flex", alignItems:"flex-end", gap:8, marginBottom:12, justifyContent:"center" }}>
         {[leaderboard[1], leaderboard[0], leaderboard[2]].map((u, i) => {
           const order = [1,0,2][i];
@@ -538,6 +539,7 @@ function HomeScreen({ sessions, leaderboard, onStartWorkout, onQuickStart, showT
           );
         })}
       </div>
+      )}
 
       {leaderboard.slice(3).map(u => (
         <ChromeCard key={u.rank} gold={u.isMe} style={{ padding:"10px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:12 }}>
@@ -554,7 +556,7 @@ function HomeScreen({ sessions, leaderboard, onStartWorkout, onQuickStart, showT
   );
 }
 
-function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart }) {
+function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart, sessions = [] }) {
   const [subTab, setSubTab] = useState("track");
   const [sessName, setSessName] = useState("");
   const [exs, setExs] = useState([{ id:1, name:"", sets:[{r:"",w:""}], rest:60, q:"", sugg:false }]);
@@ -698,11 +700,24 @@ function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart }) {
       {subTab==="log" && (
         <div>
           <SectionLabel>Session History</SectionLabel>
-          <div style={{ textAlign:"center", padding:"44px 0", color:G.textDim }}>
-            <div style={{ fontFamily:FONT.display, fontSize:36, letterSpacing:4, marginBottom:8 }}>NO SESSIONS</div>
-            <div style={{ fontFamily:FONT.body, fontSize:12, letterSpacing:2, textTransform:"uppercase" }}>Log your first workout to see history</div>
-            <NeonBtn onClick={()=>setSubTab("track")} style={{ marginTop:20 }}>START TRACKING</NeonBtn>
-          </div>
+          {sessions.length === 0 ? (
+            <div style={{ textAlign:"center", padding:"44px 0", color:G.textDim }}>
+              <div style={{ fontFamily:FONT.display, fontSize:36, letterSpacing:4, marginBottom:8 }}>NO SESSIONS</div>
+              <div style={{ fontFamily:FONT.body, fontSize:12, letterSpacing:2, textTransform:"uppercase" }}>Log your first workout to see history</div>
+              <NeonBtn onClick={()=>setSubTab("track")} style={{ marginTop:20 }}>START TRACKING</NeonBtn>
+            </div>
+          ) : sessions.map((s, i) => (
+            <ChromeCard key={i} style={{ padding:"12px 14px", marginBottom:9, display:"flex", alignItems:"center", gap:12 }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name}</div>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{s.date} · {s.sets} sets · {(s.vol||0).toLocaleString()} lbs</div>
+              </div>
+              <div style={{ textAlign:"right", flexShrink:0 }}>
+                <div style={{ fontFamily:FONT.display, fontSize:16, color:G.gold, letterSpacing:1 }}>+{s.pts}</div>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>PTS</div>
+              </div>
+            </ChromeCard>
+          ))}
         </div>
       )}
 
@@ -1078,9 +1093,9 @@ function MuscleHeatMap({ sessions, showToast }) {
   );
 }
 
-function ProgressScreen({ showToast, sessions = [] }) {
+function ProgressScreen({ showToast, sessions = [], profile }) {
   const [activeTab, setActiveTab] = useState("stats");
-  const streak = sessions.length;
+  const streak = profile?.streak || 0;
   const [freezes, setFreezes] = useState(2);
   const MILESTONES = [7,14,30,60,90,180,365];
   const nextMs = MILESTONES.find(m => m > streak) || 365;
@@ -1879,7 +1894,7 @@ export default function SocialFitClub() {
   const loadLeaderboard = async (currentUserId) => {
     const { data } = await supabase
       .from("profiles")
-      .select("id, username, avatar_initials, points, sessions_count")
+      .select("id, username, avatar_initials, points, sessions_count, streak")
       .order("points", { ascending: false })
       .limit(20);
     if (data) {
@@ -1888,6 +1903,7 @@ export default function SocialFitClub() {
         name: p.username || "ANONYMOUS",
         pts: p.points || 0,
         sessions: p.sessions_count || 0,
+        streak: p.streak || 0,
         av: p.avatar_initials || "?",
         isMe: p.id === currentUserId,
       })));
@@ -2000,8 +2016,8 @@ export default function SocialFitClub() {
 
       <div style={{ paddingBottom:82, position:"relative", zIndex:2, minHeight:"100vh" }}>
         {tab==="home" && <HomeScreen sessions={sessions} leaderboard={leaderboard} onStartWorkout={()=>setTab("train")} onQuickStart={handleQuickStart} showToast={showToast} profile={profile}/>}
-        {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)}/>}
-        {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions}/>}
+        {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions}/>}
+        {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile}/>}
         {tab==="nutrition" && <NutritionScreen showToast={showToast}/>}
         {tab==="feed" && <FeedScreen showToast={showToast} profile={profile}/>}
         {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut}/>}
