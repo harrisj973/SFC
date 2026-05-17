@@ -372,6 +372,24 @@ function progressWeight(w) {
   return Math.round((base + 5) / 2.5) * 2.5;
 }
 
+function getExerciseHistory(exName, sessions) {
+  const out = [];
+  const chrono = [...sessions].reverse();
+  for (const sess of chrono) {
+    const ex = (sess.exs || []).find(e => e.name === exName);
+    if (!ex) continue;
+    let maxEst = 0; let bestSet = null;
+    for (const set of (ex.sets || [])) {
+      const w = parseFloat(set.w) || 0; const r = parseInt(set.r) || 0;
+      if (!w || !r) continue;
+      const est = Math.round(w * (1 + r / 30));
+      if (est > maxEst) { maxEst = est; bestSet = { w, r }; }
+    }
+    if (bestSet) out.push({ date: sess.date || (sess.createdAt || "").slice(0,10), weight: bestSet.w, reps: bestSet.r, est1rm: maxEst });
+  }
+  return out;
+}
+
 function SectionLabel({ children, accent = true }) {
   return (
     <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
@@ -769,6 +787,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   const [templates, setTemplates] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sfc_templates") || "[]"); } catch { return []; }
   });
+  const [selectedPrEx, setSelectedPrEx] = useState(null);
   const nextIdRef = useRef(2);
 
   useEffect(() => {
@@ -1068,7 +1087,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
         </div>
       )}
 
-      {subTab==="prs" && (
+      {subTab==="prs" && !selectedPrEx && (
         <div>
           <SectionLabel>Personal Records</SectionLabel>
           {Object.keys(prs).length === 0 ? (
@@ -1081,21 +1100,127 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
             Object.entries(prs)
               .sort(([,a],[,b]) => b.est1rm - a.est1rm)
               .map(([name, pr]) => (
-                <ChromeCard key={name} style={{ padding:"12px 14px", marginBottom:8, display:"flex", gap:12, alignItems:"center" }}>
-                  <div style={{ fontSize:22, flexShrink:0 }}>🏆</div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{name}</div>
-                    <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{pr.weight} lbs × {pr.reps} reps · {pr.date}</div>
-                  </div>
-                  <div style={{ textAlign:"right", flexShrink:0 }}>
-                    <div style={{ fontFamily:FONT.display, fontSize:20, color:G.gold, textShadow:G.goldGlow2, letterSpacing:1 }}>{pr.est1rm}</div>
-                    <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>1RM EST</div>
-                  </div>
-                </ChromeCard>
+                <button key={name} onClick={()=>setSelectedPrEx(name)} style={{ width:"100%", background:"none", border:"none", padding:0, marginBottom:8, cursor:"pointer", textAlign:"left" }}>
+                  <ChromeCard style={{ padding:"12px 14px", display:"flex", gap:12, alignItems:"center" }}>
+                    <div style={{ fontSize:22, flexShrink:0 }}>🏆</div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{name}</div>
+                      <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{pr.weight} lbs × {pr.reps} reps · {pr.date}</div>
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
+                      <div style={{ textAlign:"right" }}>
+                        <div style={{ fontFamily:FONT.display, fontSize:20, color:G.gold, textShadow:G.goldGlow2, letterSpacing:1 }}>{pr.est1rm}</div>
+                        <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>1RM EST</div>
+                      </div>
+                      <div style={{ color:G.textDim, fontSize:13 }}>›</div>
+                    </div>
+                  </ChromeCard>
+                </button>
               ))
           )}
         </div>
       )}
+
+      {subTab==="prs" && selectedPrEx && (() => {
+        const history = getExerciseHistory(selectedPrEx, sessions);
+        const pr = prs[selectedPrEx];
+        const firstEst = history[0]?.est1rm || 0;
+        const gain = pr ? pr.est1rm - firstEst : 0;
+        const W = 300; const H = 80;
+        const vals = history.map(h => h.est1rm);
+        const minV = Math.min(...vals) * 0.97;
+        const maxV = Math.max(...vals) * 1.03;
+        const range = maxV - minV || 1;
+        const coords = history.map((h, i) => ({
+          x: history.length > 1 ? (i / (history.length - 1)) * W : W / 2,
+          y: H - ((h.est1rm - minV) / range) * (H - 14) - 7,
+          est: h.est1rm, date: h.date,
+        }));
+        const polyPts = coords.map(c => `${c.x},${c.y}`).join(" ");
+
+        return (
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:18 }}>
+              <button onClick={()=>setSelectedPrEx(null)} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:7, padding:"6px 11px", color:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:1, cursor:"pointer", flexShrink:0 }}>← PRs</button>
+              <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{selectedPrEx}</div>
+            </div>
+
+            {/* PR badge */}
+            <ChromeCard gold glow style={{ padding:"16px 18px", marginBottom:12, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:3, textTransform:"uppercase", marginBottom:4 }}>PERSONAL RECORD</div>
+                <div style={{ fontFamily:FONT.display, fontSize:34, color:G.gold, textShadow:G.goldGlow, letterSpacing:1, lineHeight:1 }}>{pr?.est1rm} <span style={{ fontSize:16, color:G.textMid }}>lbs 1RM</span></div>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:4 }}>{pr?.weight} lbs × {pr?.reps} reps · {pr?.date}</div>
+              </div>
+              {history.length > 1 && (
+                <div style={{ textAlign:"right" }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:22, color:gain>=0?G.green:G.red, textShadow:`0 0 10px ${gain>=0?G.green:G.red}88`, letterSpacing:1 }}>{gain>=0?"+":""}{gain} lbs</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase", marginTop:2 }}>since first session</div>
+                </div>
+              )}
+            </ChromeCard>
+
+            {/* Strength trend chart */}
+            {history.length >= 2 ? (
+              <ChromeCard style={{ padding:"14px", marginBottom:12 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>ESTIMATED 1RM TREND</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>{history.length} sessions</div>
+                </div>
+                <svg width="100%" viewBox={`-4 0 ${W+8} ${H}`} style={{ overflow:"visible", display:"block" }}>
+                  <defs>
+                    <linearGradient id="prGrad" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stopColor={G.gold} stopOpacity="0.3"/>
+                      <stop offset="100%" stopColor={G.gold} stopOpacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  {coords.length > 1 && <polygon points={`${coords[0].x},${H} ${polyPts} ${coords[coords.length-1].x},${H}`} fill="url(#prGrad)"/>}
+                  {coords.length > 1 && <polyline points={polyPts} fill="none" stroke={G.gold} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter:`drop-shadow(0 0 4px ${G.gold})` }}/>}
+                  {coords.map((c, i) => (
+                    <g key={i}>
+                      <circle cx={c.x} cy={c.y} r={i===coords.length-1?5:3} fill={i===coords.length-1?G.gold:"#0A0810"} stroke={G.gold} strokeWidth="2"/>
+                      {(i===0 || i===coords.length-1) && (
+                        <text x={c.x} y={c.y - 9} textAnchor={i===0?"start":"end"} fill={G.gold} fontSize="10" fontFamily={FONT.display} letterSpacing="1">{c.est}</text>
+                      )}
+                    </g>
+                  ))}
+                </svg>
+                <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>{history[0]?.date}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>{history[history.length-1]?.date}</div>
+                </div>
+              </ChromeCard>
+            ) : (
+              <ChromeCard style={{ padding:"14px", marginBottom:12, textAlign:"center" }}>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>Log more sessions with this exercise to see your strength trend chart</div>
+              </ChromeCard>
+            )}
+
+            {/* Session-by-session history */}
+            <SectionLabel>Session History</SectionLabel>
+            {[...history].reverse().map((h, i) => {
+              const isPr = h.est1rm === pr?.est1rm;
+              return (
+                <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 12px", background: isPr?`${G.gold}08`:"rgba(255,255,255,0.02)", borderRadius:7, marginBottom:5, border:`1px solid ${isPr?G.gold+"33":G.borderB}` }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    {isPr && <span style={{ fontSize:12 }}>🏆</span>}
+                    <div>
+                      <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1 }}>{h.date}</div>
+                      <div style={{ fontFamily:FONT.display, fontSize:13, color:"#fff", letterSpacing:1, marginTop:1 }}>{h.weight} lbs × {h.reps} reps</div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:16, color:isPr?G.gold:G.textMid, letterSpacing:1 }}>{h.est1rm}</div>
+                    <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>1RM EST</div>
+                  </div>
+                </div>
+              );
+            })}
+
+            <NeonBtn onClick={()=>{ selectExercise(exs[0]?.id || 1, selectedPrEx); setSubTab("track"); }} full style={{ marginTop:10 }}>TRAIN THIS EXERCISE ◆</NeonBtn>
+          </div>
+        );
+      })()}
 
       {subTab==="programs" && (
         <div>
