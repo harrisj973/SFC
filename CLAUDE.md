@@ -62,7 +62,7 @@ Root state passed as props:
 
 | Prop | Type | Used by |
 |---|---|---|
-| `sessions` | `{ name, exs, sets, vol, pts, date, createdAt }[]` | Home, Train, Progress, More |
+| `sessions` | `{ id, name, exs, sets, vol, pts, date, createdAt }[]` | Home, Train, Progress, More |
 | `profile` | Supabase profiles row | Home, Progress, Feed, More |
 | `leaderboard` | sorted profiles array with `{ rank, name, pts, sessions, streak, av, isMe }` | Home |
 
@@ -119,7 +119,7 @@ Body composition section reads/writes `sfc_body_log`. Each entry: `{ date: "YYYY
 
 ### MoreScreen modals
 
-Six modals can open from `MoreScreen`, all defined just before it:
+Seven modals can open from `MoreScreen`, all defined just before it:
 
 | Modal | Tile | localStorage | Props |
 |---|---|---|---|
@@ -129,8 +129,9 @@ Six modals can open from `MoreScreen`, all defined just before it:
 | `AccountabilityModal` | ACCOUNTABILITY | `sfc_pledge` | `sessions`, `profile`, `onClose` |
 | `HealthConnectModal` | HEALTH CONNECT | `sfc_ble_device` | `onClose` |
 | `AdminDashboardModal` | ADMIN DASHBOARD (admin only) | — | `onClose` |
+| `NotificationsModal` | NOTIFICATIONS | `sfc_notif_prefs` | `sessions`, `onClose` |
 
-The remaining 4 tiles (Live Training, Merch, Form Check, Book Session) show a "COMING SOON" toast.
+The remaining 2 tiles (Merch, Form Check) show a "COMING SOON" toast.
 
 ### Health Connect (Web Bluetooth)
 
@@ -146,8 +147,16 @@ Posts stored in `sfc_feed` as `[{ id, user, av, time, txt, likes, liked, comment
 
 ### NutritionScreen — external integrations
 
-- **Barcode scan**: `BarcodeDetector` API + Open Food Facts (`world.openfoodfacts.org/api/v0/product/{code}.json`). `BARCODE_DB` is an 8-product local fallback only.
+- **Barcode scan**: `BarcodeDetector` API (Chrome/Edge only; falls back to manual entry) → Open Food Facts API → UPC Item DB secondary API → `BARCODE_DB` (26-product local fallback). If still not found, `barcode_not_found` state renders a manual macro entry form. `scanTarget` (`"food"` | `"supplement"`) controls which log receives the result.
 - **Meal scan**: captures live video to `<canvas>` → JPEG base64 → `analyze-meal` Edge Function → Claude Haiku vision.
+
+### Service Worker
+
+`public/sw.js` is registered in `src/main.jsx` on every app load. It listens for `postMessage` events:
+- `SCHEDULE_NOTIFICATION` — schedules a `setTimeout` and calls `self.registration.showNotification()`
+- `CANCEL_NOTIFICATION` — clears the pending timer and closes any existing notification with that tag
+
+`NotificationsModal` posts to the SW via `navigator.serviceWorker.ready`. Notification click focuses an existing window or opens `/`.
 
 ### Design tokens
 
