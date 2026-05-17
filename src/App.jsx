@@ -1106,20 +1106,13 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
   const nextMs = MILESTONES.find(m => m > streak) || 365;
   const totalVol = sessions.reduce((a,s) => a + (s.vol||0), 0);
   const fmtVol = v => v >= 1000 ? `${(v/1000).toFixed(1)}K` : String(v);
-  const PHOTOS = [
-    { date:"JAN 6", wk:1, wt:198, bf:22.0, ms:false },
-    { date:"FEB 3", wk:5, wt:192, bf:20.1, ms:true, msTxt:"FIRST 5LBS LOST 🎉" },
-    { date:"MAR 3", wk:9, wt:186, bf:17.8, ms:true, msTxt:"DEADLIFT PR 225LBS 🏆" },
-    { date:"APR 1", wk:13, wt:181, bf:15.2, ms:true, msTxt:"15LBS DOWN · 7% BF LOST 👑" },
-  ];
-
   return (
     <div style={{ padding:"20px 18px 0" }}>
       <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase", marginBottom:16 }}>
         PROGRESS <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>VAULT</span>
       </div>
       <div style={{ display:"flex", background:"rgba(0,0,0,0.5)", borderRadius:7, padding:3, gap:3, marginBottom:18, border:`1px solid ${G.borderB}` }}>
-        {[{id:"stats",l:"STATS"},{id:"streak",l:"STREAK"},{id:"transform",l:"BODY"},{id:"heatmap",l:"HEAT MAP"}].map(t=>(
+        {[{id:"stats",l:"STATS"},{id:"streak",l:"STREAK"},{id:"heatmap",l:"HEAT MAP"}].map(t=>(
           <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{ flex:1, padding:"8px 2px", borderRadius:5, border:"none", background:activeTab===t.id?`linear-gradient(135deg,${G.gold},${G.goldDark})`:"transparent", color:activeTab===t.id?"#0A0810":G.textMid, fontFamily:FONT.display, fontSize:10, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
         ))}
       </div>
@@ -1197,48 +1190,6 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
               </div>
             );
           })}
-        </div>
-      )}
-
-      {activeTab==="transform" && (
-        <div>
-          <ChromeCard gold style={{ padding:"14px", marginBottom:14 }}>
-            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginBottom:10 }}>13-WEEK TRANSFORMATION</div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
-              {[{l:"WEIGHT LOST",v:"17 LBS",col:"#00FF88"},{l:"BODY FAT",v:"-6.8%",col:G.gold},{l:"CHECK-INS",v:"4",col:G.purpleLight}].map(s=>(
-                <div key={s.l} style={{ textAlign:"center" }}>
-                  <div style={{ fontFamily:FONT.display, fontSize:22, color:s.col, textShadow:`0 0 10px ${s.col}66`, letterSpacing:1 }}>{s.v}</div>
-                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase", marginTop:3 }}>{s.l}</div>
-                </div>
-              ))}
-            </div>
-          </ChromeCard>
-          <SectionLabel>Timeline</SectionLabel>
-          {PHOTOS.map((ph,i) => (
-            <div key={ph.wk} style={{ display:"flex", gap:11, marginBottom:5 }}>
-              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", width:26, flexShrink:0 }}>
-                <div style={{ width:10, height:10, borderRadius:"50%", background: ph.ms ? `linear-gradient(135deg,${G.gold},${G.goldDark})` : G.bg3, border:`2px solid ${ph.ms?G.gold:G.borderB}`, flexShrink:0, boxShadow:ph.ms?G.goldGlow2:"none" }}/>
-                {i<PHOTOS.length-1 && <div style={{ width:1, flex:1, background:`linear-gradient(180deg,${G.borderB},transparent)`, marginTop:3, marginBottom:3, minHeight:16 }}/>}
-              </div>
-              <div style={{ flex:1, paddingBottom: i<PHOTOS.length-1 ? 6 : 0 }}>
-                {ph.ms && <div style={{ background:`${G.gold}15`, border:`1px solid ${G.gold}44`, borderRadius:5, padding:"4px 10px", marginBottom:5, display:"inline-flex", gap:6, alignItems:"center" }}><span style={{ fontFamily:FONT.display, fontSize:11, color:G.gold, letterSpacing:1.5, textTransform:"uppercase" }}>{ph.msTxt}</span></div>}
-                <ChromeCard style={{ padding:"10px", display:"flex", gap:10 }}>
-                  <div style={{ width:54, height:66, borderRadius:6, background:`linear-gradient(135deg,${G.bg3},${G.purple}33)`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, border:`1px solid ${G.borderB}`, fontSize:22 }}>📸</div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-                      <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:"#fff" }}>WEEK {ph.wk}</div>
-                      <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1 }}>{ph.date}</div>
-                    </div>
-                    <div style={{ display:"flex", gap:5 }}>
-                      <Chip label={`${ph.wt} LBS`} color={G.purpleLight} small/>
-                      <Chip label={`${ph.bf}% BF`} color={G.textMid} small/>
-                    </div>
-                  </div>
-                </ChromeCard>
-              </div>
-            </div>
-          ))}
-          <NeonBtn onClick={()=>showToast("📸 Photo upload would open on device")} full outline style={{ marginTop:8 }}>+ ADD THIS WEEK'S CHECK-IN</NeonBtn>
         </div>
       )}
 
