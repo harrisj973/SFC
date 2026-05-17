@@ -1792,8 +1792,274 @@ function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
   );
 }
 
+function GoalsModal({ sessions, profile, onClose }) {
+  const totalVol = sessions.reduce((a, s) => a + (s.vol || 0), 0);
+  const streak = profile?.streak || 0;
+  const [goals, setGoals] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sfc_goals") || "{}"); } catch { return {}; }
+  });
+  const [editing, setEditing] = useState(null);
+  const [tmp, setTmp] = useState("");
+
+  const saveGoal = (key) => {
+    const val = parseInt(tmp, 10);
+    if (!isNaN(val) && val > 0) {
+      const next = { ...goals, [key]: val };
+      setGoals(next);
+      localStorage.setItem("sfc_goals", JSON.stringify(next));
+    }
+    setEditing(null);
+  };
+
+  const now = new Date();
+  const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+  const recentCount = sessions.filter(s => s.createdAt && new Date(s.createdAt) >= fourWeeksAgo).length;
+  const weeklyAvg = +(recentCount / 4).toFixed(1);
+
+  const items = [
+    { key:"weekly", ico:"📅", label:"WEEKLY SESSIONS", current:weeklyAvg, target:goals.weekly||4, unit:"/wk", col:G.gold, hint:"avg last 4 weeks" },
+    { key:"volume", ico:"⚡", label:"VOLUME MILESTONE", current:+(totalVol/1000).toFixed(1), target:goals.volume||100, unit:"K lbs", col:G.purpleLight, hint:`${Math.round(totalVol).toLocaleString()} lbs total` },
+    { key:"streak", ico:"🔥", label:"STREAK TARGET", current:streak, target:goals.streak||30, unit:" days", col:G.green, hint:"current streak" },
+  ];
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.96)", zIndex:400, display:"flex", alignItems:"flex-end" }} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.gold}44`, borderBottom:"none", maxHeight:"88vh", overflowY:"auto", paddingBottom:48 }}>
+        <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"14px auto 0" }}/>
+        <div style={{ padding:"14px 18px 0", display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+          <div style={{ width:44, height:44, borderRadius:12, background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, boxShadow:G.goldGlow, flexShrink:0 }}>🎯</div>
+          <div>
+            <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>GOALS</div>
+            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>Set targets · Track progress</div>
+          </div>
+          <button onClick={onClose} style={{ marginLeft:"auto", background:"none", border:"none", color:G.textMid, cursor:"pointer", fontSize:18, padding:"4px 6px", flexShrink:0 }}>✕</button>
+        </div>
+        <div style={{ height:1, background:`linear-gradient(90deg,transparent,${G.gold}44,transparent)`, marginBottom:18 }}/>
+        <div style={{ padding:"0 18px" }}>
+          {items.map(item => {
+            const pct = Math.min(100, (item.current / item.target) * 100);
+            const done = item.current >= item.target;
+            return (
+              <ChromeCard key={item.key} style={{ padding:"14px", marginBottom:10 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+                  <div style={{ fontSize:22 }}>{item.ico}</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>{item.label}</div>
+                    <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>{item.hint}</div>
+                  </div>
+                  {done
+                    ? <Chip label="ACHIEVED ✓" color={G.green} small/>
+                    : <div style={{ fontFamily:FONT.display, fontSize:12, color:item.col }}>{item.current}{item.unit} / {item.target}{item.unit}</div>}
+                </div>
+                <div style={{ height:4, background:"rgba(255,255,255,0.07)", borderRadius:2, marginBottom:8, overflow:"hidden" }}>
+                  <div style={{ height:"100%", width:`${pct}%`, background:`linear-gradient(90deg,${item.col}99,${item.col})`, borderRadius:2, transition:"width 0.4s ease", boxShadow:`0 0 6px ${item.col}66` }}/>
+                </div>
+                {editing === item.key ? (
+                  <div style={{ display:"flex", gap:8 }}>
+                    <input autoFocus value={tmp} onChange={e=>setTmp(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveGoal(item.key);if(e.key==="Escape")setEditing(null);}} type="number" placeholder={`Target (e.g. ${item.target})`} style={{ flex:1, background:"rgba(0,0,0,0.4)", border:`1px solid ${item.col}66`, borderRadius:5, padding:"7px 10px", color:"#fff", fontFamily:FONT.body, fontSize:12, outline:"none" }}/>
+                    <button onClick={()=>saveGoal(item.key)} style={{ padding:"7px 14px", borderRadius:5, background:item.col, border:"none", color:"#0A0810", fontFamily:FONT.display, fontSize:11, letterSpacing:1, cursor:"pointer" }}>SAVE</button>
+                    <button onClick={()=>setEditing(null)} style={{ padding:"7px 10px", borderRadius:5, background:"transparent", border:`1px solid ${G.borderB}`, color:G.textMid, fontFamily:FONT.body, fontSize:11, cursor:"pointer" }}>✕</button>
+                  </div>
+                ) : (
+                  <button onClick={()=>{setEditing(item.key);setTmp(String(item.target));}} style={{ background:"transparent", border:`1px solid ${G.borderB}`, borderRadius:5, padding:"6px 12px", color:G.textMid, fontFamily:FONT.body, fontSize:10, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>✏️ EDIT TARGET</button>
+                )}
+              </ChromeCard>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WeeklyReportModal({ sessions, muscleScores, onClose }) {
+  const now = new Date();
+  const dayOfWeek = (now.getDay() + 6) % 7;
+  const startOfThisWeek = new Date(now);
+  startOfThisWeek.setHours(0, 0, 0, 0);
+  startOfThisWeek.setDate(now.getDate() - dayOfWeek);
+  const startOfLastWeek = new Date(startOfThisWeek);
+  startOfLastWeek.setDate(startOfThisWeek.getDate() - 7);
+
+  const thisSessions = sessions.filter(s => s.createdAt && new Date(s.createdAt) >= startOfThisWeek);
+  const lastSessions = sessions.filter(s => {
+    if (!s.createdAt) return false;
+    const d = new Date(s.createdAt);
+    return d >= startOfLastWeek && d < startOfThisWeek;
+  });
+
+  const thisVol = thisSessions.reduce((a, s) => a + (s.vol || 0), 0);
+  const lastVol = lastSessions.reduce((a, s) => a + (s.vol || 0), 0);
+  const thisSets = thisSessions.reduce((a, s) => a + (s.sets || 0), 0);
+  const volDiff = lastVol > 0 ? Math.round(((thisVol - lastVol) / lastVol) * 100) : null;
+
+  const exCounts = {};
+  thisSessions.forEach(s => (s.exs || []).forEach(ex => { if (ex.name) exCounts[ex.name] = (exCounts[ex.name] || 0) + 1; }));
+  const topEx = Object.entries(exCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || null;
+  const topMuscle = Object.entries(muscleScores).sort(([, a], [, b]) => b - a)[0]?.[0];
+
+  const DAYS = ["MON","TUE","WED","THU","FRI","SAT","SUN"];
+  const daysWithSession = new Set(thisSessions.map(s => (new Date(s.createdAt).getDay() + 6) % 7));
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.96)", zIndex:400, display:"flex", alignItems:"flex-end" }} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.purpleLight}44`, borderBottom:"none", maxHeight:"88vh", overflowY:"auto", paddingBottom:48 }}>
+        <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"14px auto 0" }}/>
+        <div style={{ padding:"14px 18px 0", display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+          <div style={{ width:44, height:44, borderRadius:12, background:`linear-gradient(135deg,${G.purpleLight},${G.purple})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, boxShadow:G.purpleGlow, flexShrink:0 }}>📋</div>
+          <div>
+            <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>WEEKLY REPORT</div>
+            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>Current week · Mon → Sun</div>
+          </div>
+          <button onClick={onClose} style={{ marginLeft:"auto", background:"none", border:"none", color:G.textMid, cursor:"pointer", fontSize:18, padding:"4px 6px", flexShrink:0 }}>✕</button>
+        </div>
+        <div style={{ height:1, background:`linear-gradient(90deg,transparent,${G.purpleLight}44,transparent)`, marginBottom:18 }}/>
+        <div style={{ padding:"0 18px" }}>
+          <ChromeCard style={{ padding:"14px", marginBottom:12 }}>
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginBottom:10 }}>THIS WEEK</div>
+            <div style={{ display:"flex", gap:5, justifyContent:"space-between" }}>
+              {DAYS.map((d, i) => {
+                const active = daysWithSession.has(i);
+                const today = i === dayOfWeek;
+                return (
+                  <div key={d} style={{ flex:1, textAlign:"center" }}>
+                    <div style={{ width:"100%", aspectRatio:"1", borderRadius:6, background: active ? `linear-gradient(135deg,${G.gold},${G.goldDark})` : today ? `${G.gold}18` : "rgba(255,255,255,0.05)", border:`1px solid ${active?G.gold:today?G.gold+"44":G.borderB}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, marginBottom:4, boxShadow:active?G.goldGlow2:"none" }}>{active ? "✓" : today ? "·" : ""}</div>
+                    <div style={{ fontFamily:FONT.body, fontSize:8, color:active?G.gold:G.textDim, letterSpacing:1 }}>{d}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </ChromeCard>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:12 }}>
+            {[
+              { l:"SESSIONS", v:String(thisSessions.length), ico:"🏋️" },
+              { l:"VOLUME", v:`${+(thisVol/1000).toFixed(1)}K`, ico:"⚡" },
+              { l:"SETS", v:String(thisSets), ico:"💪" },
+            ].map(s => <StatPill key={s.l} label={s.l} value={s.v} icon={s.ico}/>)}
+          </div>
+          {lastSessions.length > 0 && volDiff !== null && (
+            <ChromeCard style={{ padding:"12px 14px", marginBottom:12, display:"flex", gap:12, alignItems:"center" }}>
+              <div style={{ fontSize:22 }}>{volDiff >= 0 ? "📈" : "📉"}</div>
+              <div>
+                <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:volDiff >= 0 ? G.green : G.red, textTransform:"uppercase" }}>{volDiff >= 0 ? "+" : ""}{volDiff}% VS LAST WEEK</div>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase" }}>Last week: {lastSessions.length} sessions · {Math.round(lastVol).toLocaleString()} lbs</div>
+              </div>
+            </ChromeCard>
+          )}
+          {topEx && (
+            <ChromeCard style={{ padding:"12px 14px", marginBottom:10, borderLeft:`3px solid ${G.gold}` }}>
+              <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginBottom:4 }}>TOP EXERCISE THIS WEEK</div>
+              <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:G.gold, textTransform:"uppercase" }}>{topEx}</div>
+            </ChromeCard>
+          )}
+          {topMuscle && (
+            <ChromeCard style={{ padding:"12px 14px", marginBottom:10, borderLeft:`3px solid ${G.purpleLight}` }}>
+              <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginBottom:4 }}>MOST TRAINED MUSCLE (ALL TIME)</div>
+              <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:G.purpleLight, textTransform:"uppercase" }}>{MUSCLE_LABELS[topMuscle] || topMuscle}</div>
+            </ChromeCard>
+          )}
+          {thisSessions.length === 0 && (
+            <div style={{ textAlign:"center", padding:"24px 0" }}>
+              <div style={{ fontSize:36, marginBottom:10 }}>📋</div>
+              <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:G.textMid, textTransform:"uppercase" }}>NO SESSIONS THIS WEEK YET</div>
+              <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:1, marginTop:6 }}>Log your first workout to see your weekly report.</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AccountabilityModal({ sessions, profile, onClose }) {
+  const [pledge, setPledge] = useState(() => {
+    try { return parseInt(localStorage.getItem("sfc_pledge") || "4", 10); } catch { return 4; }
+  });
+  const [editing, setEditing] = useState(false);
+
+  const now = new Date();
+  const dayOfWeek = (now.getDay() + 6) % 7;
+  const startOfWeek = new Date(now);
+  startOfWeek.setHours(0, 0, 0, 0);
+  startOfWeek.setDate(now.getDate() - dayOfWeek);
+  const thisWeek = sessions.filter(s => s.createdAt && new Date(s.createdAt) >= startOfWeek);
+  const completed = thisWeek.length;
+  const pct = Math.min(100, (completed / pledge) * 100);
+  const onTrack = completed >= Math.floor(((dayOfWeek + 1) / 7) * pledge);
+
+  const savePledge = (val) => {
+    const n = Math.max(1, Math.min(7, val));
+    setPledge(n);
+    localStorage.setItem("sfc_pledge", String(n));
+    setEditing(false);
+  };
+
+  const msgs = [
+    "Every rep is a promise kept to yourself.",
+    "Consistency beats intensity every time.",
+    "Show up. The results take care of themselves.",
+    "Your future self is counting on you.",
+    "Champions are built in the sessions nobody sees.",
+  ];
+  const msg = msgs[(profile?.sessions_count || 0) % msgs.length];
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.96)", zIndex:400, display:"flex", alignItems:"flex-end" }} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.green}44`, borderBottom:"none", maxHeight:"88vh", overflowY:"auto", paddingBottom:48 }}>
+        <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"14px auto 0" }}/>
+        <div style={{ padding:"14px 18px 0", display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+          <div style={{ width:44, height:44, borderRadius:12, background:`${G.green}22`, border:`1px solid ${G.green}55`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>🤝</div>
+          <div>
+            <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>ACCOUNTABILITY</div>
+            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>Commit · Track · Deliver</div>
+          </div>
+          <button onClick={onClose} style={{ marginLeft:"auto", background:"none", border:"none", color:G.textMid, cursor:"pointer", fontSize:18, padding:"4px 6px", flexShrink:0 }}>✕</button>
+        </div>
+        <div style={{ height:1, background:`linear-gradient(90deg,transparent,${G.green}44,transparent)`, marginBottom:18 }}/>
+        <div style={{ padding:"0 18px" }}>
+          <ChromeCard gold style={{ padding:"18px", marginBottom:14, textAlign:"center" }}>
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:3, textTransform:"uppercase", marginBottom:8 }}>YOUR WEEKLY PLEDGE</div>
+            {editing ? (
+              <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:4 }}>
+                {[1,2,3,4,5,6,7].map(n => (
+                  <button key={n} onClick={()=>savePledge(n)} style={{ width:36, height:36, borderRadius:8, border:`1px solid ${n===pledge?G.gold:G.borderB}`, background:n===pledge?`${G.gold}22`:"transparent", color:n===pledge?G.gold:"#fff", fontFamily:FONT.display, fontSize:16, cursor:"pointer" }}>{n}</button>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div style={{ fontFamily:FONT.display, fontSize:72, color:G.gold, letterSpacing:-2, lineHeight:1, textShadow:G.goldGlow }}>{pledge}</div>
+                <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:4, color:"#fff", marginBottom:14 }}>DAYS / WEEK</div>
+                <button onClick={()=>setEditing(true)} style={{ background:"transparent", border:`1px solid ${G.borderB}`, borderRadius:5, padding:"6px 16px", color:G.textMid, fontFamily:FONT.body, fontSize:10, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>✏️ CHANGE PLEDGE</button>
+              </>
+            )}
+          </ChromeCard>
+          <ChromeCard style={{ padding:"14px", marginBottom:12 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+              <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>THIS WEEK</div>
+              <Chip label={onTrack ? "ON TRACK ✓" : "BEHIND"} color={onTrack ? G.green : G.red} small/>
+            </div>
+            <div style={{ display:"flex", gap:8, alignItems:"baseline", marginBottom:10 }}>
+              <div style={{ fontFamily:FONT.display, fontSize:40, color:completed >= pledge ? G.green : "#fff", lineHeight:1 }}>{completed}</div>
+              <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:1 }}>/ {pledge} sessions pledged</div>
+            </div>
+            <div style={{ height:6, background:"rgba(255,255,255,0.07)", borderRadius:3, overflow:"hidden" }}>
+              <div style={{ height:"100%", width:`${pct}%`, background:completed>=pledge?`linear-gradient(90deg,${G.green}99,${G.green})`:`linear-gradient(90deg,${G.gold}99,${G.gold})`, borderRadius:3, transition:"width 0.4s ease" }}/>
+            </div>
+          </ChromeCard>
+          <div style={{ background:`${G.green}08`, border:`1px solid ${G.green}22`, borderRadius:10, padding:"14px 16px", textAlign:"center" }}>
+            <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.green, textTransform:"uppercase", lineHeight:1.5 }}>{msg}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores }) {
   const [aiCoachOpen, setAiCoachOpen] = useState(false);
+  const [goalsOpen, setGoalsOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
+  const [accountabilityOpen, setAccountabilityOpen] = useState(false);
   const FEATURES = [
     {id:"live", l:"LIVE TRAINING", ico:"🎥", desc:"Virtual 1-on-1 · from $29/mo", col:G.gold, hot:true},
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
@@ -1805,6 +2071,15 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores }) {
     {id:"partners", l:"ACCOUNTABILITY", ico:"🤝", desc:"Train together, stay consistent", col:G.green},
     {id:"goals", l:"GOALS", ico:"🎯", desc:"Track your fitness targets", col:G.gold},
   ];
+
+  const handleTile = (id) => {
+    if (id === "ai") setAiCoachOpen(true);
+    else if (id === "goals") setGoalsOpen(true);
+    else if (id === "reports") setReportsOpen(true);
+    else if (id === "partners") setAccountabilityOpen(true);
+    else showToast(`${FEATURES.find(f=>f.id===id)?.ico} ${FEATURES.find(f=>f.id===id)?.l} — COMING SOON`);
+  };
+
   return (
     <div style={{ padding:"20px 18px 0" }}>
       <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase", marginBottom:6 }}>
@@ -1812,10 +2087,13 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores }) {
       </div>
       <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:18 }}>◆ &nbsp;ALL FEATURES</div>
       {aiCoachOpen && <AiCoachModal profile={profile} sessions={sessions} muscleScores={muscleScores} onClose={()=>setAiCoachOpen(false)}/>}
+      {goalsOpen && <GoalsModal sessions={sessions} profile={profile} onClose={()=>setGoalsOpen(false)}/>}
+      {reportsOpen && <WeeklyReportModal sessions={sessions} muscleScores={muscleScores} onClose={()=>setReportsOpen(false)}/>}
+      {accountabilityOpen && <AccountabilityModal sessions={sessions} profile={profile} onClose={()=>setAccountabilityOpen(false)}/>}
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:20 }}>
         {FEATURES.map(f => (
-          <button key={f.id} onClick={()=>{ if(f.id==="ai") setAiCoachOpen(true); else showToast(`${f.ico} ${f.l} — COMING SOON`); }} style={{ background:f.hot?`${f.col}0C`:"rgba(255,255,255,0.03)", border:`1px solid ${f.hot?f.col+"33":G.borderB}`, borderRadius:9, padding:"14px 12px", cursor:"pointer", textAlign:"left", position:"relative", overflow:"hidden" }}>
+          <button key={f.id} onClick={()=>handleTile(f.id)} style={{ background:f.hot?`${f.col}0C`:"rgba(255,255,255,0.03)", border:`1px solid ${f.hot?f.col+"33":G.borderB}`, borderRadius:9, padding:"14px 12px", cursor:"pointer", textAlign:"left", position:"relative", overflow:"hidden" }}>
             {f.hot && <div style={{ position:"absolute", top:7, right:8, width:6, height:6, borderRadius:"50%", background:f.col, boxShadow:`0 0 6px ${f.col}, 0 0 12px ${f.col}44` }}/>}
             <div style={{ position:"absolute", top:-6, right:-6, fontSize:36, opacity:0.12 }}>{f.ico}</div>
             <div style={{ fontSize:22, marginBottom:7 }}>{f.ico}</div>
