@@ -659,7 +659,7 @@ function ExercisePicker({ onSelect, onClose }) {
   );
 }
 
-function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart, sessions = [] }) {
+function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQuickStart, sessions = [] }) {
   const [subTab, setSubTab] = useState("track");
   const [sessName, setSessName] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sfc_wip_session") || "{}").name || ""; } catch { return ""; }
@@ -673,6 +673,9 @@ function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart, session
   const [restSec, setRestSec] = useState(null);
   const [saving, setSaving] = useState(false);
   const [pickerFor, setPickerFor] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
   const nextIdRef = useRef(2);
 
   useEffect(() => {
@@ -824,18 +827,53 @@ function TrainScreen({ showToast, onSave, quickStart, onClearQuickStart, session
               <div style={{ fontFamily:FONT.body, fontSize:12, letterSpacing:2, textTransform:"uppercase" }}>Log your first workout to see history</div>
               <NeonBtn onClick={()=>setSubTab("track")} style={{ marginTop:20 }}>START TRACKING</NeonBtn>
             </div>
-          ) : sessions.map((s, i) => (
-            <ChromeCard key={i} style={{ padding:"12px 14px", marginBottom:9, display:"flex", alignItems:"center", gap:12 }}>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name}</div>
-                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{s.date} · {s.sets} sets · {(s.vol||0).toLocaleString()} lbs</div>
-              </div>
-              <div style={{ textAlign:"right", flexShrink:0 }}>
-                <div style={{ fontFamily:FONT.display, fontSize:16, color:G.gold, letterSpacing:1 }}>+{s.pts}</div>
-                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>PTS</div>
-              </div>
-            </ChromeCard>
-          ))}
+          ) : sessions.map((s, i) => {
+            const sid = s.id;
+            const isDeleting = deletingId === sid;
+            const isEditing = editingId === sid;
+            const canAct = !!sid;
+            return (
+              <ChromeCard key={i} style={{ padding:"12px 14px", marginBottom:9 }}>
+                {isDeleting ? (
+                  <div>
+                    <div style={{ fontFamily:FONT.body, fontSize:11, letterSpacing:2, color:G.red, textTransform:"uppercase", marginBottom:10 }}>DELETE "{s.name}"?</div>
+                    <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, marginBottom:12 }}>This will remove the session and deduct {s.pts} points from your total.</div>
+                    <div style={{ display:"flex", gap:8 }}>
+                      <button onClick={()=>setDeletingId(null)} style={{ flex:1, padding:"9px", borderRadius:6, border:`1px solid ${G.borderB}`, background:"transparent", color:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>CANCEL</button>
+                      <button onClick={()=>{ onDelete(sid); setDeletingId(null); }} style={{ flex:1, padding:"9px", borderRadius:6, border:`1px solid ${G.red}`, background:`${G.red}18`, color:G.red, fontFamily:FONT.display, fontSize:13, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>DELETE</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      {isEditing ? (
+                        <input
+                          autoFocus
+                          value={editName}
+                          onChange={e=>setEditName(e.target.value)}
+                          onKeyDown={e=>{ if(e.key==="Enter"&&editName.trim()){onEdit(sid,editName.trim());setEditingId(null);} if(e.key==="Escape")setEditingId(null); }}
+                          onBlur={()=>{ if(editName.trim()&&editName.trim()!==s.name)onEdit(sid,editName.trim()); setEditingId(null); }}
+                          style={{ background:"transparent", border:"none", borderBottom:`1px solid ${G.gold}`, padding:"2px 0", color:G.gold, fontFamily:FONT.display, fontSize:15, letterSpacing:2, width:"100%", outline:"none", textTransform:"uppercase" }}/>
+                      ) : (
+                        <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name}</div>
+                      )}
+                      <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{s.date} · {s.sets} sets · {(s.vol||0).toLocaleString()} lbs</div>
+                    </div>
+                    <div style={{ textAlign:"right", flexShrink:0 }}>
+                      <div style={{ fontFamily:FONT.display, fontSize:16, color:G.gold, letterSpacing:1 }}>+{s.pts}</div>
+                      <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>PTS</div>
+                    </div>
+                    {canAct && (
+                      <div style={{ display:"flex", flexDirection:"column", gap:5, flexShrink:0 }}>
+                        <button onClick={()=>{ setEditingId(sid); setEditName(s.name); }} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:5, color:G.textMid, cursor:"pointer", fontSize:12, padding:"4px 7px", lineHeight:1 }} title="Rename">✏️</button>
+                        <button onClick={()=>setDeletingId(sid)} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:5, color:G.textMid, cursor:"pointer", fontSize:12, padding:"4px 7px", lineHeight:1 }} title="Delete">🗑️</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </ChromeCard>
+            );
+          })}
         </div>
       )}
 
@@ -3191,7 +3229,7 @@ function SocialFitClubInner() {
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
-    if (data) setSessions(data.map(s => ({ name:s.name, exs:s.exercises, sets:s.sets, vol:s.volume, pts:s.points, date:s.date, createdAt:s.created_at })));
+    if (data) setSessions(data.map(s => ({ id:s.id, name:s.name, exs:s.exercises, sets:s.sets, vol:s.volume, pts:s.points, date:s.date, createdAt:s.created_at })));
     else if (error) setDataLoadFailed(true);
   };
 
@@ -3311,6 +3349,32 @@ function SocialFitClubInner() {
     if (sErr || pErr) showToast("⚠️ SYNC ERROR — DATA MAY NOT BE SAVED");
   };
 
+  const handleDeleteSession = async (sessId) => {
+    const removed = sessions.find(s => s.id === sessId);
+    if (!removed) return;
+    setSessions(p => p.filter(s => s.id !== sessId));
+    const newPts = Math.max(0, (profile?.points || 0) - (removed.pts || 0));
+    const newCount = Math.max(0, (profile?.sessions_count || 0) - 1);
+    setProfile(p => ({ ...p, points: newPts, sessions_count: newCount }));
+    setLeaderboard(p =>
+      p.map(u => u.isMe ? { ...u, pts: newPts, sessions: Math.max(0, u.sessions - 1) } : u)
+       .sort((a,b) => b.pts - a.pts)
+       .map((u,i) => ({ ...u, rank: i+1 }))
+    );
+    showToast("Session deleted");
+    const [{ error: sErr }, { error: pErr }] = await Promise.all([
+      supabase.from("sessions").delete().eq("id", sessId),
+      supabase.from("profiles").update({ points: newPts, sessions_count: newCount }).eq("id", user.id),
+    ]);
+    if (sErr || pErr) showToast("⚠️ SYNC ERROR — please reload");
+  };
+
+  const handleEditSession = async (sessId, newName) => {
+    setSessions(p => p.map(s => s.id === sessId ? { ...s, name: newName } : s));
+    const { error } = await supabase.from("sessions").update({ name: newName }).eq("id", sessId);
+    if (error) showToast("⚠️ SYNC ERROR — name may not be saved");
+  };
+
   const handleQuickStart = (workout) => {
     setTab("train");
     setQuickStartWorkout(workout);
@@ -3351,7 +3415,7 @@ function SocialFitClubInner() {
 
       <div style={{ paddingBottom:82, position:"relative", zIndex:2, minHeight:"100vh" }}>
         {tab==="home" && <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile}/>}
-        {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions}/>}
+        {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions}/>}
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile}/>}
         {tab==="nutrition" && <NutritionScreen showToast={showToast}/>}
         {tab==="feed" && <FeedScreen showToast={showToast} profile={profile}/>}
