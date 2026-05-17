@@ -60,12 +60,12 @@ Root state passed down as props:
 
 | Component | Key props |
 |---|---|
-| `HomeScreen` | `sessions`, `leaderboard`, `profile`, `onStartWorkout`, `onQuickStart` |
-| `TrainScreen` | `onSave`, `quickStart`, `onClearQuickStart` |
-| `ProgressScreen` | `sessions` |
-| `NutritionScreen` | — (real camera via `getUserMedia` + `BarcodeDetector`) |
-| `FeedScreen` | `profile` |
-| `MoreScreen` | `profile`, `onSignOut` |
+| `HomeScreen` | `sessions`, `leaderboard`, `profile`, `onStartWorkout`, `onQuickStart`, `showToast` |
+| `TrainScreen` | `onSave`, `quickStart`, `onClearQuickStart`, `showToast` |
+| `ProgressScreen` | `sessions`, `showToast` |
+| `NutritionScreen` | `showToast` (camera via `getUserMedia` + `BarcodeDetector`) |
+| `FeedScreen` | `profile`, `showToast` |
+| `MoreScreen` | `profile`, `onSignOut`, `showToast` |
 
 ### Data flow for saving a workout
 
