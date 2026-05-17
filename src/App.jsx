@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import logoImg from "./assets/logo.jpg";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  "https://hcrhoccdgdelmbsmbrba.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhjcmhvY2NkZ2RlbG1ic21icmJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NzAyMzcsImV4cCI6MjA5NDU0NjIzN30.Ulcfa_LbgVsqsSt47M1bvDbgLW6nuvVzM-1sEUKj624"
+);
 
 const G = {
   gold: "#FDB927",
@@ -416,11 +422,11 @@ function RestTimer({ sec, onDone }) {
   );
 }
 
-function HomeScreen({ sessions, leaderboard, onStartWorkout, onQuickStart, showToast }) {
+function HomeScreen({ sessions, leaderboard, onStartWorkout, onQuickStart, showToast, profile }) {
   const [period, setPeriod] = useState("weekly");
   const maxVol = Math.max(...WEEKLY_VOLUME);
   const myRank = leaderboard.find(u => u.isMe)?.rank || 3;
-  const myPts = leaderboard.find(u => u.isMe)?.pts || 3650;
+  const myPts = profile?.points ?? leaderboard.find(u => u.isMe)?.pts ?? 3650;
 
   return (
     <div style={{ padding:"22px 18px 0" }}>
@@ -440,7 +446,7 @@ function HomeScreen({ sessions, leaderboard, onStartWorkout, onQuickStart, showT
           <div style={{ position:"absolute", top:-20, right:-20, width:100, height:40, background:G.gold, transform:"rotate(45deg)", opacity:0.12 }}/>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-          <AvatarBadge initials="ME" size={52} gold/>
+          <AvatarBadge initials={profile?.avatar_initials || "ME"} size={52} gold/>
           <div style={{ flex:1 }}>
             <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>YOUR STATS</div>
             <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>{sessions.length} sessions logged</div>
@@ -1555,7 +1561,7 @@ function NutritionScreen({ showToast }) {
   );
 }
 
-function FeedScreen({ showToast }) {
+function FeedScreen({ showToast, profile }) {
   const [feed, setFeed] = useState(FEED_DATA);
   const [activeComment, setActiveComment] = useState(null);
   const [cTxt, setCTxt] = useState("");
@@ -1648,7 +1654,7 @@ function FeedScreen({ showToast }) {
             <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"0 auto 18px" }}/>
             <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:14 }}>SHARE WITH THE SQUAD</div>
             <textarea value={newTxt} onChange={e=>setNewTxt(e.target.value)} placeholder="WHAT DID YOU CRUSH TODAY..." style={{ width:"100%", padding:"12px 13px", borderRadius:7, background:"rgba(0,0,0,0.5)", border:`1px solid ${G.borderB}`, color:"#fff", fontSize:13, outline:"none", resize:"none", height:90, boxSizing:"border-box", lineHeight:1.5, marginBottom:13, fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" }}/>
-            <NeonBtn onClick={()=>{if(!newTxt.trim())return;setFeed(p=>[{id:Date.now().toString(),user:"YOU",av:"ME",time:"JUST NOW",txt:newTxt,likes:0,liked:false,comments:0,type:"post",tag:null},...p]);setNewTxt("");setShowPost(false);showToast("POST SHARED!");}} full>POST TO SQUAD ◆</NeonBtn>
+            <NeonBtn onClick={()=>{if(!newTxt.trim())return;setFeed(p=>[{id:Date.now().toString(),user:profile?.username||"YOU",av:profile?.avatar_initials||"ME",time:"JUST NOW",txt:newTxt,likes:0,liked:false,comments:0,type:"post",tag:null},...p]);setNewTxt("");setShowPost(false);showToast("POST SHARED!");}} full>POST TO SQUAD ◆</NeonBtn>
           </div>
         </div>
       )}
@@ -1656,7 +1662,7 @@ function FeedScreen({ showToast }) {
   );
 }
 
-function MoreScreen({ showToast }) {
+function MoreScreen({ showToast, profile, onSignOut }) {
   const FEATURES = [
     {id:"live", l:"LIVE TRAINING", ico:"🎥", desc:"Virtual 1-on-1 · from $29/mo", col:G.gold, hot:true},
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
@@ -1697,13 +1703,118 @@ function MoreScreen({ showToast }) {
         <span style={{ color:G.textDim, fontSize:13 }}>›</span>
       </div>
       <SectionLabel>Account</SectionLabel>
+      {/* Logged-in user card */}
+      <ChromeCard gold style={{ padding:"13px 14px", marginBottom:10, display:"flex", alignItems:"center", gap:12 }}>
+        <AvatarBadge initials={profile?.avatar_initials||"ME"} size={44} gold/>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>{profile?.username||"ATHLETE"}</div>
+          <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, marginTop:2 }}>{profile?.points||0} pts · MEMBER</div>
+        </div>
+        <div style={{ fontFamily:FONT.display, fontSize:22, color:G.gold, letterSpacing:1 }}>💪</div>
+      </ChromeCard>
       {[{l:"ADMIN DASHBOARD",ico:"👑",col:G.gold},{l:"NOTIFICATION SETTINGS",ico:"🔔",col:G.textMid},{l:"PRIVACY & SECURITY",ico:"🔒",col:G.textMid},{l:"HELP & SUPPORT",ico:"❓",col:G.textMid}].map((item,i)=>(
-        <div key={i} onClick={()=>showToast(item.l)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
+        <div key={item.l} onClick={()=>showToast(item.l)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
           <span style={{ fontSize:18, flexShrink:0 }}>{item.ico}</span>
           <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:item.col, textTransform:"uppercase" }}>{item.l}</div>
           <span style={{ color:G.textDim, fontSize:13 }}>›</span>
         </div>
       ))}
+      <div onClick={onSignOut} style={{ background:"rgba(255,61,90,0.07)", border:`1px solid ${G.red}33`, borderRadius:10, padding:"13px 14px", marginTop:4, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
+        <span style={{ fontSize:18, flexShrink:0 }}>🚪</span>
+        <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.red, textTransform:"uppercase" }}>SIGN OUT</div>
+        <span style={{ color:G.red, fontSize:13, opacity:0.6 }}>›</span>
+      </div>
+    </div>
+  );
+}
+
+function LoginScreen() {
+  const [mode, setMode] = useState("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+
+  const inp = { background:"rgba(0,0,0,0.45)", border:`1px solid ${G.borderB}`, borderRadius:8, padding:"13px 14px", color:"#fff", fontSize:14, outline:"none", width:"100%", boxSizing:"border-box", fontFamily:FONT.body, letterSpacing:1.5 };
+
+  const submit = async () => {
+    if (!email.trim() || !password.trim()) { setError("Please fill in all fields."); return; }
+    setLoading(true); setError(null);
+    try {
+      if (mode === "signup") {
+        const { data, error: e } = await supabase.auth.signUp({ email: email.trim(), password });
+        if (e) throw e;
+        if (data.session === null) setAwaitingConfirm(true);
+      } else {
+        const { error: e } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (e) throw e;
+      }
+    } catch (e) {
+      setError(e.message === "Invalid login credentials" ? "Incorrect email or password." : e.message);
+    } finally { setLoading(false); }
+  };
+
+  const errMap = { "Email not confirmed": "Please confirm your email first, then sign in." };
+
+  if (awaitingConfirm) return (
+    <div style={{ minHeight:"100vh", background:G.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"0 28px", textAlign:"center" }}>
+      <GridBg/>
+      <div style={{ position:"relative", zIndex:1 }}>
+        <div style={{ fontSize:52, marginBottom:16 }}>📧</div>
+        <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", marginBottom:10 }}>CHECK YOUR EMAIL</div>
+        <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:1, lineHeight:1.6, marginBottom:28 }}>
+          We sent a confirmation link to<br/>
+          <span style={{ color:G.gold }}>{email}</span><br/>
+          Click it to activate your account, then sign in.
+        </div>
+        <NeonBtn onClick={()=>{ setAwaitingConfirm(false); setMode("signin"); }} full>BACK TO SIGN IN</NeonBtn>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight:"100vh", background:G.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"0 24px" }}>
+      <GridBg/>
+      <div style={{ position:"relative", zIndex:1, width:"100%", maxWidth:400 }}>
+        <div style={{ display:"flex", justifyContent:"center", marginBottom:22 }}>
+          <img src={logoImg} alt="Social Fit Club" style={{ width:110, height:110, borderRadius:"50%", objectFit:"cover", objectPosition:"center top", boxShadow:`0 0 30px rgba(253,185,39,0.45), 0 0 60px rgba(85,37,131,0.35)`, border:`3px solid ${G.gold}88` }}/>
+        </div>
+        <div style={{ fontFamily:FONT.display, fontSize:28, letterSpacing:4, color:"#fff", textAlign:"center", marginBottom:4 }}>
+          {mode==="signup" ? "JOIN THE CLUB" : "WELCOME BACK"}
+        </div>
+        <div style={{ fontFamily:FONT.body, fontSize:11, letterSpacing:3, color:G.textMid, textAlign:"center", textTransform:"uppercase", marginBottom:28 }}>
+          ◆ &nbsp;SOCIAL FIT CLUB&nbsp; ◆
+        </div>
+
+        <div style={{ display:"flex", flexDirection:"column", gap:11 }}>
+          {mode==="signup" && (
+            <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="DISPLAY NAME" style={inp}/>
+          )}
+          <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="EMAIL" type="email" autoCapitalize="none" style={inp}/>
+          <input value={password} onChange={e=>setPassword(e.target.value)} placeholder="PASSWORD" type="password" style={inp}
+            onKeyDown={e=>e.key==="Enter"&&submit()}/>
+        </div>
+
+        {error && (
+          <div style={{ marginTop:10, padding:"10px 14px", background:"rgba(255,61,90,0.1)", border:`1px solid ${G.red}44`, borderRadius:7, fontFamily:FONT.body, fontSize:12, color:G.red, letterSpacing:1 }}>
+            {errMap[error]||error}
+          </div>
+        )}
+
+        <div style={{ marginTop:18 }}>
+          <NeonBtn onClick={submit} full disabled={loading}>
+            {loading ? "LOADING..." : mode==="signup" ? "CREATE ACCOUNT ◆" : "SIGN IN ◆"}
+          </NeonBtn>
+        </div>
+
+        <div style={{ textAlign:"center", marginTop:18 }}>
+          <button onClick={()=>{ setMode(m=>m==="signin"?"signup":"signin"); setError(null); }} style={{ background:"none", border:"none", fontFamily:FONT.body, fontSize:12, letterSpacing:2, color:G.textMid, textTransform:"uppercase", cursor:"pointer" }}>
+            {mode==="signin" ? "New here? Create an account" : "Already a member? Sign in"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1714,7 +1825,46 @@ export default function SocialFitClub() {
   const [quickStartWorkout, setQuickStartWorkout] = useState(null);
   const [leaderboard, setLeaderboard] = useState(LEADERBOARD);
   const [toast, setToast] = useState(null);
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
   const toastTimer = useRef(null);
+
+  const loadProfile = async (userId) => {
+    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    if (data) { setProfile(data); return data; }
+    return null;
+  };
+
+  const ensureProfile = async (u) => {
+    const existing = await loadProfile(u.id);
+    if (!existing) {
+      const base = u.email.split("@")[0].replace(/[^a-zA-Z0-9 ]/g, " ").trim().toUpperCase().slice(0, 20);
+      const initials = base.split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2) || "ME";
+      const { data } = await supabase.from("profiles").insert({ id: u.id, username: base || "ATHLETE", avatar_initials: initials, points: 0, streak: 0 }).select().single();
+      if (data) setProfile(data);
+    }
+  };
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) loadProfile(session.user.id);
+      setAuthReady(true);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) await ensureProfile(session.user);
+      else { setProfile(null); }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setTab("home");
+    setSessions([]);
+  };
 
   const showToast = msg => {
     clearTimeout(toastTimer.current);
@@ -1746,6 +1896,9 @@ export default function SocialFitClub() {
     { id:"more", ico:"⋯", l:"MORE" },
   ];
 
+  if (!authReady) return <div style={{ minHeight:"100vh", background:G.bg }}/>;
+  if (!user || !profile) return <LoginScreen/>;
+
   return (
     <div style={{ minHeight:"100vh", background:G.bg, color:G.text, fontFamily:FONT.body, maxWidth:480, margin:"0 auto", position:"relative", userSelect:"none" }}>
       <GridBg/>
@@ -1755,12 +1908,12 @@ export default function SocialFitClub() {
       )}
 
       <div style={{ paddingBottom:82, position:"relative", zIndex:2, minHeight:"100vh" }}>
-        {tab==="home" && <HomeScreen sessions={sessions} leaderboard={leaderboard} onStartWorkout={()=>setTab("train")} onQuickStart={handleQuickStart} showToast={showToast}/>}
+        {tab==="home" && <HomeScreen sessions={sessions} leaderboard={leaderboard} onStartWorkout={()=>setTab("train")} onQuickStart={handleQuickStart} showToast={showToast} profile={profile}/>}
         {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)}/>}
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions}/>}
         {tab==="nutrition" && <NutritionScreen showToast={showToast}/>}
-        {tab==="feed" && <FeedScreen showToast={showToast}/>}
-        {tab==="more" && <MoreScreen showToast={showToast}/>}
+        {tab==="feed" && <FeedScreen showToast={showToast} profile={profile}/>}
+        {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut}/>}
       </div>
 
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, zIndex:50 }}>
