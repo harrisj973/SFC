@@ -1238,30 +1238,70 @@ function NutritionScreen({ showToast }) {
   const [scanProgress, setScanProgress] = useState(0);
   const [scanLabel, setScanLabel] = useState("");
   const scanTimerRef = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const scanAnimRef = useRef(null);
+
+  const stopCamera = () => {
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    cancelAnimationFrame(scanAnimRef.current);
+  };
+
+  useEffect(() => () => { stopCamera(); clearInterval(scanTimerRef.current); }, []);
 
   const MEALS = ["BREAKFAST","PRE-WORKOUT","LUNCH","POST-WORKOUT","DINNER","LATE SNACK"];
   const totals = log.reduce((a,f)=>({cal:a.cal+f.cal,pro:a.pro+f.pro,carb:a.carb+f.carb,fat:a.fat+f.fat}),{cal:0,pro:0,carb:0,fat:0});
   const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:5, padding:"9px 12px", color:"#fff", fontSize:13, outline:"none", boxSizing:"border-box", width:"100%", fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" };
 
-  const startCameraScan = () => {
-    setScanMode("camera"); setScanProgress(0); setScanLabel("OPENING CAMERA...");
-    let prog = 0;
-    const labels = ["OPENING CAMERA...","CAMERA ACTIVE — POINT AT MEAL","DETECTING FOOD ITEMS...","ANALYZING PORTIONS...","CALCULATING MACROS...","FINALIZING RESULTS..."];
-    scanTimerRef.current = setInterval(() => {
-      prog += 16;
-      setScanProgress(Math.min(prog, 100));
-      setScanLabel(labels[Math.min(Math.floor(prog/18), labels.length-1)]);
-      if (prog >= 100) {
-        clearInterval(scanTimerRef.current);
-        setTimeout(() => {
-          const r = SCAN_MEALS[Math.floor(Math.random()*SCAN_MEALS.length)];
-          setScanResult(r); setScanMode("result");
-        }, 400);
-      }
-    }, 200);
+  const startCameraScan = async () => {
+    setScanMode("camera"); setScanProgress(0); setScanLabel("REQUESTING CAMERA...");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:"environment", width:{ideal:1280}, height:{ideal:720} } });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+      setScanLabel("POINT CAMERA AT YOUR MEAL");
+      let prog = 0;
+      scanTimerRef.current = setInterval(() => {
+        prog += 3;
+        setScanProgress(Math.min(prog, 100));
+        if (prog >= 100) {
+          clearInterval(scanTimerRef.current);
+          stopCamera();
+          setScanLabel("ANALYZING...");
+          setTimeout(() => {
+            const r = SCAN_MEALS[Math.floor(Math.random()*SCAN_MEALS.length)];
+            setScanResult(r); setScanMode("result");
+          }, 600);
+        }
+      }, 90);
+    } catch {
+      setScanMode("idle");
+      showToast("Camera access denied");
+    }
   };
 
-  const startBarcodeScan = () => { setScanMode("barcode_scanning"); setScanProgress(0); };
+  const startBarcodeScan = async () => {
+    setScanMode("barcode_scanning"); setScanProgress(0);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:"environment" } });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+      if ("BarcodeDetector" in window) {
+        const detector = new window.BarcodeDetector({ formats:["ean_13","upc_a","upc_e","ean_8","code_128","code_39"] });
+        const detect = async () => {
+          if (!videoRef.current || !streamRef.current) return;
+          try {
+            const codes = await detector.detect(videoRef.current);
+            if (codes.length > 0) { stopCamera(); lookupBarcode(codes[0].rawValue); return; }
+          } catch {}
+          scanAnimRef.current = requestAnimationFrame(detect);
+        };
+        scanAnimRef.current = requestAnimationFrame(detect);
+      }
+    } catch {
+      showToast("Camera access denied — enter barcode manually");
+    }
+  };
 
   const lookupBarcode = (code) => {
     setScanMode("analyzing"); setScanLabel("LOOKING UP BARCODE..."); setScanProgress(0);
@@ -1280,7 +1320,7 @@ function NutritionScreen({ showToast }) {
     }, 150);
   };
 
-  const resetScan = () => { clearInterval(scanTimerRef.current); setScanMode("idle"); setScanResult(null); setBarcodeInput(""); setScanProgress(0); };
+  const resetScan = () => { stopCamera(); clearInterval(scanTimerRef.current); setScanMode("idle"); setScanResult(null); setBarcodeInput(""); setScanProgress(0); };
   const addScanResult = () => {
     if (!scanResult) return;
     setLog(p=>[...p,{...scanResult,id:Date.now(),meal:selMeal}]);
@@ -1332,7 +1372,7 @@ function NutritionScreen({ showToast }) {
       {view==="scan" && (
         <div>
           <ChromeCard style={{ overflow:"hidden", marginBottom:12 }}>
-            <div style={{ height:240, background:`linear-gradient(135deg,#04020A,${G.purple}55)`, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:10, position:"relative", overflow:"hidden" }}>
+            <div style={{ minHeight:200, height:scanMode==="camera"||scanMode==="barcode_scanning"?"auto":240, background:`linear-gradient(135deg,#04020A,${G.purple}55)`, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", position:"relative", overflow:"hidden", padding: scanMode==="camera"||scanMode==="barcode_scanning" ? "10px" : 0 }}>
               {scanMode==="idle" && (
                 <div style={{ textAlign:"center" }}>
                   <div style={{ fontSize:44, marginBottom:10 }}>📷</div>
@@ -1340,22 +1380,47 @@ function NutritionScreen({ showToast }) {
                   <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase", marginTop:4 }}>AI identifies food &amp; estimates portions</div>
                 </div>
               )}
-              {scanMode==="camera" && (
-                <div style={{ textAlign:"center" }}>
-                  <div style={{ fontSize:34, marginBottom:8, filter:`drop-shadow(0 0 12px ${G.green})` }}>📷</div>
-                  <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:3, color:G.green, textTransform:"uppercase", marginBottom:8 }}>{scanLabel}</div>
-                  <div style={{ width:180, height:3, background:"rgba(255,255,255,0.1)", borderRadius:2, margin:"0 auto" }}>
-                    <div style={{ height:"100%", width:`${scanProgress}%`, background:`linear-gradient(90deg,${G.green},${G.gold})`, borderRadius:2, transition:"width 0.2s", boxShadow:`0 0 8px ${G.green}` }}/>
+              {(scanMode==="camera"||scanMode==="barcode_scanning") && (
+                <div style={{ width:"100%", position:"relative" }}>
+                  <video ref={videoRef} autoPlay playsInline muted
+                    style={{ width:"100%", height:scanMode==="camera"?200:160, objectFit:"cover", display:"block", borderRadius:8, background:"#000" }}/>
+                  {/* Scanning overlay */}
+                  <div style={{ position:"absolute", inset:0, borderRadius:8, pointerEvents:"none",
+                    border:`2px solid ${scanMode==="camera"?G.gold+"88":G.gold+"66"}` }}>
+                    {scanMode==="camera" && (
+                      <div style={{ position:"absolute", left:0, right:0, height:2,
+                        background:`linear-gradient(90deg,transparent,${G.gold},transparent)`,
+                        animation:"scanLine 1.8s linear infinite" }}/>
+                    )}
+                    {scanMode==="barcode_scanning" && (
+                      <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        <div style={{ width:200, height:56, border:`2px solid ${G.gold}`, borderRadius:4, position:"relative", overflow:"hidden" }}>
+                          <div style={{ position:"absolute", left:0, right:0, height:2,
+                            background:`linear-gradient(90deg,transparent,${G.gold},transparent)`,
+                            animation:"scanLine 1.2s linear infinite" }}/>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontFamily:FONT.mono, fontSize:10, color:G.textDim, marginTop:6 }}>{scanProgress}%</div>
-                </div>
-              )}
-              {scanMode==="barcode_scanning" && (
-                <div style={{ textAlign:"center", padding:"0 20px" }}>
-                  <div style={{ fontSize:32, marginBottom:8 }}>📊</div>
-                  <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:G.gold, textTransform:"uppercase", marginBottom:12 }}>BARCODE SCANNER</div>
-                  <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, marginBottom:14 }}>Point camera at barcode, or enter manually:</div>
-                  <input value={barcodeInput} onChange={e=>setBarcodeInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&barcodeInput.length>=8&&lookupBarcode(barcodeInput)} placeholder="012345678901" style={{ background:"rgba(0,0,0,0.5)", border:`1px solid ${G.gold}55`, borderRadius:7, padding:"10px 14px", color:G.gold, fontSize:16, outline:"none", width:"100%", boxSizing:"border-box", fontFamily:FONT.mono, letterSpacing:3, textAlign:"center", marginBottom:10 }}/>
+                  {/* Label + progress below video */}
+                  <div style={{ marginTop:8 }}>
+                    {scanMode==="camera" && <>
+                      <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:3, color:G.gold, textTransform:"uppercase", textAlign:"center", marginBottom:5 }}>{scanLabel}</div>
+                      <div style={{ height:3, background:"rgba(255,255,255,0.1)", borderRadius:2 }}>
+                        <div style={{ height:"100%", width:`${scanProgress}%`, background:`linear-gradient(90deg,${G.green},${G.gold})`, borderRadius:2, transition:"width 0.1s", boxShadow:`0 0 6px ${G.green}` }}/>
+                      </div>
+                      <div style={{ fontFamily:FONT.mono, fontSize:9, color:G.textDim, marginTop:3, textAlign:"center" }}>{scanProgress}%</div>
+                    </>}
+                    {scanMode==="barcode_scanning" && <>
+                      <div style={{ fontFamily:FONT.display, fontSize:10, letterSpacing:2, color:G.gold, textTransform:"uppercase", textAlign:"center", marginBottom:6 }}>
+                        {"BarcodeDetector" in window ? "ALIGN BARCODE IN BOX — AUTO-DETECTING" : "ENTER BARCODE MANUALLY"}
+                      </div>
+                      <input value={barcodeInput} onChange={e=>setBarcodeInput(e.target.value)}
+                        onKeyDown={e=>e.key==="Enter"&&barcodeInput.length>=6&&lookupBarcode(barcodeInput)}
+                        placeholder="012345678901"
+                        style={{ background:"rgba(0,0,0,0.5)", border:`1px solid ${G.gold}55`, borderRadius:7, padding:"8px 10px", color:G.gold, fontSize:15, outline:"none", width:"100%", boxSizing:"border-box", fontFamily:FONT.mono, letterSpacing:3, textAlign:"center" }}/>
+                    </>}
+                  </div>
                 </div>
               )}
               {scanMode==="analyzing" && (
@@ -1398,7 +1463,7 @@ function NutritionScreen({ showToast }) {
               {scanMode==="camera" && <NeonBtn onClick={resetScan} outline full>CANCEL</NeonBtn>}
               {scanMode==="barcode_scanning" && (
                 <div style={{ display:"flex", gap:9 }}>
-                  <NeonBtn onClick={()=>lookupBarcode(barcodeInput||Object.keys(BARCODE_DB)[Math.floor(Math.random()*8)])} style={{ flex:2 }}>🔍 LOOK UP</NeonBtn>
+                  <NeonBtn onClick={()=>lookupBarcode(barcodeInput||Object.keys(BARCODE_DB)[Math.floor(Math.random()*Object.keys(BARCODE_DB).length)])} style={{ flex:2 }}>🔍 LOOK UP</NeonBtn>
                   <NeonBtn onClick={resetScan} outline style={{ flex:1 }}>CANCEL</NeonBtn>
                 </div>
               )}
@@ -1717,6 +1782,7 @@ export default function SocialFitClub() {
       <style>{`
         @keyframes toastIn { from{opacity:0;transform:translate(-50%,-10px)} to{opacity:1;transform:translate(-50%,0)} }
         @keyframes heatPulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
+        @keyframes scanLine { from{top:0} to{top:100%} }
         * { -webkit-tap-highlight-color: transparent; }
         input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; }
         input::placeholder, textarea::placeholder { color: #3D3360; letter-spacing: 1px; }
