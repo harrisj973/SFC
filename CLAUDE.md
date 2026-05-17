@@ -11,11 +11,68 @@ npm run lint      # ESLint check
 npm run preview   # preview production build locally
 ```
 
-No test suite is configured.
+No test suite is configured. Deployment is via GitHub Actions → GitHub Pages on push to `claude/social-fit-club-ui-XeD03`.
 
 ## Architecture
 
-The entire app lives in a **single file**: `src/App.jsx` (~1700 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+The entire app lives in a **single file**: `src/App.jsx` (~1900 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+
+### Backend: Supabase
+
+The app uses Supabase (PostgreSQL + Auth + real-time) as its backend. The client is initialised at the top of `App.jsx`:
+
+```js
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+```
+
+**Tables:**
+
+| Table | Key columns | RLS |
+|---|---|---|
+| `profiles` | `id`, `username`, `avatar_initials`, `points`, `streak`, `sessions_count` | Users can read all rows; users can only update their own row |
+| `sessions` | `user_id`, `name`, `exercises` (jsonb), `sets`, `volume`, `points`, `date` | Users can only read/insert their own rows |
+
+Real-time is enabled on `profiles` for the live leaderboard. If either table is missing `sessions_count`, run:
+
+```sql
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS sessions_count integer NOT NULL DEFAULT 0;
+ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
+```
+
+### Auth flow
+
+`LoginScreen` (defined just before the default export) handles sign-in / sign-up with an email-confirmation branch (`awaitingConfirm` state). The root `SocialFitClub` component gates rendering: blank while `authReady` is false, `<LoginScreen/>` when no authenticated user.
+
+`ensureProfile` is called on every `SIGNED_IN` event — it creates a `profiles` row on first login and then calls `loadSessions` + `loadLeaderboard`.
+
+### Navigation model
+
+`SocialFitClub` owns all top-level state and renders one screen at a time based on a `tab` string. There is no router. Tab switching is done by calling `setTab(id)`.
+
+Tabs: `home`, `train`, `progress`, `nutrition`, `feed`, `more`.
+
+Root state passed down as props:
+- `user` / `profile` — Supabase auth user and profiles row
+- `sessions` — array of saved workout objects `{ name, exs, sets, vol, pts, date }`
+- `leaderboard` — sorted array built from live `profiles` query; real-time subscription refreshes it on any profile change
+
+### Screen components
+
+| Component | Key props |
+|---|---|
+| `HomeScreen` | `sessions`, `leaderboard`, `profile`, `onStartWorkout`, `onQuickStart` |
+| `TrainScreen` | `onSave`, `quickStart`, `onClearQuickStart` |
+| `ProgressScreen` | `sessions` |
+| `NutritionScreen` | — (real camera via `getUserMedia` + `BarcodeDetector`) |
+| `FeedScreen` | `profile` |
+| `MoreScreen` | `profile`, `onSignOut` |
+
+### Data flow for saving a workout
+
+`handleSave` in `SocialFitClub`:
+1. Optimistic local update: prepend to `sessions`, update `profile.points` + `profile.sessions_count`, re-sort leaderboard
+2. Parallel Supabase writes: `sessions.insert` + `profiles.update` (points + sessions_count)
+3. Real-time subscription on `profiles` fires for all connected clients, triggering `loadLeaderboard`
 
 ### Design tokens
 
@@ -24,51 +81,24 @@ Two global constants at the top of `App.jsx` drive all styling:
 - **`G`** — colour palette (gold `#FDB927`, purple `#552583`, backgrounds, text tints, glow shadow strings)
 - **`FONT`** — three font stacks (`display` = Bebas Neue, `body` = Barlow Condensed, `mono`)
 
-All components consume `G` and `FONT` directly — never hardcode colours or fonts.
+Never hardcode colours or fonts — always use `G` and `FONT`.
 
-### Navigation model
+### Static / fixture data
 
-`SocialFitClub` (the default export) owns all top-level state and renders one screen at a time based on a `tab` string. There is no router. Tab switching is done by calling `setTab(id)`.
-
-Current tabs: `home`, `train`, `progress`, `nutrition`, `feed`, `more`.
-
-State owned at root and passed down as props:
-- `sessions` — array of saved workout objects `{ name, exs, sets, vol, pts, date }`
-- `leaderboard` — sorted array, mutated on session save
-- `quickStartWorkout` — pre-filled workout passed from HomeScreen to TrainScreen
-
-### Screen components
-
-Each screen is a plain function component receiving `showToast` plus any data it needs:
-
-| Component | Key props |
-|---|---|
-| `HomeScreen` | `sessions`, `leaderboard`, `onStartWorkout`, `onQuickStart` |
-| `TrainScreen` | `onSave`, `quickStart`, `onClearQuickStart` |
-| `ProgressScreen` | `sessions` |
-| `NutritionScreen` | — |
-| `FeedScreen` | — |
-| `MoreScreen` | — |
-
-### Static data
-
-All fixture/seed data is declared as module-level constants: `EXERCISES`, `LEADERBOARD`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SCAN_MEALS`, `MACROS_GOAL`, `WEEKLY_VOLUME`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, etc. None of it is fetched from an API.
+Module-level constants: `EXERCISES`, `LEADERBOARD` (kept as fallback reference but not used at runtime), `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SCAN_MEALS`, `MACROS_GOAL`, `WEEKLY_VOLUME`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`.
 
 ### Muscle Heat Map
 
-`calcMuscleScores(sessions)` aggregates workout data into a `{ muscleKey: 0–100 }` score map. `getHeatColor(score)` maps scores to a blue→yellow→red gradient via `lerpColor`. `MuscleHeatMap` renders an SVG body (viewBox `0 0 200 440`) with `BodyBase` providing the dark silhouette and individual `<g>` patches per muscle group. Rendered inside `ProgressScreen` under the "HEAT MAP" sub-tab.
+`calcMuscleScores(sessions)` → `{ muscleKey: 0–100 }`. `getHeatColor(score)` → blue→yellow→red via `lerpColor`. `MuscleHeatMap` renders an SVG body (`viewBox="0 0 200 440"`). AI alerts use raw (unfactored) scores; the period factor only scales the display colours.
 
 ### Shared atoms
 
-Reusable primitives (all in `App.jsx`): `ChromeCard`, `NeonBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `GlowDot`, `RestTimer`.
-
-### Fonts
-
-Loaded via Google Fonts in `index.html`. The viewport meta uses `viewport-fit=cover` for iPhone safe-area support. Max width is capped at `480px` with `margin: 0 auto` for mobile-first layout.
+`ChromeCard`, `NeonBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `GlowDot`, `RestTimer` — all defined in `App.jsx`.
 
 ### Styling conventions
 
-- All styles are inline objects passed to the `style` prop
-- Glow effects use `boxShadow` with rgba values from `G` (e.g. `G.goldGlow`, `G.purpleGlow`)
+- All styles are inline objects on the `style` prop
+- Glow effects use `boxShadow` with values from `G` (e.g. `G.goldGlow`, `G.purpleGlow`)
 - Animations declared in a `<style>` tag at the bottom of `SocialFitClub`'s render
-- No CSS classes are used except for the minimal reset in `src/index.css`
+- No CSS classes except the minimal reset in `src/index.css`
+- Max width `480px`, `margin: 0 auto`, mobile-first; `viewport-fit=cover` in `index.html`
