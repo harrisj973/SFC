@@ -334,8 +334,8 @@ function calcMuscleScores(sessions) {
     for (const ex of (sess.exs || [])) {
       const map = EXERCISE_MUSCLE_MAP[ex.name];
       if (!map) continue;
-      const sets = ex.sets.filter(s => s.r && s.w).length || 1;
-      const vol  = ex.sets.reduce((s,set) => s + (parseFloat(set.w)||0)*(parseInt(set.r)||0), 0);
+      const sets = ex.sets.filter(s => s.r && s.w && s.type !== "warmup").length || 1;
+      const vol  = ex.sets.filter(s => s.type !== "warmup").reduce((s,set) => s + (parseFloat(set.w)||0)*(parseInt(set.r)||0), 0);
       for (const [muscle, factor] of Object.entries(map)) {
         raw[muscle] = (raw[muscle]||0) + (sets*12 + vol*0.04) * factor;
       }
@@ -405,7 +405,7 @@ function getExerciseHistory(exName, sessions) {
 }
 
 function compressImage(file) {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
@@ -419,6 +419,7 @@ function compressImage(file) {
       URL.revokeObjectURL(url);
       resolve(canvas.toDataURL("image/jpeg", 0.65));
     };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Image failed to load")); };
     img.src = url;
   });
 }
@@ -860,7 +861,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   };
   const loadTemplate = (tmpl) => {
     setSessName(tmpl.name);
-    setExs(tmpl.exs.map((name, i) => ({ id: i+1, name, sets:[{r:"",w:""}], rest:60, q:name, sugg:false })));
+    setExs(tmpl.exs.map((name, i) => ({ id: i+1, name, sets:[{r:"",w:"",type:"working"}], rest:60, q:name, sugg:false })));
     nextIdRef.current = tmpl.exs.length + 1;
     setSubTab("track");
     showToast(`✓ ${tmpl.name} loaded!`);
@@ -1417,7 +1418,7 @@ function MuscleHeatMap({ sessions }) {
     for (const sess of sessions) {
       for (const ex of (sess.exs||[])) {
         const map = EXERCISE_MUSCLE_MAP[ex.name];
-        if (map && map[key]) total += ex.sets.filter(s=>s.r&&s.w).length;
+        if (map && map[key]) total += ex.sets.filter(s=>s.r&&s.w&&s.type!=="warmup").length;
       }
     }
     return total;
@@ -1702,6 +1703,7 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
   const [logWeight, setLogWeight] = useState("");
   const [logBf, setLogBf] = useState("");
   const [logPhoto, setLogPhoto] = useState(null);
+  const [logPhotoLoading, setLogPhotoLoading] = useState(false);
   const [photoLightbox, setPhotoLightbox] = useState(null);
 
   const saveBodyEntry = () => {
@@ -1837,13 +1839,16 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
                 <input type="number" placeholder="Body fat % (opt)" value={logBf} onChange={e=>setLogBf(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveBodyEntry()} style={inp}/>
               </div>
               <label style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8, cursor:"pointer" }}>
-                <div style={{ flex:1, background:"rgba(0,0,0,0.4)", border:`1px solid ${logPhoto?G.gold:G.borderB}`, borderRadius:6, padding:"9px 12px", color:logPhoto?G.gold:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:1, textTransform:"uppercase", display:"flex", alignItems:"center", gap:8 }}>
-                  <span style={{ fontSize:18 }}>📷</span>
-                  {logPhoto ? "PHOTO ADDED ✓" : "ADD PROGRESS PHOTO (OPT)"}
+                <div style={{ flex:1, background:"rgba(0,0,0,0.4)", border:`1px solid ${logPhoto?G.gold:G.borderB}`, borderRadius:6, padding:"9px 12px", color:logPhoto?G.gold:logPhotoLoading?"#74B9FF":G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:1, textTransform:"uppercase", display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:18 }}>{logPhotoLoading?"⏳":"📷"}</span>
+                  {logPhotoLoading ? "COMPRESSING..." : logPhoto ? "PHOTO ADDED ✓" : "ADD PROGRESS PHOTO (OPT)"}
                 </div>
-                <input type="file" accept="image/*" capture="environment" style={{ display:"none" }} onChange={async e=>{
+                <input type="file" accept="image/*" capture="environment" style={{ display:"none" }} disabled={logPhotoLoading} onChange={async e=>{
                   const f=e.target.files?.[0]; if(!f) return;
-                  const b64=await compressImage(f); setLogPhoto(b64);
+                  setLogPhotoLoading(true);
+                  try { const b64=await compressImage(f); setLogPhoto(b64); }
+                  catch { /* ignore — user sees no change */ }
+                  finally { setLogPhotoLoading(false); }
                 }}/>
               </label>
               {logPhoto && (
@@ -2059,7 +2064,7 @@ function NutritionScreen({ showToast }) {
 
   const waterOz = waterEntries.reduce((a, v) => a + v, 0);
   const waterPct = Math.min(100, (waterOz / waterGoal) * 100);
-  const addWater = (oz) => { setWaterEntries(p => [...p, oz]); showToast(`💧 +${oz}oz logged!`); };
+  const addWater = (oz) => { if (oz <= 0) return; setWaterEntries(p => [...p, oz]); showToast(`💧 +${oz}oz logged!`); };
   const undoWater = () => setWaterEntries(p => p.slice(0, -1));
   const saveGoal = () => {
     const g = Math.max(8, parseInt(goalDraft) || 64);
@@ -4249,7 +4254,12 @@ function SocialFitClubInner() {
       .order("created_at", { ascending: false });
     if (data) {
       const tagMap = (() => { try { return JSON.parse(localStorage.getItem("sfc_session_tags") || "{}"); } catch { return {}; } })();
-      setSessions(data.map(s => ({ id:s.id, name:s.name, exs:s.exercises, sets:s.sets, vol:s.volume, pts:s.points, date:s.date, createdAt:s.created_at, tag: tagMap[s.id] || undefined })));
+      const mapped = data.map(s => ({ id:s.id, name:s.name, exs:s.exercises, sets:s.sets, vol:s.volume, pts:s.points, date:s.date, createdAt:s.created_at, tag: tagMap[s.id] || undefined }));
+      // Prune stale tag entries for sessions that no longer exist
+      const validIds = new Set(data.map(s => String(s.id)));
+      const pruned = Object.fromEntries(Object.entries(tagMap).filter(([k]) => validIds.has(k)));
+      try { localStorage.setItem("sfc_session_tags", JSON.stringify(pruned)); } catch { /* ignore */ }
+      setSessions(mapped);
     }
     else if (error) setDataLoadFailed(true);
   };
