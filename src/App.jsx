@@ -1003,7 +1003,7 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
         </div>
       </ChromeCard>
 
-      {visibleWidgets.map((id, idx) => {
+      {visibleWidgets.map((id) => {
         const visIdx = visibleWidgets.indexOf(id);
         const canUp = visIdx > 0;
         const canDown = visIdx < visibleWidgets.length - 1;
@@ -3292,25 +3292,28 @@ function FeedScreen({ showToast, profile, sessions = [] }) {
       return { ...ch, completed: true, completedAt: new Date(nowMs).toISOString() };
     });
     if (!completions.length) return;
-    setChallenges(updated);
-    setFeed(p => [
-      ...completions.map(ch => ({
-        id: `ch_done_${ch.id}`,
-        user: profile?.username || "YOU",
-        av: profile?.avatar_initials || "ME",
-        time: "JUST NOW",
-        txt: ch.type === "pr"
-          ? `Challenge complete! Hit a ${ch.target}lb ${ch.exercise} 1RM. 🏆`
-          : ch.type === "vol"
-          ? `Challenge complete! Moved ${Number(ch.target).toLocaleString()}lbs of volume in 7 days. 💪`
-          : `Challenge complete! Logged ${ch.target} sessions in 7 days. 🔥`,
-        likes: 0, liked: false, commentList: [],
-        type: "milestone", tag: "CHALLENGE COMPLETE",
-        reactions: { "🔥":0, "💪":0, "👊":0, "⚡":0, "🙌":0 }, myReactions: [],
-      })),
-      ...p,
-    ]);
-    completions.forEach(() => showToast("🏆 CHALLENGE COMPLETE!"));
+    // Deferred to avoid setState-in-effect cascading renders
+    setTimeout(() => {
+      setChallenges(updated);
+      setFeed(p => [
+        ...completions.map(ch => ({
+          id: `ch_done_${ch.id}`,
+          user: profile?.username || "YOU",
+          av: profile?.avatar_initials || "ME",
+          time: "JUST NOW",
+          txt: ch.type === "pr"
+            ? `Challenge complete! Hit a ${ch.target}lb ${ch.exercise} 1RM. 🏆`
+            : ch.type === "vol"
+            ? `Challenge complete! Moved ${Number(ch.target).toLocaleString()}lbs of volume in 7 days. 💪`
+            : `Challenge complete! Logged ${ch.target} sessions in 7 days. 🔥`,
+          likes: 0, liked: false, commentList: [],
+          type: "milestone", tag: "CHALLENGE COMPLETE",
+          reactions: { "🔥":0, "💪":0, "👊":0, "⚡":0, "🙌":0 }, myReactions: [],
+        })),
+        ...p,
+      ]);
+      completions.forEach(() => showToast("🏆 CHALLENGE COMPLETE!"));
+    }, 0);
   }, [sessions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleLike = id => setFeed(p => p.map(post =>
@@ -5100,7 +5103,8 @@ function SocialFitClubInner() {
     // Clear all user-specific localStorage so the next user on this device starts clean
     ["sfc_feed","sfc_body_log","sfc_goals","sfc_macro_coach","sfc_pledge","sfc_streak_freezes",
      "sfc_notif_prefs","sfc_session_tags","sfc_templates","sfc_wip_session",
-     "sfc_nutrition_log","sfc_supplement_log","sfc_water_log","sfc_water_goal"].forEach(k => localStorage.removeItem(k));
+     "sfc_nutrition_log","sfc_supplement_log","sfc_water_log","sfc_water_goal",
+     "sfc_challenges","sfc_meal_templates"].forEach(k => localStorage.removeItem(k));
     setTab("home");
     setSessions([]);
     setProfile(null);

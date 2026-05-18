@@ -10,7 +10,7 @@ self.addEventListener('message', e => {
     pendingTimers[id] = setTimeout(() => {
       self.registration.showNotification(title, {
         body,
-        icon: '/favicon.ico',
+        icon: '/favicon.svg',
         tag: id,
         renotify: true,
         requireInteraction: false,
