@@ -820,11 +820,13 @@ function GridBg() {
 
 function RestTimer({ sec, onDone }) {
   const [rem, setRem] = useState(sec);
+  const onDoneRef = useRef(onDone);
+  useEffect(() => { onDoneRef.current = onDone; }); // keep ref current without restarting timer
   useEffect(() => {
     setRem(sec); // eslint-disable-line react-hooks/set-state-in-effect
-    const t = setInterval(() => setRem(r => { if (r <= 1) { clearInterval(t); onDone(); return 0; } return r - 1; }), 1000);
+    const t = setInterval(() => setRem(r => { if (r <= 1) { clearInterval(t); onDoneRef.current(); return 0; } return r - 1; }), 1000);
     return () => clearInterval(t);
-  }, [sec, onDone]);
+  }, [sec]);
   const pct = (rem / sec) * 100;
   const m = Math.floor(rem / 60);
   const s = (rem % 60).toString().padStart(2, "0");
@@ -4596,13 +4598,26 @@ function SocialFitClubInner() {
   };
 
   const handleSave = async (sess) => {
+    // Calculate new streak: check if most recent prior session was today or yesterday
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const lastDate = sessions[0]?.createdAt?.slice(0, 10) || sessions[0]?.date;
+    let newStreak;
+    if (lastDate === todayStr) {
+      newStreak = profile?.streak || 1; // already logged today, streak unchanged
+    } else if (lastDate === yesterdayStr) {
+      newStreak = (profile?.streak || 0) + 1;
+    } else {
+      newStreak = 1; // first session or gap > 1 day
+    }
+
     // Optimistic local update
     setSessions(p => [{ ...sess, createdAt: new Date().toISOString() }, ...p]);
     const newPts = (profile?.points || 0) + sess.pts;
     const newSessionsCount = (profile?.sessions_count || 0) + 1;
-    setProfile(p => ({ ...p, points: newPts, sessions_count: newSessionsCount }));
+    setProfile(p => ({ ...p, points: newPts, sessions_count: newSessionsCount, streak: newStreak }));
     setLeaderboard(p =>
-      p.map(u => u.isMe ? { ...u, pts: newPts, sessions: u.sessions + 1 } : u)
+      p.map(u => u.isMe ? { ...u, pts: newPts, sessions: u.sessions + 1, streak: newStreak } : u)
        .sort((a,b) => b.pts - a.pts)
        .map((u,i) => ({ ...u, rank: i+1 }))
     );
@@ -4619,7 +4634,7 @@ function SocialFitClubInner() {
         points: sess.pts,
         date: sess.date,
       }).select("id").single(),
-      supabase.from("profiles").update({ points: newPts, sessions_count: newSessionsCount }).eq("id", user.id),
+      supabase.from("profiles").update({ points: newPts, sessions_count: newSessionsCount, streak: newStreak }).eq("id", user.id),
     ]);
     if (sErr || pErr) showToast("⚠️ SYNC ERROR — DATA MAY NOT BE SAVED");
     if (sData?.id && sess.tag) {
