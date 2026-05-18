@@ -15,7 +15,7 @@ No test suite is configured. Deployment is via GitHub Actions → GitHub Pages o
 
 ## Architecture
 
-The entire app lives in a **single file**: `src/App.jsx` (~3600 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+The entire app lives in a **single file**: `src/App.jsx` (~3900 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
 
 `SocialFitClubInner` contains all app logic and is wrapped by an `ErrorBoundary` class component (exported as `SocialFitClub`). Unhandled render errors show a styled "SOMETHING WENT WRONG" screen with a reload button.
 
@@ -62,9 +62,11 @@ Root state passed as props:
 
 | Prop | Type | Used by |
 |---|---|---|
-| `sessions` | `{ id, name, exs, sets, vol, pts, date, createdAt }[]` | Home, Train, Progress, More |
+| `sessions` | `{ id, name, exs, sets, vol, pts, date, createdAt, tag? }[]` | Home, Train, Progress, More |
 | `profile` | Supabase profiles row | Home, Progress, Feed, More |
 | `leaderboard` | sorted profiles array with `{ rank, name, pts, sessions, streak, av, isMe }` | Home |
+
+`tag` on sessions is a `SESSION_TYPES` id string — not stored in Supabase, persisted in `sfc_session_tags` localStorage and merged in on `loadSessions`.
 
 ### Screen components and key props
 
@@ -83,8 +85,11 @@ Root state passed as props:
 
 `handleSave` in `SocialFitClubInner`:
 1. Optimistic update: prepend `{ ...sess, createdAt: new Date().toISOString() }` to `sessions`, bump `profile.points` + `profile.sessions_count`, re-sort leaderboard
-2. Parallel Supabase writes: `sessions.insert` + `profiles.update`
-3. Real-time subscription on `profiles` triggers `loadLeaderboard` for all connected clients
+2. Parallel Supabase writes: `sessions.insert(...).select("id").single()` + `profiles.update`
+3. After insert resolves, if `sess.tag` is set, save `{ [supabaseId]: tag }` to `sfc_session_tags` in localStorage
+4. Real-time subscription on `profiles` triggers `loadLeaderboard` for all connected clients
+
+`loadSessions` merges tags from `sfc_session_tags` and prunes stale entries for deleted sessions.
 
 `handleDeleteSession(sessId)`: optimistic removal from `sessions` + decrements `profile.points`/`sessions_count`, then `sessions.delete().eq("id", sessId)` + `profiles.update`.
 
@@ -95,35 +100,58 @@ Root state passed as props:
 | Key | Content | Expires |
 |---|---|---|
 | `sfc_nutrition_log` | `{ date: "YYYY-MM-DD", items: [] }` | Auto-cleared when date changes |
-| `sfc_wip_session` | `{ name, exs }` in-progress workout | Cleared on save |
+| `sfc_wip_session` | `{ name, exs, tag }` in-progress workout | Cleared on save |
 | `sfc_feed` | full feed array (posts + like counts + `commentList`) | Never |
 | `sfc_streak_freezes` | string-encoded integer | Never |
 | `sfc_goals` | `{ weekly, volume, streak }` — user-set numeric targets | Never |
 | `sfc_pledge` | string-encoded integer 1–7, weekly session commitment | Never |
-| `sfc_body_log` | `[{ date, weight, bf }]` body check-in history, newest first | Never |
+| `sfc_body_log` | `[{ date, weight, bf, photo? }]` body check-in history, newest first | Never |
 | `sfc_ble_device` | last paired Bluetooth device name | Never |
 | `sfc_supplement_log` | `{ date: "YYYY-MM-DD", items: [] }` supplement log | Auto-cleared when date changes |
 | `sfc_notif_prefs` | `{ enabled, reminderTime, streakAlert }` notification settings | Never |
+| `sfc_session_tags` | `{ [supabaseSessionId]: typeId }` workout type tag map | Never (pruned on loadSessions) |
+| `sfc_water_log` | `{ date: "YYYY-MM-DD", entries: [oz, ...] }` | Auto-cleared when date changes |
+| `sfc_water_goal` | number (daily oz target, default 64) | Never |
+| `sfc_macro_coach` | MacroCoach setup + history (see MacroCoachModal) | Never |
 
 ### Module-level helpers
 
 - **`calcWeeklyVolume(sessions)`** — 7-element array (Mon–Sun) of volume for the current calendar week. Used by `HomeScreen`.
-- **`calcBestWeekVolume(sessions)`** — single number: highest total volume in any Mon–Sun week across all sessions. Used by `ProgressScreen` BEST WEEK stat.
-- **`calcMuscleScores(sessions)`** → `{ muscleKey: 0–100 }`. Passed to `MoreScreen` as `muscleScores` for AI Coach and heat map.
+- **`calcBestWeekVolume(sessions)`** — highest total volume in any Mon–Sun week. Used by `ProgressScreen`.
+- **`calcMuscleScores(sessions)`** → `{ muscleKey: 0–100 }`. Excludes warmup sets. Passed to `MoreScreen` for AI Coach and heat map.
 - **`getHeatColor(score)`** → blue→yellow→red via `lerpColor`. Used by `MuscleHeatMap`.
+- **`getLastExercisePerformance(exName, sessions)`** → `{ date, sets }` of the most recent session containing that exercise. Excludes warmup sets. Used by TrainScreen LAST SESSION strip.
+- **`progressWeight(w)`** → rounds `w + 5` to nearest 2.5 lbs. Used for progressive overload suggestions.
+- **`getExerciseHistory(exName, sessions)`** → chronological array of `{ date, weight, reps, est1rm }` (best non-warmup set per session). Powers the PRs drill-down strength chart.
+- **`compressImage(file)`** → Promise resolving to base64 JPEG (max 800px, 65% quality). Rejects on `onerror`. Used by ProgressScreen progress photo capture.
+- **`calcTDEE(sex, age, heightIn, weightLbs, activity)`** → Mifflin-St Jeor TDEE. Used by `MacroCoachModal`.
+- **`calcMacrosFromCalories(calories, weightLbs)`** → `{ protein, fat, carbs }`. Used by `MacroCoachModal`.
+- **`getActiveMacroTargets()`** → returns Macro Coach targets if setup complete, else falls back to `MACROS_GOAL`. Used by `NutritionScreen` daily summary.
+
+### TrainScreen sub-tabs and set types
+
+Four sub-tabs: `TRACK`, `HISTORY`, `PRs`, `PROGRAMS`.
+
+**Set types** — every set has a `type` field: `"working"` (default, gold badge), `"warmup"` (blue `W` badge), `"drop"` (red `D` badge). Tapping the badge cycles through types. Warmup sets are excluded from: `totSets`, `totVol`, `pts`, `calcPRs`, live PR detection, `getLastExercisePerformance`, `getExerciseHistory`, `calcMuscleScores`, and `MuscleHeatMap`. Drop sets count as working volume.
+
+**Progressive overload** — when an exercise is selected via `ExercisePicker` or autocomplete (`selectExercise`), the last session's sets are loaded with weights progressed by `+5 lbs`. A LAST SESSION strip shows the previous performance with "+5 LBS ⬆" and "SAME" quick-load buttons.
+
+**Session type tagging** — `SESSION_TYPES` constant (Push, Pull, Legs, Upper, Lower, Full Body, Cardio, Core, Recovery, each with a unique color). `sessTag` state drives chip picker in TRACK tab. Filter chips on HISTORY tab only appear once at least one session is tagged.
+
+**PRs drill-down** — tapping a PR card opens a detail view with: gold PR badge, since-first gain, SVG 1RM trend chart (area fill + polyline + labeled endpoints), session-by-session history list, "TRAIN THIS EXERCISE" button.
 
 ### ProgressScreen internal tabs
 
 Three tabs via `activeTab` state:
-- **`stats`**: real computed stats (sessions, total vol, best week vol, avg sets/session, avg vol/session, this-month sessions, top exercise, today's calories/protein from nutrition log) + user-input body composition (`sfc_body_log`).
+- **`stats`**: real computed stats + today's water (`sfc_water_log`) + body composition.
 - **`streak`**: streak counter, freeze mechanic (`sfc_streak_freezes`), milestone road.
 - **`heatmap`**: `MuscleHeatMap` SVG component (`viewBox="0 0 200 440"`).
 
-Body composition section reads/writes `sfc_body_log`. Each entry: `{ date: "YYYY-MM-DD", weight: number, bf: number|null }`. Progress rings use actual latest values; delta shown vs. first entry.
+**Body composition** — `sfc_body_log` entries are `{ date, weight, bf?, photo? }`. The check-in form includes an optional photo capture (`<input type="file" accept="image/*" capture="environment">`), compressed via `compressImage`. Thumbnails shown in history; tap opens a full-screen lightbox. When ≥2 entries have photos, a BEFORE / AFTER comparison card appears.
+
+**Water tracker** — quick-add buttons (8, 12, 16, 20 oz) + custom input. Daily total shown in stats grid. State: `waterEntries` (array of oz values per entry, supports undo via pop), `waterGoal` (from `sfc_water_goal`).
 
 ### MoreScreen modals
-
-Seven modals can open from `MoreScreen`, all defined just before it:
 
 | Modal | Tile | localStorage | Props |
 |---|---|---|---|
@@ -132,10 +160,13 @@ Seven modals can open from `MoreScreen`, all defined just before it:
 | `WeeklyReportModal` | WEEKLY REPORTS | — | `sessions`, `muscleScores`, `onClose` |
 | `AccountabilityModal` | ACCOUNTABILITY | `sfc_pledge` | `sessions`, `profile`, `onClose` |
 | `HealthConnectModal` | HEALTH CONNECT | `sfc_ble_device` | `onClose` |
+| `MacroCoachModal` | MACRO COACH | `sfc_macro_coach` | `onClose` |
 | `AdminDashboardModal` | ADMIN DASHBOARD (admin only) | — | `onClose` |
 | `NotificationsModal` | NOTIFICATIONS | `sfc_notif_prefs` | `sessions`, `onClose` |
 
-The remaining 2 tiles (Merch, Form Check) show a "COMING SOON" toast.
+`MacroCoachModal` has a multi-step setup wizard (sex, age, height, weight, activity, goal) that calculates TDEE and macro splits, stores results in `sfc_macro_coach`, and runs a weekly check-in adjustment algorithm. Uses `const [nowMs] = useState(() => Date.now())` to avoid the `react-hooks/purity` ESLint error — do not replace with inline `Date.now()`.
+
+The remaining tiles (Merch, Form Check) show a "COMING SOON" toast.
 
 ### Health Connect (Web Bluetooth)
 
@@ -147,20 +178,26 @@ The remaining 2 tiles (Merch, Form Check) show a "COMING SOON" toast.
 
 ### FeedScreen
 
-Posts stored in `sfc_feed` as `[{ id, user, av, time, txt, likes, liked, commentList: [], type, tag }]`. `type` is `"post"` | `"pr"` | `"milestone"`. Compose sheet has a type selector; PR and MILESTONE types show a tag input that populates the gold banner. Comments are stored in `commentList` as `[{ user, av, txt, time }]` and displayed when the comment section is expanded.
+Posts stored in `sfc_feed` as `[{ id, user, av, time, txt, likes, liked, commentList: [], type, tag }]`. `type` is `"post"` | `"pr"` | `"milestone"`. Compose sheet has a type selector; PR and MILESTONE types show a tag input that populates the gold banner. Comments are stored in `commentList` as `[{ user, av, txt, time }]`.
 
 ### NutritionScreen — external integrations
 
 - **Barcode scan**: `BarcodeDetector` API (Chrome/Edge only; falls back to manual entry) → Open Food Facts API → UPC Item DB secondary API → `BARCODE_DB` (26-product local fallback). If still not found, `barcode_not_found` state renders a manual macro entry form. `scanTarget` (`"food"` | `"supplement"`) controls which log receives the result.
 - **Meal scan**: captures live video to `<canvas>` → JPEG base64 → `analyze-meal` Edge Function → Claude Haiku vision.
 
+The daily summary card uses `getActiveMacroTargets()` instead of hardcoded `MACROS_GOAL`, showing an `⚡ ADAPTIVE` badge when Macro Coach is configured.
+
+### NutritionScreen tabs
+
+Four tabs: `📋 LOG` (food by meal), `📷 SCAN` (camera AI + barcode), `🔍 SEARCH` (food DB with category filter), `💊 SUPPS` (supplement tracker).
+
+The `scanTarget` state (`"food"` | `"supplement"`) controls where scan results are routed. When `"supplement"`, only the barcode button is shown (no meal photo scan), and results go to `suppLog` / `sfc_supplement_log`. `SUPPLEMENTS_DB` has 25 entries.
+
 ### Service Worker
 
 `public/sw.js` is registered in `src/main.jsx` on every app load. It listens for `postMessage` events:
 - `SCHEDULE_NOTIFICATION` — schedules a `setTimeout` and calls `self.registration.showNotification()`
 - `CANCEL_NOTIFICATION` — clears the pending timer and closes any existing notification with that tag
-
-`NotificationsModal` posts to the SW via `navigator.serviceWorker.ready`. Notification click focuses an existing window or opens `/`.
 
 ### Design tokens
 
@@ -185,12 +222,13 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 
 ### Module-level constants
 
-`ADMIN_EMAIL`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `FEED_DATA` (default feed seed), `REST_OPTIONS`.
+`ADMIN_EMAIL`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `FEED_DATA` (default feed seed), `REST_OPTIONS`, `MACRO_COACH_KEY`.
 
-### NutritionScreen tabs
+`SESSION_TYPES` is `[{ id, label, color }]` — 9 workout categories each with a hex color used for chip backgrounds and history badges.
 
-Four tabs: `📋 LOG` (food by meal), `📷 SCAN` (camera AI + barcode), `🔍 SEARCH` (food DB with category filter), `💊 SUPPS` (supplement tracker).
+### ESLint rules to watch
 
-The `scanTarget` state (`"food"` | `"supplement"`) controls where scan results are routed. When `"supplement"`, only the barcode button is shown (no meal photo scan), and results go to `suppLog` / `sfc_supplement_log`. `SUPPLEMENTS_DB` has 25 entries. Each supplement has `{ name, type, serving, cal, pro, carb, fat, brand }`. `SUPP_TYPE_COLOR` maps type → color token.
-
-Removed constants (no longer in file): `LEADERBOARD`, `SCAN_MEALS`, `WEEKLY_VOLUME`.
+- `react-hooks/purity` — prohibits `Date.now()` / `Math.random()` directly in render. Use `useState(() => Date.now())` to capture a stable value at mount.
+- `react-hooks/static-components` — component definitions must not be inside another component's render function.
+- `react-hooks/exhaustive-deps` — all state variables referenced inside `useEffect` must be in the dependency array.
+- `no-unused-vars` — unused destructured parameters (e.g. `(s, i)` where `i` is unused) must be removed.
