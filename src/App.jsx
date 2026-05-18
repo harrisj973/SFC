@@ -1070,6 +1070,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
     try { return JSON.parse(localStorage.getItem("sfc_templates") || "[]"); } catch { return []; }
   });
   const [selectedPrEx, setSelectedPrEx] = useState(null);
+  const [restWarnDismissed, setRestWarnDismissed] = useState(false);
   const nextIdRef = useRef(2);
 
   useEffect(() => {
@@ -1090,6 +1091,18 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   const totVol = exs.reduce((a,e) => a + e.sets.filter(s=>s.type!=="warmup").reduce((b,s) => b+(parseFloat(s.w)||0)*(parseInt(s.r)||0),0),0);
   const pts = totSets * 10 + Math.floor(totVol / 100) * 5;
   const prs = calcPRs(sessions);
+  const overloadedMuscles = (() => {
+    const scores = calcMuscleScores(sessions);
+    const targeted = new Set();
+    for (const ex of exs) {
+      const map = EXERCISE_MUSCLE_MAP[ex.name];
+      if (!map) continue;
+      for (const [muscle, factor] of Object.entries(map)) {
+        if (factor >= 0.6) targeted.add(muscle);
+      }
+    }
+    return [...targeted].filter(m => (scores[m] || 0) > 80).map(m => MUSCLE_LABELS[m] || m);
+  })();
   const getSugg = q => !q || q.length < 2 ? [] : EXERCISES.filter(e => e.toLowerCase().includes(q.toLowerCase())).slice(0,5);
   const updEx = (id, f, v) => setExs(p => p.map(e => e.id===id ? {...e,[f]:v} : e));
   const updSet = (xid, si, f, v) => setExs(p => p.map(e => e.id!==xid ? e : {...e, sets:e.sets.map((s,i)=>i===si?{...s,[f]:v}:s)}));
@@ -1184,6 +1197,19 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
               })}
             </div>
           </div>
+
+          {!restWarnDismissed && overloadedMuscles.length > 0 && (
+            <div style={{ background:"linear-gradient(135deg,rgba(255,107,0,0.12),rgba(255,23,68,0.12))", border:"1px solid rgba(255,107,0,0.45)", borderRadius:10, padding:"12px 14px", marginBottom:16, display:"flex", alignItems:"flex-start", gap:10 }}>
+              <span style={{ fontSize:18, flexShrink:0 }}>🔥</span>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:"#FF6B00", marginBottom:3, textTransform:"uppercase" }}>Recovery Alert</div>
+                <div style={{ fontFamily:FONT.body, fontSize:12, color:G.text, letterSpacing:0.5, lineHeight:1.4 }}>
+                  {overloadedMuscles.join(" · ")} {overloadedMuscles.length === 1 ? "is" : "are"} overloaded from recent sessions. Consider a rest day or keep it light.
+                </div>
+              </div>
+              <button onClick={() => setRestWarnDismissed(true)} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:16, padding:"0 2px", flexShrink:0, lineHeight:1 }}>✕</button>
+            </div>
+          )}
 
           {totSets > 0 && (
             <ChromeCard gold style={{ padding:"11px 14px", marginBottom:16, display:"flex" }}>
