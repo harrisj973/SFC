@@ -850,7 +850,6 @@ function RestTimer({ sec, onDone }) {
 }
 
 function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile }) {
-  const [period, setPeriod] = useState("weekly");
   const weeklyVol = calcWeeklyVolume(sessions);
   const maxVol = Math.max(...weeklyVol, 1);
   const myRank = leaderboard.find(u => u.isMe)?.rank ?? "—";
@@ -948,11 +947,7 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
 
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
         <SectionLabel>Leaderboard</SectionLabel>
-        <div style={{ display:"flex", background:"rgba(0,0,0,0.4)", borderRadius:6, border:`1px solid ${G.borderB}`, padding:3, gap:2 }}>
-          {["WEEKLY","ALL TIME"].map(p=>(
-            <button key={p} onClick={()=>setPeriod(p.toLowerCase())} style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, padding:"4px 9px", borderRadius:4, border:"none", background:period===p.toLowerCase()?G.gold:"transparent", color:period===p.toLowerCase()?"#0A0810":G.textMid, cursor:"pointer", textTransform:"uppercase" }}>{p}</button>
-          ))}
-        </div>
+        <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textDim, textTransform:"uppercase" }}>ALL TIME</div>
       </div>
 
       {leaderboard.length >= 3 && (
@@ -4263,13 +4258,18 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
           <span style={{ color:G.gold, fontSize:13 }}>›</span>
         </div>
       )}
-      {[{l:"NOTIFICATION SETTINGS",ico:"🔔",col:G.textMid},{l:"PRIVACY & SECURITY",ico:"🔒",col:G.textMid},{l:"HELP & SUPPORT",ico:"❓",col:G.textMid}].map((item)=>(
+      {[{l:"PRIVACY & SECURITY",ico:"🔒",col:G.textMid},{l:"HELP & SUPPORT",ico:"❓",col:G.textMid}].map((item)=>(
         <div key={item.l} onClick={()=>showToast(item.l)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
           <span style={{ fontSize:18, flexShrink:0 }}>{item.ico}</span>
           <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:item.col, textTransform:"uppercase" }}>{item.l}</div>
           <span style={{ color:G.textDim, fontSize:13 }}>›</span>
         </div>
       ))}
+      <div onClick={()=>setNotifOpen(true)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
+        <span style={{ fontSize:18, flexShrink:0 }}>🔔</span>
+        <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.textMid, textTransform:"uppercase" }}>NOTIFICATION SETTINGS</div>
+        <span style={{ color:G.textDim, fontSize:13 }}>›</span>
+      </div>
       <div onClick={onSignOut} style={{ background:"rgba(255,61,90,0.07)", border:`1px solid ${G.red}33`, borderRadius:10, padding:"13px 14px", marginTop:4, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
         <span style={{ fontSize:18, flexShrink:0 }}>🚪</span>
         <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.red, textTransform:"uppercase" }}>SIGN OUT</div>
