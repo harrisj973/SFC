@@ -477,6 +477,9 @@ function FormCheckModal({ onClose }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const previewUrlRef = useRef(null);
+
+  useEffect(() => () => { if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current); }, []);
 
   const handleVideo = async (e) => {
     const file = e.target.files?.[0];
@@ -484,7 +487,10 @@ function FormCheckModal({ onClose }) {
     if (!file.type.startsWith("video/")) { setError("Please select a video file."); return; }
     if (file.size > 100 * 1024 * 1024) { setError("Video must be under 100 MB."); return; }
     setVideoFile(file);
-    setPreviewUrl(URL.createObjectURL(file));
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    const url = URL.createObjectURL(file);
+    previewUrlRef.current = url;
+    setPreviewUrl(url);
     setFrames([]);
     setResult(null);
     setError(null);
@@ -4586,6 +4592,10 @@ function SocialFitClubInner() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    // Clear all user-specific localStorage so the next user on this device starts clean
+    ["sfc_feed","sfc_body_log","sfc_goals","sfc_macro_coach","sfc_pledge","sfc_streak_freezes",
+     "sfc_notif_prefs","sfc_session_tags","sfc_templates","sfc_wip_session",
+     "sfc_nutrition_log","sfc_supplement_log","sfc_water_log","sfc_water_goal"].forEach(k => localStorage.removeItem(k));
     setTab("home");
     setSessions([]);
     setProfile(null);
