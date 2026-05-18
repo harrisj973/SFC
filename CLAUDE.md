@@ -37,12 +37,15 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS sessions_count integer NOT NULL DE
 ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
 ```
 
-**Edge Functions** (both require `ANTHROPIC_API_KEY` set as a Supabase secret):
+**Edge Functions** (all require `ANTHROPIC_API_KEY` set as a Supabase secret):
 
 | Function | Input | Output |
 |---|---|---|
 | `analyze-meal` | `{ image: base64jpeg }` | `{ name, cal, pro, carb, fat, confidence }` |
 | `ai-coach` | `{ sessions, profile, muscleScores }` | `{ greeting, todayFocus, recommendations[], motivational }` |
+| `form-check` | `{ frames: base64jpeg[], exercise: string }` | `{ score, summary, strengths[], corrections[], cues[], safety }` |
+
+Deploy a new function with `supabase functions deploy <name>`. All three use `supabase.functions.invoke(name, { body })` on the client side.
 
 ### Auth flow
 
@@ -124,6 +127,7 @@ Root state passed as props:
 - **`progressWeight(w)`** → rounds `w + 5` to nearest 2.5 lbs. Used for progressive overload suggestions.
 - **`getExerciseHistory(exName, sessions)`** → chronological array of `{ date, weight, reps, est1rm }` (best non-warmup set per session). Powers the PRs drill-down strength chart.
 - **`compressImage(file)`** → Promise resolving to base64 JPEG (max 800px, 65% quality). Rejects on `onerror`. Used by ProgressScreen progress photo capture.
+- **`extractFrames(videoFile)`** → Promise resolving to `string[]` — three base64 JPEG frames sampled at 20%, 50%, 80% of video duration (max 640px), extracted via off-screen `<video>` + `<canvas>`. Rejects on video load error. Used by `FormCheckModal`.
 - **`calcTDEE(sex, age, heightIn, weightLbs, activity)`** → Mifflin-St Jeor TDEE. Used by `MacroCoachModal`.
 - **`calcMacrosFromCalories(calories, weightLbs)`** → `{ protein, fat, carbs }`. Used by `MacroCoachModal`.
 - **`getActiveMacroTargets()`** → returns Macro Coach targets if setup complete, else falls back to `MACROS_GOAL`. Used by `NutritionScreen` daily summary.
@@ -163,10 +167,13 @@ Three tabs via `activeTab` state:
 | `MacroCoachModal` | MACRO COACH | `sfc_macro_coach` | `onClose` |
 | `AdminDashboardModal` | ADMIN DASHBOARD (admin only) | — | `onClose` |
 | `NotificationsModal` | NOTIFICATIONS | `sfc_notif_prefs` | `sessions`, `onClose` |
+| `FormCheckModal` | FORM CHECK | — | `onClose` |
 
 `MacroCoachModal` has a multi-step setup wizard (sex, age, height, weight, activity, goal) that calculates TDEE and macro splits, stores results in `sfc_macro_coach`, and runs a weekly check-in adjustment algorithm. Uses `const [nowMs] = useState(() => Date.now())` to avoid the `react-hooks/purity` ESLint error — do not replace with inline `Date.now()`.
 
-The remaining tiles (Merch, Form Check) show a "COMING SOON" toast.
+`FormCheckModal` — video file picker (`accept="video/*" capture="environment"`, max 100 MB), calls `extractFrames()` to get 3 frames, shows a thumbnail strip, then calls the `form-check` Edge Function. Results view: colour-coded score ring (green ≥8, gold ≥6, red <6), optional safety warning, strengths list, correction cards (`{ issue, fix }`), and purple coaching-cue chips.
+
+The Merch tile shows a "COMING SOON" toast.
 
 ### Health Connect (Web Bluetooth)
 
