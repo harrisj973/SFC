@@ -2526,28 +2526,41 @@ function NutritionScreen({ showToast }) {
       </div>
 
       <ChromeCard gold glow style={{ padding:"16px", marginBottom:14 }}>
-        <div style={{ display:"flex", gap:14, alignItems:"center" }}>
-          <RingMeter pct={Math.min(100,Math.round((totals.cal/macroTargets.cal)*100))} size={76} strokeW={6} color={G.gold} value={totals.cal} label="KCAL"/>
-          <div style={{ flex:1 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-                <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:"#fff" }}>TODAY</div>
-                {macroCoachActive && <div style={{ background:`${G.gold}20`, border:`1px solid ${G.gold}44`, borderRadius:4, padding:"2px 6px", fontFamily:FONT.body, fontSize:8, letterSpacing:1.5, color:G.gold, textTransform:"uppercase" }}>⚡ ADAPTIVE</div>}
-              </div>
-              <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1, textTransform:"uppercase" }}>{macroTargets.cal-totals.cal} cal left</div>
-            </div>
-            {[{l:"PROTEIN",v:totals.pro,m:macroTargets.pro,col:G.purpleLight},{l:"CARBS",v:totals.carb,m:macroTargets.carb,col:G.gold},{l:"FAT",v:totals.fat,m:macroTargets.fat,col:"#FF3D5A"}].map(b=>(
-              <div key={b.l} style={{ marginBottom:5 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2 }}>
-                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>{b.l}</div>
-                  <div style={{ fontFamily:FONT.body, fontSize:9, color:b.col, letterSpacing:1 }}>{b.v}G</div>
-                </div>
-                <div style={{ height:3, background:"rgba(255,255,255,0.07)", borderRadius:2 }}>
-                  <div style={{ height:"100%", width:`${Math.min(100,(b.v/b.m)*100)}%`, background:b.col, borderRadius:2, boxShadow:`0 0 4px ${b.col}88`, transition:"width 0.5s" }}/>
-                </div>
-              </div>
-            ))}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+          <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:"#fff" }}>TODAY</div>
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            {macroCoachActive && <div style={{ background:`${G.gold}20`, border:`1px solid ${G.gold}44`, borderRadius:4, padding:"2px 6px", fontFamily:FONT.body, fontSize:8, letterSpacing:1.5, color:G.gold, textTransform:"uppercase" }}>⚡ ADAPTIVE</div>}
           </div>
+        </div>
+        {(() => {
+          const calPct = Math.min(100, Math.round((totals.cal / macroTargets.cal) * 100));
+          const calRemaining = macroTargets.cal - totals.cal;
+          const over = calRemaining < 0;
+          const ringColor = calPct >= 100 ? "#FF3D5A" : calPct >= 85 ? "#FF6B00" : G.gold;
+          return (
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", marginBottom:16 }}>
+              <div style={{ position:"relative" }}>
+                <RingMeter pct={calPct} size={140} strokeW={10} color={ringColor} value={Math.abs(calRemaining).toLocaleString()} label={over ? "CAL OVER" : "CAL LEFT"}/>
+                <div style={{ position:"absolute", bottom:-4, left:"50%", transform:"translateX(-50%)", whiteSpace:"nowrap", fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>
+                  {totals.cal.toLocaleString()} / {macroTargets.cal.toLocaleString()} KCAL
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+        <div style={{ display:"flex", gap:8 }}>
+          {[{l:"PROTEIN",v:totals.pro,m:macroTargets.pro,col:G.purpleLight},{l:"CARBS",v:totals.carb,m:macroTargets.carb,col:G.gold},{l:"FAT",v:totals.fat,m:macroTargets.fat,col:"#FF3D5A"}].map(b=>(
+            <div key={b.l} style={{ flex:1 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>{b.l}</div>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:b.col, letterSpacing:1 }}>{b.v}g</div>
+              </div>
+              <div style={{ height:4, background:"rgba(255,255,255,0.07)", borderRadius:2 }}>
+                <div style={{ height:"100%", width:`${Math.min(100,(b.v/b.m)*100)}%`, background:b.col, borderRadius:2, boxShadow:`0 0 4px ${b.col}88`, transition:"width 0.5s" }}/>
+              </div>
+              <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:1, marginTop:2, textTransform:"uppercase" }}>{b.m}g goal</div>
+            </div>
+          ))}
         </div>
       </ChromeCard>
 
