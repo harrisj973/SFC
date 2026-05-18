@@ -15,7 +15,7 @@ No test suite is configured. Deployment is via GitHub Actions → GitHub Pages o
 
 ## Architecture
 
-The entire app lives in a **single file**: `src/App.jsx` (~3900 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+The entire app lives in a **single file**: `src/App.jsx` (~5270 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
 
 `SocialFitClubInner` contains all app logic and is wrapped by an `ErrorBoundary` class component (exported as `SocialFitClub`). Unhandled render errors show a styled "SOMETHING WENT WRONG" screen with a reload button.
 
@@ -59,13 +59,13 @@ Render guards (in order): blank screen while `authReady` is false → `<ResetPas
 
 ### Navigation model
 
-`SocialFitClubInner` owns all top-level state and renders one screen at a time based on a `tab` string (`home`, `train`, `progress`, `nutrition`, `feed`, `more`). No router. Tab switching calls `setTab(id)`.
+`SocialFitClubInner` owns all top-level state and renders one screen at a time based on a `tab` string (`home`, `train`, `progress`, `nutrition`, `feed`, `more`). No router. Tab switching calls `setTab(id)`. Bottom nav labels: HOME, TRAIN, STATS, FUEL, SQUAD, MORE (not the screen names).
 
 Root state passed as props:
 
 | Prop | Type | Used by |
 |---|---|---|
-| `sessions` | `{ id, name, exs, sets, vol, pts, date, createdAt, tag? }[]` | Home, Train, Progress, More |
+| `sessions` | `{ id, name, exs, sets, vol, pts, date, createdAt, tag? }[]` | Home, Train, Progress, Feed, More |
 | `profile` | Supabase profiles row | Home, Progress, Feed, More |
 | `leaderboard` | sorted profiles array with `{ rank, name, pts, sessions, streak, av, isMe }` | Home |
 
@@ -79,7 +79,7 @@ Root state passed as props:
 | `TrainScreen` | `sessions`, `onSave`, `onDelete`, `onEdit`, `quickStart`, `onClearQuickStart`, `showToast` |
 | `ProgressScreen` | `sessions`, `profile`, `showToast` |
 | `NutritionScreen` | `showToast` |
-| `FeedScreen` | `profile`, `showToast` |
+| `FeedScreen` | `profile`, `sessions`, `showToast` |
 | `MoreScreen` | `profile`, `sessions`, `muscleScores`, `onSignOut`, `showToast`, `isAdmin` |
 
 `isAdmin` is computed as `user?.email?.toLowerCase() === ADMIN_EMAIL` (module-level constant `"harrisj1025@gmail.com"`) and passed from `SocialFitClubInner`.
@@ -116,12 +116,15 @@ Root state passed as props:
 | `sfc_water_log` | `{ date: "YYYY-MM-DD", entries: [oz, ...] }` | Auto-cleared when date changes |
 | `sfc_water_goal` | number (daily oz target, default 64) | Never |
 | `sfc_macro_coach` | MacroCoach setup + history (see MacroCoachModal) | Never |
+| `sfc_challenges` | `[{ id, type, exercise?, target, created, deadline, completed, completedAt }]` | Never |
+| `sfc_home_widgets` | `{ order: string[], hidden: string[] }` widget display preferences | Never |
+| `sfc_meal_templates` | `[{ id, name, items: [{ name, cal, pro, carb, fat, brand? }] }]` | Never |
 
 ### Module-level helpers
 
 - **`calcWeeklyVolume(sessions)`** — 7-element array (Mon–Sun) of volume for the current calendar week. Used by `HomeScreen`.
 - **`calcBestWeekVolume(sessions)`** — highest total volume in any Mon–Sun week. Used by `ProgressScreen`.
-- **`calcMuscleScores(sessions)`** → `{ muscleKey: 0–100 }`. Excludes warmup sets. Passed to `MoreScreen` for AI Coach and heat map.
+- **`calcMuscleScores(sessions)`** → `{ muscleKey: 0–100 }`. Excludes warmup sets. Passed to `MoreScreen` for AI Coach and heat map. Also used by TrainScreen to derive `overloadedMuscles`.
 - **`getHeatColor(score)`** → blue→yellow→red via `lerpColor`. Used by `MuscleHeatMap`.
 - **`getLastExercisePerformance(exName, sessions)`** → `{ date, sets }` of the most recent session containing that exercise. Excludes warmup sets. Used by TrainScreen LAST SESSION strip.
 - **`progressWeight(w)`** → rounds `w + 5` to nearest 2.5 lbs. Used for progressive overload suggestions.
@@ -131,10 +134,15 @@ Root state passed as props:
 - **`calcTDEE(sex, age, heightIn, weightLbs, activity)`** → Mifflin-St Jeor TDEE. Used by `MacroCoachModal`.
 - **`calcMacrosFromCalories(calories, weightLbs)`** → `{ protein, fat, carbs }`. Used by `MacroCoachModal`.
 - **`getActiveMacroTargets()`** → returns Macro Coach targets if setup complete, else falls back to `MACROS_GOAL`. Used by `NutritionScreen` daily summary.
+- **`getChallengeProgress(ch, sessions)`** → `{ current, pct, unit }`. Computes progress for a challenge since its `created` date: `"pr"` type uses best est1rm, `"vol"` uses cumulative volume, `"sessions"` uses session count.
 
 ### TrainScreen sub-tabs and set types
 
 Four sub-tabs: `TRACK`, `HISTORY`, `PRs`, `PROGRAMS`.
+
+**Recovery alert** — inside the TRACK sub-tab, `overloadedMuscles` is derived each render: for each exercise in the current session, look up `EXERCISE_MUSCLE_MAP[ex.name]` and collect muscles with `factor >= 0.6`; filter those where `calcMuscleScores(sessions)[muscle] > 80`. If any are found and `restWarnDismissed` is false, an orange banner is shown above the exercise list. Dismissed per-session via local `restWarnDismissed` state.
+
+**Plate calculator** — `PlateCalculatorModal` is opened by the ⚖️ PLATES button in the Training Hub header. Greedy algorithm: for a given target weight and bar weight, iterates `[45, 35, 25, 10, 5, 2.5]` lb plates and assigns as many of each as fit per side. Renders a visual bar diagram and per-side plate list. Bar presets: STANDARD (45 lb), WOMEN'S (35 lb), TRAP/HEX (60 lb), EZ-CURL (25 lb).
 
 **Set types** — every set has a `type` field: `"working"` (default, gold badge), `"warmup"` (blue `W` badge), `"drop"` (red `D` badge). Tapping the badge cycles through types. Warmup sets are excluded from: `totSets`, `totVol`, `pts`, `calcPRs`, live PR detection, `getLastExercisePerformance`, `getExerciseHistory`, `calcMuscleScores`, and `MuscleHeatMap`. Drop sets count as working volume.
 
@@ -154,6 +162,17 @@ Three tabs via `activeTab` state:
 **Body composition** — `sfc_body_log` entries are `{ date, weight, bf?, photo? }`. The check-in form includes an optional photo capture (`<input type="file" accept="image/*" capture="environment">`), compressed via `compressImage`. Thumbnails shown in history; tap opens a full-screen lightbox. When ≥2 entries have photos, a BEFORE / AFTER comparison card appears.
 
 **Water tracker** — quick-add buttons (8, 12, 16, 20 oz) + custom input. Daily total shown in stats grid. State: `waterEntries` (array of oz values per entry, supports undo via pop), `waterGoal` (from `sfc_water_goal`).
+
+### HomeScreen — swipeable widgets
+
+`SwipeWidget` is a module-level component wrapping each home card. Pointer events detect horizontal swipes: dragging left >90 px triggers a dismissing animation and calls `onDismiss`. Header has ↑/↓ reorder buttons and a ✕ HIDE button. Widget order and hidden IDs are persisted to `sfc_home_widgets`.
+
+`HomeScreen` state:
+- `widgetOrder` — `string[]` of widget IDs (`"quickstart"`, `"leaderboard"`), initialized from `sfc_home_widgets`
+- `hiddenWidgets` — `string[]` of currently hidden IDs
+- Dismissed widgets appear in a HIDDEN WIDGETS restore section at the bottom of the screen
+
+`touchAction: "pan-y"` is set on `SwipeWidget` so vertical scroll is handled natively by the browser while horizontal swipes are captured by pointer events.
 
 ### MoreScreen modals
 
@@ -185,14 +204,30 @@ The Merch tile shows a "COMING SOON" toast.
 
 ### FeedScreen
 
-Posts stored in `sfc_feed` as `[{ id, user, av, time, txt, likes, liked, commentList: [], type, tag }]`. `type` is `"post"` | `"pr"` | `"milestone"`. Compose sheet has a type selector; PR and MILESTONE types show a tag input that populates the gold banner. Comments are stored in `commentList` as `[{ user, av, txt, time }]`.
+Posts stored in `sfc_feed` as:
+```js
+{ id, user, av, time, txt, likes, liked, commentList: [],
+  type, tag, reactions: { "🔥":n, ... }, myReactions: [],
+  challengeId? }
+```
+`type` is `"post"` | `"pr"` | `"milestone"` | `"challenge"`. Comments stored in `commentList` as `[{ user, av, txt, time }]`.
+
+**Emoji reactions** — `REACTIONS = ["🔥","💪","👊","⚡","🙌"]`. `toggleReaction(id, emoji)` increments/decrements the count on a post and toggles the emoji in `myReactions`. Reactions with `myReactions` membership are highlighted gold.
+
+**Challenge system** — `challenges` state (from `sfc_challenges`) is an array of `{ id, type, exercise?, target, created, deadline, completed, completedAt }`. `type` is `"pr"` | `"vol"` | `"sessions"`. A `useEffect` on `sessions` auto-completes challenges and posts a MILESTONE to the feed when the target is reached. The compose sheet has a 2×2 type grid (POST / PR / MILESTONE / CHALLENGE); selecting CHALLENGE shows `newChalType` sub-buttons and a target input. `getChallengeProgress()` is used to render the progress bar and countdown on challenge post cards.
+
+`FeedScreen` receives `sessions` as a prop (needed for challenge progress computation and auto-complete detection).
+
+### NutritionScreen — calorie ring and meal templates
+
+**Calorie budget ring** — the summary card is centred on a `RingMeter` (size 140, strokeW 10). Ring color: gold when <85% of daily budget, orange at 85–99%, red when over. Shows calories remaining (or over) inside the ring; "consumed / target KCAL" label below. Uses `getActiveMacroTargets()` for the budget, showing an `⚡ ADAPTIVE` badge when Macro Coach is active.
+
+**Meal templates** — `mealTemplates` state (from `sfc_meal_templates`). A horizontally scrollable MY TEMPLATES strip appears above the meal log sections when at least one template is saved. Each card shows the template name, item count, total kcal, protein, and a LOG ◆ button that adds all items to the currently selected meal. A 💾 button in each meal header opens an inline name-input; pressing Enter saves current meal items as a new template. Templates can be deleted with a ✕ button on the card.
 
 ### NutritionScreen — external integrations
 
 - **Barcode scan**: `BarcodeDetector` API (Chrome/Edge only; falls back to manual entry) → Open Food Facts API → UPC Item DB secondary API → `BARCODE_DB` (26-product local fallback). If still not found, `barcode_not_found` state renders a manual macro entry form. `scanTarget` (`"food"` | `"supplement"`) controls which log receives the result.
 - **Meal scan**: captures live video to `<canvas>` → JPEG base64 → `analyze-meal` Edge Function → Claude Haiku vision.
-
-The daily summary card uses `getActiveMacroTargets()` instead of hardcoded `MACROS_GOAL`, showing an `⚡ ADAPTIVE` badge when Macro Coach is configured.
 
 ### NutritionScreen tabs
 
@@ -223,13 +258,17 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 
 ### Shared UI atoms
 
-`ChromeCard`, `NeonBtn`, `NeonOutlineBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `RestTimer`, `TogglePill`, `ExercisePicker` — all defined in `App.jsx`.
+`ChromeCard`, `NeonBtn`, `NeonOutlineBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `RestTimer`, `TogglePill`, `ExercisePicker`, `SwipeWidget`, `PlateCalculatorModal` — all defined in `App.jsx`.
 
 `ExercisePicker` is a bottom-sheet modal used in `TrainScreen`. It receives `{ onSelect, onClose }` and renders a search bar + category chips (from `EXERCISE_CATS`) + a filtered list of `EXERCISES` with primary muscle label and category badge. Opens via the ⊞ button next to each exercise name input.
 
+`SwipeWidget` wraps each dismissible home tile. Uses pointer events for horizontal swipe detection; `touchAction: "pan-y"` lets the browser handle vertical scroll. See HomeScreen section above.
+
+`PlateCalculatorModal` is a standalone modal (not a MoreScreen tile). Opened from the TrainScreen header ⚖️ PLATES button. Accepts `{ onClose, initialWeight }`.
+
 ### Module-level constants
 
-`ADMIN_EMAIL`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `FEED_DATA` (default feed seed), `REST_OPTIONS`, `MACRO_COACH_KEY`.
+`ADMIN_EMAIL`, `REACTIONS`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `FEED_DATA` (default feed seed), `REST_OPTIONS`, `MACRO_COACH_KEY`.
 
 `SESSION_TYPES` is `[{ id, label, color }]` — 9 workout categories each with a hex color used for chip backgrounds and history badges.
 
@@ -245,5 +284,6 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 
 - **Stable callback refs**: `RestTimer` uses `useRef` + `useEffect(() => { ref.current = onDone; })` (no deps) to keep the `onDone` callback current without restarting the interval on every parent re-render. Do not replace with a direct dependency.
 - **Streak calculation in `handleSave`**: compares the most recent existing session's `createdAt` date against today/yesterday to decide whether to extend or reset the streak. This must remain before the optimistic state update.
-- **Sign-out cleanup**: `handleSignOut` clears all 14 `sfc_*` localStorage keys before resetting state — ensures no user data leaks to the next person on the same device.
+- **Sign-out cleanup**: `handleSignOut` clears 14 `sfc_*` localStorage keys before resetting state. Note: `sfc_challenges`, `sfc_home_widgets`, and `sfc_meal_templates` are not currently cleared on sign-out (challenges and templates are user data; widget order is device preference).
 - **Blob URL lifecycle in `FormCheckModal`**: uses `previewUrlRef` to revoke the previous object URL both when a new file is picked and on unmount, preventing memory leaks.
+- **Challenge auto-complete**: the `useEffect` in `FeedScreen` that watches `sessions` compares current progress against targets and only fires the completion logic once (checks `!ch.completed` before updating). Do not add `challenges` to the dependency array or it will loop.
