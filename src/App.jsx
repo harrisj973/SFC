@@ -850,6 +850,58 @@ function RestTimer({ sec, onDone }) {
   );
 }
 
+function SwipeWidget({ title, extra, onDismiss, onMoveUp, onMoveDown, canMoveUp, canMoveDown, children }) {
+  const [dx, setDx] = useState(0);
+  const [dismissing, setDismissing] = useState(false);
+  const startXRef = useRef(null);
+
+  const handlePointerDown = e => { startXRef.current = e.clientX; };
+  const handlePointerMove = e => {
+    if (startXRef.current === null) return;
+    const d = e.clientX - startXRef.current;
+    if (d < -6) setDx(Math.max(d, -220));
+  };
+  const handlePointerUp = () => {
+    if (dx < -90) { setDismissing(true); setTimeout(onDismiss, 280); }
+    else setDx(0);
+    startXRef.current = null;
+  };
+  const dismiss = () => { setDismissing(true); setTimeout(onDismiss, 280); };
+
+  return (
+    <div
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      style={{
+        transform: dismissing ? "translateX(-110%)" : `translateX(${dx}px)`,
+        opacity: dismissing ? 0 : dx < -30 ? Math.max(0.3, 1 + (dx + 30) / 140) : 1,
+        transition: (dx === 0 || dismissing) ? "transform 0.28s ease, opacity 0.28s ease" : "none",
+        touchAction: "pan-y", userSelect: "none",
+        marginBottom: 18, position: "relative",
+      }}
+    >
+      {dx < -24 && !dismissing && (
+        <div style={{ position:"absolute", right:6, top:"50%", transform:"translateY(-50%)", background:"rgba(255,61,90,0.14)", border:"1px solid rgba(255,61,90,0.4)", borderRadius:6, padding:"4px 10px", color:"#FF3D5A", fontFamily:FONT.display, fontSize:11, letterSpacing:2, opacity:Math.min(1,(Math.abs(dx)-24)/66), pointerEvents:"none", zIndex:1, textTransform:"uppercase" }}>← HIDE</div>
+      )}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ width:3, height:18, background:G.gold, boxShadow:G.goldGlow2, borderRadius:1, flexShrink:0 }}/>
+          <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:3, color:G.gold, textTransform:"uppercase" }}>{title}</div>
+          {extra}
+        </div>
+        <div style={{ display:"flex", gap:4, alignItems:"center" }}>
+          {canMoveUp && <button onClick={e=>{e.stopPropagation();onMoveUp();}} style={{ background:"rgba(255,255,255,0.05)", border:`1px solid ${G.borderB}`, borderRadius:5, color:G.textMid, cursor:"pointer", fontSize:12, width:26, height:26, display:"flex", alignItems:"center", justifyContent:"center" }}>↑</button>}
+          {canMoveDown && <button onClick={e=>{e.stopPropagation();onMoveDown();}} style={{ background:"rgba(255,255,255,0.05)", border:`1px solid ${G.borderB}`, borderRadius:5, color:G.textMid, cursor:"pointer", fontSize:12, width:26, height:26, display:"flex", alignItems:"center", justifyContent:"center" }}>↓</button>}
+          <button onClick={e=>{e.stopPropagation();dismiss();}} style={{ background:"rgba(255,61,90,0.08)", border:"1px solid rgba(255,61,90,0.25)", borderRadius:5, color:"#FF3D5A", cursor:"pointer", fontSize:11, padding:"4px 8px", fontFamily:FONT.body, letterSpacing:0.5, lineHeight:1 }}>✕ HIDE</button>
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile }) {
   const weeklyVol = calcWeeklyVolume(sessions);
   const maxVol = Math.max(...weeklyVol, 1);
@@ -861,6 +913,28 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
     const weekStart = new Date(now); weekStart.setHours(0,0,0,0); weekStart.setDate(now.getDate()-dow);
     return sessions.filter(s => s.createdAt && new Date(s.createdAt) >= weekStart).length;
   })();
+
+  const [widgetOrder, setWidgetOrder] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sfc_home_widgets") || "{}").order || ["quickstart","leaderboard"]; } catch { return ["quickstart","leaderboard"]; }
+  });
+  const [hiddenWidgets, setHiddenWidgets] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sfc_home_widgets") || "{}").hidden || []; } catch { return []; }
+  });
+  useEffect(() => {
+    localStorage.setItem("sfc_home_widgets", JSON.stringify({ order: widgetOrder, hidden: hiddenWidgets }));
+  }, [widgetOrder, hiddenWidgets]);
+
+  const hideWidget = id => setHiddenWidgets(p => [...p, id]);
+  const restoreWidget = id => setHiddenWidgets(p => p.filter(x => x !== id));
+  const moveWidget = (id, dir) => setWidgetOrder(p => {
+    const i = p.indexOf(id);
+    const j = i + dir;
+    if (j < 0 || j >= p.length) return p;
+    const next = [...p];
+    [next[i], next[j]] = [next[j], next[i]];
+    return next;
+  });
+  const visibleWidgets = widgetOrder.filter(id => !hiddenWidgets.includes(id));
 
   return (
     <div style={{ padding:"22px 18px 0" }}>
@@ -929,60 +1003,91 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
         </div>
       </ChromeCard>
 
-      <SectionLabel>Quick Start</SectionLabel>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:18 }}>
-        {[
-          { name:"PUSH DAY", ico:"💪", color:G.gold, sub:"CHEST · SHOULDERS · TRIS", exs:["Barbell Bench Press","Incline Dumbbell Press","Lateral Raises","Tricep Pushdown"] },
-          { name:"PULL DAY", ico:"🏋️", color:G.purpleLight, sub:"BACK · BICEPS", exs:["Barbell Deadlift","Barbell Row","Lat Pulldown","Barbell Curl"] },
-          { name:"LEG DAY", ico:"🦵", color:"#FF3D5A", sub:"QUADS · HAMS · GLUTES", exs:["Barbell Squat","Leg Press","Romanian Deadlift","Leg Curl"] },
-          { name:"FULL BODY", ico:"⚡", color:G.gold, sub:"COMPOUND MOVEMENTS", exs:["Barbell Squat","Barbell Bench Press","Barbell Deadlift","Barbell Row"] },
-        ].map(w => (
-          <div key={w.name} onClick={() => { onQuickStart(w); showToast(`${w.ico} ${w.name} — loading in Train tab!`); }}
-            style={{ background:`${w.color}0C`, border:`1px solid ${w.color}30`, borderRadius:9, padding:"14px 12px", cursor:"pointer", position:"relative", overflow:"hidden" }}>
-            <div style={{ position:"absolute", top:-8, right:-8, fontSize:40, opacity:0.15 }}>{w.ico}</div>
-            <div style={{ fontFamily:FONT.display, fontSize:17, color:"#fff", letterSpacing:2, textTransform:"uppercase", lineHeight:1, marginBottom:4 }}>{w.name}</div>
-            <div style={{ fontFamily:FONT.body, fontSize:9, color:w.color, letterSpacing:1.5, textTransform:"uppercase" }}>{w.sub}</div>
-          </div>
-        ))}
-      </div>
+      {visibleWidgets.map((id, idx) => {
+        const visIdx = visibleWidgets.indexOf(id);
+        const canUp = visIdx > 0;
+        const canDown = visIdx < visibleWidgets.length - 1;
+        const wProps = {
+          key: id,
+          onDismiss: () => hideWidget(id),
+          onMoveUp: () => moveWidget(id, -1),
+          onMoveDown: () => moveWidget(id, 1),
+          canMoveUp: canUp,
+          canMoveDown: canDown,
+        };
 
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-        <SectionLabel>Leaderboard</SectionLabel>
-        <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textDim, textTransform:"uppercase" }}>ALL TIME</div>
-      </div>
-
-      {leaderboard.length >= 3 && (
-      <div style={{ display:"flex", alignItems:"flex-end", gap:8, marginBottom:12, justifyContent:"center" }}>
-        {[leaderboard[1], leaderboard[0], leaderboard[2]].map((u, i) => {
-          const order = [1,0,2][i];
-          const ht = [88, 112, 70][i];
-          const col = ["#C0C0C0", G.gold, "#CD7F32"][order];
-          return (
-            <div key={u.name} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
-              {u.isMe && <div style={{ fontFamily:FONT.body, fontSize:8, color:G.gold, letterSpacing:2, textTransform:"uppercase" }}>YOU</div>}
-              <AvatarBadge initials={u.av} size={order===0?48:40} gold={order===0}/>
-              <div style={{ fontFamily:FONT.display, fontSize:11, color:"#fff", letterSpacing:2, textAlign:"center", textTransform:"uppercase", maxWidth:60, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{u.name.split(" ")[0]}</div>
-              <div style={{ width:"100%", height:ht, background:`${col}18`, border:`1px solid ${col}44`, borderRadius:"6px 6px 0 0", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", boxShadow:`0 0 12px ${col}22` }}>
-                <div style={{ fontFamily:FONT.display, fontSize:20, color:col, textShadow:`0 0 10px ${col}` }}>{"🥇🥈🥉"[order]}</div>
-                <div style={{ fontFamily:FONT.display, fontSize:13, color:col, letterSpacing:1 }}>{u.pts.toLocaleString()}</div>
-              </div>
+        if (id === "quickstart") return (
+          <SwipeWidget {...wProps} title="Quick Start">
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9 }}>
+              {[
+                { name:"PUSH DAY", ico:"💪", color:G.gold, sub:"CHEST · SHOULDERS · TRIS", exs:["Barbell Bench Press","Incline Dumbbell Press","Lateral Raises","Tricep Pushdown"] },
+                { name:"PULL DAY", ico:"🏋️", color:G.purpleLight, sub:"BACK · BICEPS", exs:["Barbell Deadlift","Barbell Row","Lat Pulldown","Barbell Curl"] },
+                { name:"LEG DAY", ico:"🦵", color:"#FF3D5A", sub:"QUADS · HAMS · GLUTES", exs:["Barbell Squat","Leg Press","Romanian Deadlift","Leg Curl"] },
+                { name:"FULL BODY", ico:"⚡", color:G.gold, sub:"COMPOUND MOVEMENTS", exs:["Barbell Squat","Barbell Bench Press","Barbell Deadlift","Barbell Row"] },
+              ].map(w => (
+                <div key={w.name} onClick={() => { onQuickStart(w); showToast(`${w.ico} ${w.name} — loading in Train tab!`); }}
+                  style={{ background:`${w.color}0C`, border:`1px solid ${w.color}30`, borderRadius:9, padding:"14px 12px", cursor:"pointer", position:"relative", overflow:"hidden" }}>
+                  <div style={{ position:"absolute", top:-8, right:-8, fontSize:40, opacity:0.15 }}>{w.ico}</div>
+                  <div style={{ fontFamily:FONT.display, fontSize:17, color:"#fff", letterSpacing:2, textTransform:"uppercase", lineHeight:1, marginBottom:4 }}>{w.name}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:w.color, letterSpacing:1.5, textTransform:"uppercase" }}>{w.sub}</div>
+                </div>
+              ))}
             </div>
-          );
-        })}
-      </div>
-      )}
+          </SwipeWidget>
+        );
 
-      {leaderboard.slice(3).map(u => (
-        <ChromeCard key={u.rank} gold={u.isMe} style={{ padding:"10px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:12 }}>
-          <div style={{ fontFamily:FONT.mono, fontSize:12, color:G.textDim, width:18 }}>#{u.rank}</div>
-          <AvatarBadge initials={u.av} size={32} gold={u.isMe}/>
-          <div style={{ flex:1 }}>
-            <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:u.isMe?G.gold:"#fff", textTransform:"uppercase" }}>{u.name}</div>
-            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1, textTransform:"uppercase" }}>{u.sessions} sessions · {u.streak}d streak</div>
+        if (id === "leaderboard") return (
+          <SwipeWidget {...wProps} title="Leaderboard" extra={<div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textDim, textTransform:"uppercase" }}>ALL TIME</div>}>
+            {leaderboard.length >= 3 && (
+              <div style={{ display:"flex", alignItems:"flex-end", gap:8, marginBottom:12, justifyContent:"center" }}>
+                {[leaderboard[1], leaderboard[0], leaderboard[2]].map((u, i) => {
+                  const order = [1,0,2][i];
+                  const ht = [88, 112, 70][i];
+                  const col = ["#C0C0C0", G.gold, "#CD7F32"][order];
+                  return (
+                    <div key={u.name} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
+                      {u.isMe && <div style={{ fontFamily:FONT.body, fontSize:8, color:G.gold, letterSpacing:2, textTransform:"uppercase" }}>YOU</div>}
+                      <AvatarBadge initials={u.av} size={order===0?48:40} gold={order===0}/>
+                      <div style={{ fontFamily:FONT.display, fontSize:11, color:"#fff", letterSpacing:2, textAlign:"center", textTransform:"uppercase", maxWidth:60, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{u.name.split(" ")[0]}</div>
+                      <div style={{ width:"100%", height:ht, background:`${col}18`, border:`1px solid ${col}44`, borderRadius:"6px 6px 0 0", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", boxShadow:`0 0 12px ${col}22` }}>
+                        <div style={{ fontFamily:FONT.display, fontSize:20, color:col, textShadow:`0 0 10px ${col}` }}>{"🥇🥈🥉"[order]}</div>
+                        <div style={{ fontFamily:FONT.display, fontSize:13, color:col, letterSpacing:1 }}>{u.pts.toLocaleString()}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {leaderboard.slice(3).map(u => (
+              <ChromeCard key={u.rank} gold={u.isMe} style={{ padding:"10px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:12 }}>
+                <div style={{ fontFamily:FONT.mono, fontSize:12, color:G.textDim, width:18 }}>#{u.rank}</div>
+                <AvatarBadge initials={u.av} size={32} gold={u.isMe}/>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:u.isMe?G.gold:"#fff", textTransform:"uppercase" }}>{u.name}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1, textTransform:"uppercase" }}>{u.sessions} sessions · {u.streak}d streak</div>
+                </div>
+                <div style={{ fontFamily:FONT.display, fontSize:16, color:u.isMe?G.gold:"#fff", letterSpacing:1 }}>{u.pts.toLocaleString()}</div>
+              </ChromeCard>
+            ))}
+          </SwipeWidget>
+        );
+
+        return null;
+      })}
+
+      {hiddenWidgets.length > 0 && (
+        <div style={{ marginBottom:24 }}>
+          <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textDim, textTransform:"uppercase", marginBottom:10 }}>◆ HIDDEN WIDGETS</div>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            {hiddenWidgets.map(id => (
+              <button key={id} onClick={() => restoreWidget(id)} style={{ background:"rgba(255,255,255,0.04)", border:`1px solid ${G.borderB}`, borderRadius:8, padding:"10px 16px", cursor:"pointer", fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:G.textMid, display:"flex", alignItems:"center", gap:7, textTransform:"uppercase" }}>
+                <span style={{ color:G.gold }}>+</span>
+                {id === "quickstart" ? "QUICK START" : "LEADERBOARD"}
+              </button>
+            ))}
           </div>
-          <div style={{ fontFamily:FONT.display, fontSize:16, color:u.isMe?G.gold:"#fff", letterSpacing:1 }}>{u.pts.toLocaleString()}</div>
-        </ChromeCard>
-      ))}
+        </div>
+      )}
     </div>
   );
 }
