@@ -2580,6 +2580,28 @@ function NutritionScreen({ showToast }) {
     setEditingGoal(false);
   };
   const [selMeal, setSelMeal] = useState("LUNCH");
+  const [mealTemplates, setMealTemplates] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sfc_meal_templates") || "[]"); } catch { return []; }
+  });
+  useEffect(() => { localStorage.setItem("sfc_meal_templates", JSON.stringify(mealTemplates)); }, [mealTemplates]);
+  const saveMealTemplate = (meal) => {
+    const name = templateNameDraft.trim().toUpperCase();
+    if (!name) return;
+    const items = log.filter(f => f.meal === meal).map(({ name: n, cal, pro, carb, fat, brand }) => ({ name: n, cal, pro, carb, fat, brand }));
+    if (!items.length) return;
+    setMealTemplates(p => [...p, { id: Date.now().toString(), name, items }]);
+    setSavingTemplateFor(null);
+    setTemplateNameDraft("");
+    showToast(`✓ "${name}" saved as template`);
+  };
+  const loadTemplate = (tmpl) => {
+    const toAdd = tmpl.items.map(item => ({ ...item, id: Date.now() + Math.random(), meal: selMeal }));
+    setLog(p => [...p, ...toAdd]);
+    showToast(`✓ ${tmpl.name} loaded into ${selMeal}`);
+  };
+  const deleteTemplate = (id) => setMealTemplates(p => p.filter(t => t.id !== id));
+  const [savingTemplateFor, setSavingTemplateFor] = useState(null);
+  const [templateNameDraft, setTemplateNameDraft] = useState("");
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("ALL");
   const [scanMode, setScanMode] = useState("idle");
@@ -3059,6 +3081,30 @@ function NutritionScreen({ showToast }) {
         </div>
       )}
 
+      {view==="log" && mealTemplates.length > 0 && (
+        <div style={{ marginBottom:16 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+            <div style={{ width:3, height:18, background:G.gold, boxShadow:G.goldGlow2, borderRadius:1 }}/>
+            <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:3, color:G.gold, textTransform:"uppercase" }}>MY TEMPLATES</div>
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>→ {selMeal}</div>
+          </div>
+          <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:4 }}>
+            {mealTemplates.map(t => {
+              const tmplCal = t.items.reduce((a, f) => a + (f.cal || 0), 0);
+              const tmplPro = t.items.reduce((a, f) => a + (f.pro || 0), 0);
+              return (
+                <div key={t.id} style={{ flexShrink:0, background:`${G.gold}0C`, border:`1px solid ${G.gold}30`, borderRadius:10, padding:"12px 13px", minWidth:140, position:"relative" }}>
+                  <button onClick={() => deleteTemplate(t.id)} style={{ position:"absolute", top:6, right:7, background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:12, lineHeight:1, padding:0 }}>✕</button>
+                  <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:1.5, color:"#fff", textTransform:"uppercase", marginBottom:3, paddingRight:14, lineHeight:1.2 }}>{t.name}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginBottom:10 }}>{t.items.length} items · {tmplCal} kcal · P:{tmplPro}g</div>
+                  <button onClick={() => loadTemplate(t)} style={{ width:"100%", background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", borderRadius:6, padding:"7px 0", color:"#0A0810", fontFamily:FONT.display, fontSize:11, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>LOG ◆</button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {view==="log" && MEALS.map(meal => {
         const items = log.filter(f=>f.meal===meal);
         const mealCal = items.reduce((a,f)=>a+f.cal,0);
@@ -3069,9 +3115,20 @@ function NutritionScreen({ showToast }) {
                 <div style={{ width:2, height:14, background:G.gold, boxShadow:G.goldGlow2, borderRadius:1 }}/>
                 <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>{meal}</div>
               </div>
-              <div style={{ display:"flex", gap:7, alignItems:"center" }}>
+              <div style={{ display:"flex", gap:6, alignItems:"center" }}>
                 {mealCal>0 && <div style={{ fontFamily:FONT.mono, fontSize:10, color:G.textDim }}>{mealCal} kcal</div>}
-                <NeonBtn onClick={()=>{setSelMeal(meal);setView("search");}} small outline color={G.gold}>+ ADD</NeonBtn>
+                {items.length > 0 && savingTemplateFor === meal ? (
+                  <>
+                    <input autoFocus value={templateNameDraft} onChange={e=>setTemplateNameDraft(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") saveMealTemplate(meal); if(e.key==="Escape") setSavingTemplateFor(null); }} placeholder="TEMPLATE NAME" style={{ background:"rgba(0,0,0,0.4)", border:`1px solid ${G.gold}66`, borderRadius:5, padding:"4px 8px", color:G.gold, fontSize:11, outline:"none", fontFamily:FONT.display, letterSpacing:1, textTransform:"uppercase", width:120 }}/>
+                    <button onClick={()=>saveMealTemplate(meal)} style={{ background:`${G.gold}20`, border:`1px solid ${G.gold}55`, borderRadius:5, padding:"4px 8px", color:G.gold, fontFamily:FONT.display, fontSize:11, cursor:"pointer", lineHeight:1 }}>✓</button>
+                    <button onClick={()=>setSavingTemplateFor(null)} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:13, lineHeight:1 }}>✕</button>
+                  </>
+                ) : (
+                  <>
+                    {items.length > 0 && <button onClick={()=>{ setSavingTemplateFor(meal); setTemplateNameDraft(meal); }} style={{ background:"rgba(255,255,255,0.04)", border:`1px solid ${G.borderB}`, borderRadius:5, padding:"4px 8px", color:G.textDim, fontFamily:FONT.body, fontSize:9, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>💾</button>}
+                    <NeonBtn onClick={()=>{setSelMeal(meal);setView("search");}} small outline color={G.gold}>+ ADD</NeonBtn>
+                  </>
+                )}
               </div>
             </div>
             {items.length===0 ? (
