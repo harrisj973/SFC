@@ -424,6 +424,247 @@ function compressImage(file) {
   });
 }
 
+function extractFrames(videoFile) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    const url = URL.createObjectURL(videoFile);
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+
+    const positions = [0.2, 0.5, 0.8];
+    const frames = [];
+    let idx = 0;
+
+    const captureFrame = () => {
+      const MAX = 640;
+      const scale = Math.min(1, MAX / Math.max(video.videoWidth || 640, video.videoHeight || 480));
+      const w = Math.round((video.videoWidth || 640) * scale);
+      const h = Math.round((video.videoHeight || 480) * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(video, 0, 0, w, h);
+      return canvas.toDataURL("image/jpeg", 0.7).split(",")[1];
+    };
+
+    const seekNext = () => {
+      if (idx >= positions.length) {
+        URL.revokeObjectURL(url);
+        resolve(frames);
+        return;
+      }
+      video.currentTime = video.duration * positions[idx];
+    };
+
+    video.addEventListener("seeked", () => {
+      frames.push(captureFrame());
+      idx++;
+      seekNext();
+    });
+
+    video.addEventListener("loadedmetadata", () => seekNext());
+    video.addEventListener("error", () => { URL.revokeObjectURL(url); reject(new Error("Video failed to load")); });
+    video.load();
+  });
+}
+
+function FormCheckModal({ onClose }) {
+  const [exercise, setExercise] = useState("");
+  const [videoFile, setVideoFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [frames, setFrames] = useState([]);
+  const [extracting, setExtracting] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+
+  const handleVideo = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("video/")) { setError("Please select a video file."); return; }
+    if (file.size > 100 * 1024 * 1024) { setError("Video must be under 100 MB."); return; }
+    setVideoFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setFrames([]);
+    setResult(null);
+    setError(null);
+    setExtracting(true);
+    try {
+      const extracted = await extractFrames(file);
+      setFrames(extracted);
+    } catch {
+      setError("Could not extract frames from video. Try a different format (MP4 recommended).");
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (frames.length === 0) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const { data: json, error: fnErr } = await supabase.functions.invoke("form-check", {
+        body: { frames, exercise: exercise.trim() },
+      });
+      if (fnErr) throw new Error(fnErr.message);
+      if (json?.error) throw new Error(json.error);
+      setResult(json);
+    } catch (e) {
+      setError(e.message || "Analysis failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const scoreColor = (s) => s >= 8 ? G.green : s >= 6 ? G.gold : "#FF6B6B";
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", zIndex:1000, display:"flex", flexDirection:"column", overflowY:"auto" }}>
+      <div style={{ background:`linear-gradient(180deg,${G.bg3},${G.bg2})`, border:`1px solid ${G.gold}33`, borderRadius:"16px 16px 0 0", marginTop:"auto", padding:"20px 18px 32px", minHeight:"60vh" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18 }}>
+          <div>
+            <div style={{ fontFamily:FONT.display, fontSize:24, letterSpacing:4, color:"#fff" }}>FORM CHECK</div>
+            <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2, color:G.gold, textTransform:"uppercase" }}>◆ &nbsp;AI MOVEMENT ANALYSIS</div>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:G.textMid, fontSize:22, cursor:"pointer", padding:4 }}>✕</button>
+        </div>
+
+        {!result && (
+          <>
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:6 }}>Exercise Name (optional)</div>
+              <input
+                value={exercise}
+                onChange={e => setExercise(e.target.value)}
+                placeholder="e.g. Back Squat, Bench Press, Deadlift..."
+                maxLength={60}
+                style={{ width:"100%", background:G.chrome, border:`1px solid ${G.border}`, borderRadius:8, padding:"10px 12px", fontFamily:FONT.body, fontSize:13, color:"#fff", outline:"none", boxSizing:"border-box" }}
+              />
+            </div>
+
+            <label style={{ display:"block", marginBottom:14, cursor:"pointer" }}>
+              <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:6 }}>Upload Video</div>
+              <div style={{ background:G.chrome, border:`2px dashed ${G.gold}55`, borderRadius:10, padding:"20px 16px", textAlign:"center" }}>
+                {videoFile ? (
+                  <div>
+                    <video src={previewUrl} style={{ width:"100%", maxHeight:160, borderRadius:7, objectFit:"cover" }} muted playsInline/>
+                    <div style={{ fontFamily:FONT.body, fontSize:11, color:G.gold, letterSpacing:1, marginTop:8 }}>
+                      {extracting ? "⏳ EXTRACTING FRAMES..." : frames.length > 0 ? `✓ ${frames.length} FRAMES READY` : ""}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize:32, marginBottom:6 }}>🎬</div>
+                    <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:"#fff", marginBottom:4 }}>TAP TO SELECT VIDEO</div>
+                    <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1 }}>MP4 · MOV · Up to 100 MB</div>
+                  </div>
+                )}
+              </div>
+              <input type="file" accept="video/*" capture="environment" onChange={handleVideo} style={{ display:"none" }}/>
+            </label>
+
+            {frames.length > 0 && (
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:8 }}>Sampled Frames</div>
+                <div style={{ display:"flex", gap:6 }}>
+                  {frames.map((f, i) => (
+                    <img key={i} src={`data:image/jpeg;base64,${f}`} alt={`Frame ${i+1}`} style={{ flex:1, height:72, objectFit:"cover", borderRadius:6, border:`1px solid ${G.border}` }}/>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div style={{ background:"rgba(255,107,107,0.12)", border:"1px solid rgba(255,107,107,0.35)", borderRadius:8, padding:"10px 12px", fontFamily:FONT.body, fontSize:12, color:"#FF6B6B", marginBottom:14 }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={handleAnalyze}
+              disabled={frames.length === 0 || loading || extracting}
+              style={{ width:"100%", background: frames.length > 0 && !loading && !extracting ? `linear-gradient(135deg,${G.gold},${G.goldDark})` : G.chrome, border:"none", borderRadius:10, padding:"14px", fontFamily:FONT.display, fontSize:16, letterSpacing:3, color: frames.length > 0 && !loading && !extracting ? "#0A0810" : G.textDim, cursor: frames.length > 0 && !loading && !extracting ? "pointer" : "not-allowed", textTransform:"uppercase", boxShadow: frames.length > 0 ? G.goldGlow2 : "none", transition:"all 0.2s" }}
+            >
+              {loading ? "⚡ ANALYZING FORM..." : "ANALYZE MY FORM"}
+            </button>
+          </>
+        )}
+
+        {result && (
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:14, background:G.chrome, border:`1px solid ${G.border}`, borderRadius:12, padding:"14px 16px", marginBottom:16 }}>
+              <div style={{ width:56, height:56, borderRadius:"50%", background:`${scoreColor(result.score)}22`, border:`2px solid ${scoreColor(result.score)}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <span style={{ fontFamily:FONT.display, fontSize:22, color:scoreColor(result.score) }}>{result.score}</span>
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:2, color:scoreColor(result.score), textTransform:"uppercase", marginBottom:3 }}>FORM SCORE / 10</div>
+                <div style={{ fontFamily:FONT.body, fontSize:13, color:"#fff", lineHeight:1.4 }}>{result.summary}</div>
+              </div>
+            </div>
+
+            {result.safety && (
+              <div style={{ background:"rgba(255,107,107,0.1)", border:"1px solid rgba(255,107,107,0.35)", borderRadius:9, padding:"10px 12px", marginBottom:14, display:"flex", gap:8, alignItems:"flex-start" }}>
+                <span style={{ fontSize:16, flexShrink:0 }}>⚠️</span>
+                <div style={{ fontFamily:FONT.body, fontSize:12, color:"#FF6B6B", lineHeight:1.5 }}>{result.safety}</div>
+              </div>
+            )}
+
+            {result.strengths?.length > 0 && (
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:2, color:G.green, textTransform:"uppercase", marginBottom:8 }}>✓ &nbsp;WHAT YOU'RE DOING WELL</div>
+                {result.strengths.map((s, i) => (
+                  <div key={i} style={{ display:"flex", gap:8, marginBottom:6 }}>
+                    <span style={{ color:G.green, fontSize:13, flexShrink:0 }}>•</span>
+                    <div style={{ fontFamily:FONT.body, fontSize:13, color:"#fff", lineHeight:1.4 }}>{s}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {result.corrections?.length > 0 && (
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:2, color:G.gold, textTransform:"uppercase", marginBottom:8 }}>🔧 &nbsp;CORRECTIONS</div>
+                {result.corrections.map((c, i) => (
+                  <div key={i} style={{ background:`${G.gold}0A`, border:`1px solid ${G.gold}22`, borderRadius:8, padding:"10px 12px", marginBottom:7 }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, color:G.gold, marginBottom:3 }}>{c.issue}</div>
+                    <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, lineHeight:1.5 }}>{c.fix}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {result.cues?.length > 0 && (
+              <div style={{ marginBottom:18 }}>
+                <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:2, color:G.purpleLight, textTransform:"uppercase", marginBottom:8 }}>💬 &nbsp;COACHING CUES</div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                  {result.cues.map((cue, i) => (
+                    <div key={i} style={{ background:`${G.purple}33`, border:`1px solid ${G.purpleLight}44`, borderRadius:20, padding:"5px 12px", fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, color:G.purpleLight, textTransform:"uppercase" }}>{cue}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => { setResult(null); setFrames([]); setVideoFile(null); setPreviewUrl(null); setExercise(""); setError(null); }}
+              style={{ width:"100%", background:G.chrome, border:`1px solid ${G.border}`, borderRadius:10, padding:"13px", fontFamily:FONT.display, fontSize:14, letterSpacing:3, color:"#fff", cursor:"pointer", textTransform:"uppercase", marginBottom:8 }}
+            >
+              CHECK ANOTHER VIDEO
+            </button>
+            <button
+              onClick={onClose}
+              style={{ width:"100%", background:"none", border:"none", fontFamily:FONT.body, fontSize:12, color:G.textDim, cursor:"pointer", padding:"8px" }}
+            >
+              Done
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SectionLabel({ children, accent = true }) {
   return (
     <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
@@ -3934,6 +4175,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
   const [adminOpen, setAdminOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [macroCoachOpen, setMacroCoachOpen] = useState(false);
+  const [formCheckOpen, setFormCheckOpen] = useState(false);
   const FEATURES = [
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
     {id:"reports", l:"WEEKLY REPORTS", ico:"📋", desc:"Personalized coaching notes", col:G.purpleLight, hot:true},
@@ -3943,7 +4185,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
     {id:"partners", l:"ACCOUNTABILITY", ico:"🤝", desc:"Train together, stay consistent", col:G.green},
     {id:"goals", l:"GOALS", ico:"🎯", desc:"Track your fitness targets", col:G.gold},
     {id:"notif", l:"NOTIFICATIONS", ico:"🔔", desc:"Reminders & streak alerts", col:G.purpleLight, hot:true},
-    {id:"form", l:"FORM CHECK", ico:"🏋️", desc:"Expert feedback on your lifts", col:G.gold},
+    {id:"form", l:"FORM CHECK", ico:"🏋️", desc:"AI feedback on your lifts", col:G.gold, hot:true},
   ];
 
   const handleTile = (id) => {
@@ -3954,6 +4196,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
     else if (id === "health") setHealthOpen(true);
     else if (id === "notif") setNotifOpen(true);
     else if (id === "macro") setMacroCoachOpen(true);
+    else if (id === "form") setFormCheckOpen(true);
     else showToast(`${FEATURES.find(f=>f.id===id)?.ico} ${FEATURES.find(f=>f.id===id)?.l} — COMING SOON`);
   };
 
@@ -3971,6 +4214,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
       {adminOpen && <AdminDashboardModal onClose={()=>setAdminOpen(false)}/>}
       {notifOpen && <NotificationsModal sessions={sessions} onClose={()=>setNotifOpen(false)}/>}
       {macroCoachOpen && <MacroCoachModal onClose={()=>setMacroCoachOpen(false)}/>}
+      {formCheckOpen && <FormCheckModal onClose={()=>setFormCheckOpen(false)}/>}
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:20 }}>
         {FEATURES.map(f => (
