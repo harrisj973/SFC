@@ -64,10 +64,11 @@ const EXERCISE_CATS = {
 const EX_CAT_LOOKUP = {};
 Object.entries(EXERCISE_CATS).forEach(([cat, arr]) => arr.forEach(n => { EX_CAT_LOOKUP[n] = cat; }));
 
+const REACTIONS = ["🔥","💪","👊","⚡","🙌"];
 const FEED_DATA = [
-  { id:"f1", user:"MARCUS J.", av:"MJ", time:"2H AGO", txt:"315lb deadlift PR. 5 sets of 3. The iron never lies. 🔥", likes:47, liked:false, commentList:[], type:"pr", tag:"315LBS DEADLIFT" },
-  { id:"f2", user:"SOFIA R.", av:"SR", time:"4H AGO", txt:"100 logged workouts on SFC. This community keeps me showing up every single day.", likes:89, liked:true, commentList:[], type:"milestone", tag:"100 SESSIONS" },
-  { id:"f3", user:"DEVON K.", av:"DK", time:"YESTERDAY", txt:"Consistency over motivation. Always.", likes:34, liked:false, commentList:[], type:"post", tag:null },
+  { id:"f1", user:"MARCUS J.", av:"MJ", time:"2H AGO", txt:"315lb deadlift PR. 5 sets of 3. The iron never lies. 🔥", likes:47, liked:false, commentList:[], type:"pr", tag:"315LBS DEADLIFT", reactions:{"🔥":18,"💪":12,"👊":7,"⚡":3,"🙌":5}, myReactions:[] },
+  { id:"f2", user:"SOFIA R.", av:"SR", time:"4H AGO", txt:"100 logged workouts on SFC. This community keeps me showing up every single day.", likes:89, liked:true, commentList:[], type:"milestone", tag:"100 SESSIONS", reactions:{"🔥":24,"💪":31,"👊":4,"⚡":6,"🙌":19}, myReactions:[] },
+  { id:"f3", user:"DEVON K.", av:"DK", time:"YESTERDAY", txt:"Consistency over motivation. Always.", likes:34, liked:false, commentList:[], type:"post", tag:null, reactions:{"🔥":9,"💪":14,"👊":2,"⚡":0,"🙌":8}, myReactions:[] },
 ];
 
 const MACROS_GOAL = { cal:2200, pro:180, carb:220, fat:65 };
@@ -2951,6 +2952,21 @@ function FeedScreen({ showToast, profile }) {
     setCTxt("");
   };
 
+  const toggleReaction = (id, emoji) => setFeed(p => p.map(post => {
+    if (post.id !== id) return post;
+    const reactions = { ...(post.reactions || {}) };
+    const myReactions = [...(post.myReactions || [])];
+    const hasIt = myReactions.includes(emoji);
+    if (hasIt) {
+      myReactions.splice(myReactions.indexOf(emoji), 1);
+      reactions[emoji] = Math.max(0, (reactions[emoji] || 0) - 1);
+    } else {
+      myReactions.push(emoji);
+      reactions[emoji] = (reactions[emoji] || 0) + 1;
+    }
+    return { ...post, reactions, myReactions };
+  }));
+
   const submitPost = () => {
     if (!newTxt.trim()) return;
     const tag = (newType !== "post" && newTag.trim()) ? newTag.trim().toUpperCase() : null;
@@ -2964,6 +2980,8 @@ function FeedScreen({ showToast, profile }) {
       commentList: [],
       type: newType,
       tag,
+      reactions: { "🔥":0, "💪":0, "👊":0, "⚡":0, "🙌":0 },
+      myReactions: [],
     }, ...p]);
     setNewTxt(""); setNewTag(""); setNewType("post"); setShowPost(false);
     showToast("🔥 POST SHARED WITH THE SQUAD!");
@@ -3027,6 +3045,19 @@ function FeedScreen({ showToast, profile }) {
             )}
 
             <div style={{ padding:"10px 13px 0", fontFamily:FONT.body, fontSize:14, color:G.text, lineHeight:1.55, letterSpacing:0.3 }}>{post.txt}</div>
+
+            <div style={{ padding:"8px 13px 0", display:"flex", gap:5, flexWrap:"wrap" }}>
+              {REACTIONS.map(emoji => {
+                const count = (post.reactions || {})[emoji] || 0;
+                const mine = (post.myReactions || []).includes(emoji);
+                return (
+                  <button key={emoji} onClick={() => toggleReaction(post.id, emoji)} style={{ display:"flex", alignItems:"center", gap:3, background: mine ? `${G.gold}1A` : "rgba(255,255,255,0.04)", border:`1px solid ${mine ? G.gold+"55" : G.borderB}`, borderRadius:16, padding:"4px 9px", cursor:"pointer", transition:"all 0.15s", boxShadow: mine ? `0 0 6px ${G.gold}44` : "none" }}>
+                    <span style={{ fontSize:14, lineHeight:1 }}>{emoji}</span>
+                    {count > 0 && <span style={{ fontFamily:FONT.display, fontSize:11, color: mine ? G.gold : G.textMid, letterSpacing:0.5 }}>{count}</span>}
+                  </button>
+                );
+              })}
+            </div>
 
             <div style={{ padding:"10px 13px 12px", display:"flex", gap:6, alignItems:"center" }}>
               <button onClick={()=>toggleLike(post.id)} style={{ display:"flex", alignItems:"center", gap:5, background:post.liked?`${G.gold}15`:"transparent", border:`1px solid ${post.liked?G.gold+"55":G.borderB}`, borderRadius:20, padding:"5px 11px", color:post.liked?G.gold:G.textMid, fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, cursor:"pointer", transition:"all 0.2s" }}>
