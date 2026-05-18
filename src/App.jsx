@@ -1151,6 +1151,129 @@ function ExercisePicker({ onSelect, onClose }) {
   );
 }
 
+function PlateCalculatorModal({ onClose, initialWeight = "" }) {
+  const [target, setTarget] = useState(String(initialWeight));
+  const [barWeight, setBarWeight] = useState(45);
+
+  const PLATE_SIZES = [45, 35, 25, 10, 5, 2.5];
+  const PLATE_META = {
+    45:  { color:"#C0392B", border:"#922B21", thick:20 },
+    35:  { color:"#C8A908", border:"#9A7D0A", thick:17 },
+    25:  { color:"#1E8449", border:"#145A32", thick:14 },
+    10:  { color:"#BDC3C7", border:"#7F8C8D", thick:9  },
+    5:   { color:"#2471A3", border:"#1A5276", thick:7  },
+    2.5: { color:"#2C3E50", border:"#34495E", thick:5  },
+  };
+
+  const targetNum = parseFloat(target) || 0;
+  const perSide = (targetNum - barWeight) / 2;
+  const plates = (() => {
+    if (perSide <= 0) return [];
+    const result = [];
+    let rem = perSide;
+    for (const size of PLATE_SIZES) {
+      while (rem >= size - 0.01) {
+        result.push(size);
+        rem = Math.round((rem - size) * 100) / 100;
+      }
+    }
+    return result;
+  })();
+  const totalLoaded = barWeight + plates.reduce((a, p) => a + p, 0) * 2;
+  const impossible = targetNum > 0 && targetNum < barWeight;
+  const nonStandard = targetNum > 0 && !impossible && Math.abs(totalLoaded - targetNum) > 0.09;
+  const plateCounts = plates.reduce((acc, p) => ({ ...acc, [p]: (acc[p] || 0) + 1 }), {});
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.92)", zIndex:500, display:"flex", alignItems:"flex-end" }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"16px 16px 0 0", padding:"22px 18px 48px", border:`1px solid ${G.border}`, borderBottom:"none" }}>
+        <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"0 auto 18px" }}/>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
+          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>PLATE CALCULATOR</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:20, lineHeight:1 }}>✕</button>
+        </div>
+
+        <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:7 }}>BAR WEIGHT</div>
+        <div style={{ display:"flex", gap:6, marginBottom:16 }}>
+          {[{l:"STANDARD",v:45},{l:"WOMEN'S",v:35},{l:"TRAP/HEX",v:60},{l:"EZ-CURL",v:25}].map(b => (
+            <button key={b.v} onClick={() => setBarWeight(b.v)} style={{ flex:1, padding:"7px 4px", borderRadius:6, border:`1px solid ${barWeight===b.v ? G.gold : G.borderB}`, background:barWeight===b.v ? `${G.gold}18` : "transparent", color:barWeight===b.v ? G.gold : G.textMid, fontFamily:FONT.display, fontSize:10, letterSpacing:1, cursor:"pointer", textTransform:"uppercase", lineHeight:1.4 }}>
+              <div>{b.l}</div><div style={{ fontSize:12, marginTop:2 }}>{b.v} LB</div>
+            </button>
+          ))}
+        </div>
+
+        <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:7 }}>TARGET WEIGHT (LBS)</div>
+        <input type="number" inputMode="decimal" value={target} onChange={e => setTarget(e.target.value)} placeholder="E.G. 225" autoFocus
+          style={{ background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:7, padding:"12px 14px", color:"#fff", fontSize:22, outline:"none", width:"100%", boxSizing:"border-box", fontFamily:FONT.display, letterSpacing:3, marginBottom:6, textAlign:"center" }}/>
+
+        {impossible && (
+          <div style={{ color:"#FF3D5A", fontFamily:FONT.body, fontSize:11, letterSpacing:1, textAlign:"center", marginTop:4 }}>
+            Target is less than bar weight ({barWeight} lbs)
+          </div>
+        )}
+
+        {targetNum > 0 && !impossible && (
+          <>
+            {/* Bar diagram */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:76, margin:"14px 0 10px", overflow:"hidden" }}>
+              <div style={{ width:6, height:18, background:"#999", borderRadius:"3px 0 0 3px", flexShrink:0 }}/>
+              {[...plates].reverse().map((p, i) => {
+                const m = PLATE_META[p];
+                return <div key={i} style={{ width:m.thick, height:58, background:m.color, border:`1px solid ${m.border}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  {m.thick >= 12 && <div style={{ fontFamily:FONT.display, fontSize:7, color:"rgba(255,255,255,0.9)", writingMode:"vertical-rl", transform:"rotate(180deg)", letterSpacing:0.5 }}>{p}</div>}
+                </div>;
+              })}
+              <div style={{ width:3, height:22, background:"#aaa", flexShrink:0 }}/>
+              <div style={{ width:Math.max(24, 52 - plates.length * 3), height:12, background:"linear-gradient(180deg,#ccc,#999)", flexShrink:0 }}/>
+              <div style={{ width:36, height:9, background:"linear-gradient(180deg,#bbb,#777)", borderRadius:1, flexShrink:0 }}/>
+              <div style={{ width:Math.max(24, 52 - plates.length * 3), height:12, background:"linear-gradient(180deg,#ccc,#999)", flexShrink:0 }}/>
+              <div style={{ width:3, height:22, background:"#aaa", flexShrink:0 }}/>
+              {plates.map((p, i) => {
+                const m = PLATE_META[p];
+                return <div key={i} style={{ width:m.thick, height:58, background:m.color, border:`1px solid ${m.border}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  {m.thick >= 12 && <div style={{ fontFamily:FONT.display, fontSize:7, color:"rgba(255,255,255,0.9)", writingMode:"vertical-rl", letterSpacing:0.5 }}>{p}</div>}
+                </div>;
+              })}
+              <div style={{ width:6, height:18, background:"#999", borderRadius:"0 3px 3px 0", flexShrink:0 }}/>
+            </div>
+
+            {/* Per-side list */}
+            <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:10 }}>EACH SIDE</div>
+            {plates.length === 0 ? (
+              <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:1, marginBottom:14, textAlign:"center" }}>Bar only — no plates needed</div>
+            ) : (
+              <div style={{ marginBottom:14 }}>
+                {Object.entries(plateCounts).map(([p, count]) => {
+                  const m = PLATE_META[parseFloat(p)];
+                  return (
+                    <div key={p} style={{ display:"flex", alignItems:"center", gap:12, marginBottom:9 }}>
+                      <div style={{ width:34, height:34, borderRadius:5, background:m.color, border:`2px solid ${m.border}`, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        <div style={{ fontFamily:FONT.display, fontSize:11, color:"#fff", letterSpacing:0.5 }}>{p}</div>
+                      </div>
+                      <div style={{ flex:1, fontFamily:FONT.display, fontSize:15, color:"#fff", letterSpacing:2, textTransform:"uppercase" }}>{p} LB PLATE</div>
+                      <div style={{ fontFamily:FONT.display, fontSize:22, color:G.gold, letterSpacing:1 }}>×{count}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <ChromeCard gold style={{ padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>TOTAL ON BAR</div>
+              <div style={{ fontFamily:FONT.display, fontSize:22, color:G.gold, letterSpacing:2 }}>{totalLoaded} LBS</div>
+            </ChromeCard>
+            {nonStandard && (
+              <div style={{ fontFamily:FONT.body, fontSize:10, color:"#FF6B00", letterSpacing:1, textAlign:"center", marginTop:8 }}>
+                Closest loadable: {totalLoaded} lbs
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQuickStart, sessions = [] }) {
   const [subTab, setSubTab] = useState("track");
   const [sessName, setSessName] = useState(() => {
@@ -1177,6 +1300,8 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   });
   const [selectedPrEx, setSelectedPrEx] = useState(null);
   const [restWarnDismissed, setRestWarnDismissed] = useState(false);
+  const [plateCalcOpen, setPlateCalcOpen] = useState(false);
+  const [plateCalcWeight, setPlateCalcWeight] = useState("");
   const nextIdRef = useRef(2);
 
   useEffect(() => {
@@ -1279,8 +1404,14 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
     <div style={{ padding:"20px 18px 0" }}>
       {pickerFor && <ExercisePicker onSelect={name=>{ selectExercise(pickerFor, name); }} onClose={()=>setPickerFor(null)}/>}
       {restSec && <RestTimer sec={restSec} onDone={() => { setRestSec(null); showToast("✓ REST COMPLETE"); }}/>}
-      <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase", marginBottom:16 }}>
-        TRAINING <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>HUB</span>
+      {plateCalcOpen && <PlateCalculatorModal initialWeight={plateCalcWeight} onClose={() => setPlateCalcOpen(false)}/>}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:16 }}>
+        <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+          TRAINING <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>HUB</span>
+        </div>
+        <button onClick={() => { setPlateCalcWeight(""); setPlateCalcOpen(true); }} style={{ background:`${G.gold}14`, border:`1px solid ${G.gold}44`, borderRadius:8, padding:"8px 12px", color:G.gold, fontFamily:FONT.display, fontSize:11, letterSpacing:2, cursor:"pointer", display:"flex", alignItems:"center", gap:5, textTransform:"uppercase", flexShrink:0, marginBottom:2 }}>
+          ⚖️ PLATES
+        </button>
       </div>
       <div style={{ display:"flex", background:"rgba(0,0,0,0.5)", borderRadius:7, padding:3, gap:3, marginBottom:18, border:`1px solid ${G.borderB}` }}>
         {SUB_TABS.map(t => (
