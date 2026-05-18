@@ -238,4 +238,12 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 - `react-hooks/purity` — prohibits `Date.now()` / `Math.random()` directly in render. Use `useState(() => Date.now())` to capture a stable value at mount.
 - `react-hooks/static-components` — component definitions must not be inside another component's render function.
 - `react-hooks/exhaustive-deps` — all state variables referenced inside `useEffect` must be in the dependency array.
+- `react-hooks/refs` — prohibits `ref.current = value` directly in render; wrap in `useEffect`.
 - `no-unused-vars` — unused destructured parameters (e.g. `(s, i)` where `i` is unused) must be removed.
+
+### Known implementation invariants
+
+- **Stable callback refs**: `RestTimer` uses `useRef` + `useEffect(() => { ref.current = onDone; })` (no deps) to keep the `onDone` callback current without restarting the interval on every parent re-render. Do not replace with a direct dependency.
+- **Streak calculation in `handleSave`**: compares the most recent existing session's `createdAt` date against today/yesterday to decide whether to extend or reset the streak. This must remain before the optimistic state update.
+- **Sign-out cleanup**: `handleSignOut` clears all 14 `sfc_*` localStorage keys before resetting state — ensures no user data leaks to the next person on the same device.
+- **Blob URL lifecycle in `FormCheckModal`**: uses `previewUrlRef` to revoke the previous object URL both when a new file is picked and on unmount, preventing memory leaks.
