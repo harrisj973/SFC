@@ -2920,7 +2920,32 @@ function NutritionScreen({ showToast }) {
   );
 }
 
-function FeedScreen({ showToast, profile }) {
+function getChallengeProgress(ch, sessions) {
+  const since = new Date(ch.created);
+  const relevant = sessions.filter(s => new Date(s.createdAt || s.date) >= since);
+  if (ch.type === "pr") {
+    let best = 0;
+    for (const sess of relevant) {
+      for (const ex of (sess.exs || [])) {
+        if (ex.name !== ch.exercise) continue;
+        for (const set of ex.sets) {
+          if (set.type === "warmup") continue;
+          const w = parseFloat(set.w) || 0, r = parseInt(set.r) || 0;
+          if (w && r) best = Math.max(best, Math.round(w * (1 + r / 30)));
+        }
+      }
+    }
+    return { current: best, pct: Math.min(100, ch.target ? (best / ch.target) * 100 : 0), unit: "LB EST. 1RM" };
+  }
+  if (ch.type === "vol") {
+    const current = relevant.reduce((a, s) => a + (s.vol || 0), 0);
+    return { current, pct: Math.min(100, ch.target ? (current / ch.target) * 100 : 0), unit: "LBS VOLUME" };
+  }
+  const current = relevant.length;
+  return { current, pct: Math.min(100, ch.target ? (current / ch.target) * 100 : 0), unit: "SESSIONS" };
+}
+
+function FeedScreen({ showToast, profile, sessions = [] }) {
   const [feed, setFeed] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("sfc_feed") || "null");
@@ -2933,10 +2958,54 @@ function FeedScreen({ showToast, profile }) {
   const [newTxt, setNewTxt] = useState("");
   const [newType, setNewType] = useState("post");
   const [newTag, setNewTag] = useState("");
+  const [challenges, setChallenges] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sfc_challenges") || "[]"); } catch { return []; }
+  });
+  const [newChalType, setNewChalType] = useState("pr");
+  const [newChalExercise, setNewChalExercise] = useState("");
+  const [newChalTarget, setNewChalTarget] = useState("");
 
   useEffect(() => {
     localStorage.setItem("sfc_feed", JSON.stringify(feed));
   }, [feed]);
+
+  useEffect(() => {
+    localStorage.setItem("sfc_challenges", JSON.stringify(challenges));
+  }, [challenges]);
+
+  useEffect(() => {
+    const incomplete = challenges.filter(ch => !ch.completed);
+    if (!incomplete.length) return;
+    const nowMs = Date.now();
+    const completions = [];
+    const updated = challenges.map(ch => {
+      if (ch.completed) return ch;
+      const { pct } = getChallengeProgress(ch, sessions);
+      if (pct < 100) return ch;
+      completions.push(ch);
+      return { ...ch, completed: true, completedAt: new Date(nowMs).toISOString() };
+    });
+    if (!completions.length) return;
+    setChallenges(updated);
+    setFeed(p => [
+      ...completions.map(ch => ({
+        id: `ch_done_${ch.id}`,
+        user: profile?.username || "YOU",
+        av: profile?.avatar_initials || "ME",
+        time: "JUST NOW",
+        txt: ch.type === "pr"
+          ? `Challenge complete! Hit a ${ch.target}lb ${ch.exercise} 1RM. 🏆`
+          : ch.type === "vol"
+          ? `Challenge complete! Moved ${Number(ch.target).toLocaleString()}lbs of volume in 7 days. 💪`
+          : `Challenge complete! Logged ${ch.target} sessions in 7 days. 🔥`,
+        likes: 0, liked: false, commentList: [],
+        type: "milestone", tag: "CHALLENGE COMPLETE",
+        reactions: { "🔥":0, "💪":0, "👊":0, "⚡":0, "🙌":0 }, myReactions: [],
+      })),
+      ...p,
+    ]);
+    completions.forEach(() => showToast("🏆 CHALLENGE COMPLETE!"));
+  }, [sessions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleLike = id => setFeed(p => p.map(post =>
     post.id === id ? { ...post, liked: !post.liked, likes: post.liked ? post.likes - 1 : post.likes + 1 } : post
@@ -2987,10 +3056,41 @@ function FeedScreen({ showToast, profile }) {
     showToast("🔥 POST SHARED WITH THE SQUAD!");
   };
 
+  const submitChallenge = () => {
+    const target = parseFloat(newChalTarget);
+    if (!target || target <= 0) return showToast("Enter a valid target");
+    if (newChalType === "pr" && !newChalExercise.trim()) return showToast("Enter an exercise name");
+    const id = `ch_${Date.now()}`;
+    const created = new Date().toISOString();
+    const deadline = new Date(Date.now() + 7 * 86400000).toISOString();
+    const ch = { id, type: newChalType, exercise: newChalType === "pr" ? newChalExercise.trim() : null, target, created, deadline, completed: false, completedAt: null };
+    setChallenges(p => [...p, ch]);
+    const txt = newChalType === "pr"
+      ? `Can I hit a ${target}lb ${newChalExercise.trim()} 1RM in 7 days? The challenge is on. 💪`
+      : newChalType === "vol"
+      ? `Can I move ${Number(target).toLocaleString()}lbs of total volume in 7 days? Let's find out. ⚡`
+      : `Can I log ${target} sessions in 7 days? Holding myself accountable. 🔥`;
+    setFeed(p => [{
+      id: `ch_post_${id}`,
+      user: profile?.username || "YOU",
+      av: profile?.avatar_initials || "ME",
+      time: "JUST NOW",
+      txt,
+      likes: 0, liked: false, commentList: [],
+      type: "challenge",
+      tag: newChalType === "pr" ? `${newChalExercise.trim().toUpperCase()} PR CHALLENGE` : newChalType === "vol" ? "VOLUME CHALLENGE" : "SESSION CHALLENGE",
+      challengeId: id,
+      reactions: { "🔥":0, "💪":0, "👊":0, "⚡":0, "🙌":0 }, myReactions: [],
+    }, ...p]);
+    setNewChalExercise(""); setNewChalTarget(""); setNewChalType("pr"); setShowPost(false);
+    showToast("⚔️ CHALLENGE LAUNCHED!");
+  };
+
   const typeConfig = {
     pr: { color: G.gold, ico: "🏆", label: "PR ALERT" },
     milestone: { color: G.purpleLight, ico: "⭐", label: "MILESTONE" },
     post: { color: G.textMid, ico: "📢", label: "POST" },
+    challenge: { color: "#00D4FF", ico: "⚔️", label: "CHALLENGE" },
   };
 
   const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"9px 12px", color:"#fff", fontSize:13, outline:"none", fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" };
@@ -3045,6 +3145,31 @@ function FeedScreen({ showToast, profile }) {
             )}
 
             <div style={{ padding:"10px 13px 0", fontFamily:FONT.body, fontSize:14, color:G.text, lineHeight:1.55, letterSpacing:0.3 }}>{post.txt}</div>
+
+            {post.type === "challenge" && post.challengeId && (() => {
+              const ch = challenges.find(c => c.id === post.challengeId);
+              if (!ch) return null;
+              const { current, pct, unit } = getChallengeProgress(ch, sessions);
+              const daysLeft = Math.max(0, Math.ceil((new Date(ch.deadline) - Date.now()) / 86400000));
+              const done = ch.completed || pct >= 100;
+              return (
+                <div style={{ margin:"10px 13px 0", background:"rgba(0,212,255,0.06)", border:"1px solid rgba(0,212,255,0.2)", borderRadius:8, padding:"10px 12px" }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:7 }}>
+                    <div style={{ fontFamily:FONT.body, fontSize:10, color:"#00D4FF", letterSpacing:1.5, textTransform:"uppercase" }}>MY CHALLENGE</div>
+                    {done
+                      ? <span style={{ fontFamily:FONT.display, fontSize:10, letterSpacing:1.5, color:G.gold, background:`${G.gold}18`, border:`1px solid ${G.gold}44`, borderRadius:10, padding:"2px 8px" }}>✓ COMPLETE</span>
+                      : <span style={{ fontFamily:FONT.display, fontSize:10, letterSpacing:1.5, color: daysLeft <= 2 ? "#FF6B00" : G.textMid, background:"rgba(0,0,0,0.3)", border:`1px solid ${G.borderB}`, borderRadius:10, padding:"2px 8px" }}>{daysLeft}D LEFT</span>
+                    }
+                  </div>
+                  <div style={{ height:6, background:"rgba(255,255,255,0.08)", borderRadius:3, overflow:"hidden", marginBottom:6 }}>
+                    <div style={{ height:"100%", width:`${pct}%`, background: done ? `linear-gradient(90deg,${G.gold},${G.goldDark})` : "linear-gradient(90deg,#00D4FF,#0088FF)", borderRadius:3, transition:"width 0.5s ease", boxShadow: done ? G.goldGlow2 : "0 0 6px #00D4FF66" }}/>
+                  </div>
+                  <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:1, textTransform:"uppercase" }}>
+                    {current.toLocaleString()} / {Number(ch.target).toLocaleString()} {unit}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div style={{ padding:"8px 13px 0", display:"flex", gap:5, flexWrap:"wrap" }}>
               {REACTIONS.map(emoji => {
@@ -3101,18 +3226,35 @@ function FeedScreen({ showToast, profile }) {
             <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:14 }}>SHARE WITH THE SQUAD</div>
 
             {/* Post type selector */}
-            <div style={{ display:"flex", gap:6, marginBottom:12 }}>
-              {[{id:"post",l:"📢 POST"},{id:"pr",l:"🏆 PR"},{id:"milestone",l:"⭐ MILESTONE"}].map(t => (
-                <button key={t.id} onClick={()=>setNewType(t.id)} style={{ flex:1, padding:"8px 4px", borderRadius:6, border:`1px solid ${newType===t.id?G.gold:G.borderB}`, background:newType===t.id?`${G.gold}18`:"transparent", color:newType===t.id?G.gold:G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
+              {[{id:"post",l:"📢 POST"},{id:"pr",l:"🏆 PR"},{id:"milestone",l:"⭐ MILESTONE"},{id:"challenge",l:"⚔️ CHALLENGE"}].map(t => (
+                <button key={t.id} onClick={()=>setNewType(t.id)} style={{ flex:"1 1 calc(50% - 3px)", padding:"8px 4px", borderRadius:6, border:`1px solid ${newType===t.id?G.gold:G.borderB}`, background:newType===t.id?`${G.gold}18`:"transparent", color:newType===t.id?G.gold:G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
               ))}
             </div>
 
-            {newType !== "post" && (
-              <input value={newTag} onChange={e=>setNewTag(e.target.value)} placeholder={newType==="pr" ? "E.G. 315LBS DEADLIFT" : "E.G. 100 SESSIONS"} style={{ ...inp, width:"100%", boxSizing:"border-box", marginBottom:10 }}/>
+            {newType === "challenge" ? (
+              <div>
+                <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:8 }}>CHALLENGE TYPE</div>
+                <div style={{ display:"flex", gap:6, marginBottom:12 }}>
+                  {[{id:"pr",l:"🏋️ PR"},{id:"vol",l:"📦 VOLUME"},{id:"sessions",l:"📅 SESSIONS"}].map(t => (
+                    <button key={t.id} onClick={()=>setNewChalType(t.id)} style={{ flex:1, padding:"8px 4px", borderRadius:6, border:`1px solid ${newChalType===t.id?"#00D4FF":G.borderB}`, background:newChalType===t.id?"rgba(0,212,255,0.12)":"transparent", color:newChalType===t.id?"#00D4FF":G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
+                  ))}
+                </div>
+                {newChalType === "pr" && (
+                  <input value={newChalExercise} onChange={e=>setNewChalExercise(e.target.value)} placeholder="EXERCISE (E.G. BARBELL BENCH PRESS)" style={{ ...inp, width:"100%", boxSizing:"border-box", marginBottom:10 }}/>
+                )}
+                <input type="number" inputMode="decimal" value={newChalTarget} onChange={e=>setNewChalTarget(e.target.value)} placeholder={newChalType==="pr" ? "TARGET 1RM (LBS)" : newChalType==="vol" ? "TARGET VOLUME (LBS)" : "TARGET SESSIONS"} style={{ ...inp, width:"100%", boxSizing:"border-box", marginBottom:13 }}/>
+                <NeonBtn onClick={submitChallenge} full>LAUNCH CHALLENGE ◆</NeonBtn>
+              </div>
+            ) : (
+              <>
+                {newType !== "post" && (
+                  <input value={newTag} onChange={e=>setNewTag(e.target.value)} placeholder={newType==="pr" ? "E.G. 315LBS DEADLIFT" : "E.G. 100 SESSIONS"} style={{ ...inp, width:"100%", boxSizing:"border-box", marginBottom:10 }}/>
+                )}
+                <textarea value={newTxt} onChange={e=>setNewTxt(e.target.value)} placeholder="WHAT DID YOU CRUSH TODAY..." style={{ width:"100%", padding:"12px 13px", borderRadius:7, background:"rgba(0,0,0,0.5)", border:`1px solid ${G.borderB}`, color:"#fff", fontSize:13, outline:"none", resize:"none", height:90, boxSizing:"border-box", lineHeight:1.5, marginBottom:13, fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" }}/>
+                <NeonBtn onClick={submitPost} full>POST TO SQUAD ◆</NeonBtn>
+              </>
             )}
-
-            <textarea value={newTxt} onChange={e=>setNewTxt(e.target.value)} placeholder="WHAT DID YOU CRUSH TODAY..." style={{ width:"100%", padding:"12px 13px", borderRadius:7, background:"rgba(0,0,0,0.5)", border:`1px solid ${G.borderB}`, color:"#fff", fontSize:13, outline:"none", resize:"none", height:90, boxSizing:"border-box", lineHeight:1.5, marginBottom:13, fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" }}/>
-            <NeonBtn onClick={submitPost} full>POST TO SQUAD ◆</NeonBtn>
           </div>
         </div>
       )}
@@ -4782,7 +4924,7 @@ function SocialFitClubInner() {
         {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions}/>}
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile}/>}
         {tab==="nutrition" && <NutritionScreen showToast={showToast}/>}
-        {tab==="feed" && <FeedScreen showToast={showToast} profile={profile}/>}
+        {tab==="feed" && <FeedScreen showToast={showToast} profile={profile} sessions={sessions}/>}
         {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut} sessions={sessions} muscleScores={calcMuscleScores(sessions)} isAdmin={user?.email?.toLowerCase()===ADMIN_EMAIL}/>}
       </div>
 
