@@ -1008,7 +1008,6 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
         const canUp = visIdx > 0;
         const canDown = visIdx < visibleWidgets.length - 1;
         const wProps = {
-          key: id,
           onDismiss: () => hideWidget(id),
           onMoveUp: () => moveWidget(id, -1),
           onMoveDown: () => moveWidget(id, 1),
@@ -1017,7 +1016,7 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
         };
 
         if (id === "quickstart") return (
-          <SwipeWidget {...wProps} title="Quick Start">
+          <SwipeWidget key={id} {...wProps} title="Quick Start">
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9 }}>
               {[
                 { name:"PUSH DAY", ico:"💪", color:G.gold, sub:"CHEST · SHOULDERS · TRIS", exs:["Barbell Bench Press","Incline Dumbbell Press","Lateral Raises","Tricep Pushdown"] },
@@ -1037,7 +1036,7 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
         );
 
         if (id === "leaderboard") return (
-          <SwipeWidget {...wProps} title="Leaderboard" extra={<div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textDim, textTransform:"uppercase" }}>ALL TIME</div>}>
+          <SwipeWidget key={id} {...wProps} title="Leaderboard" extra={<div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textDim, textTransform:"uppercase" }}>ALL TIME</div>}>
             {leaderboard.length >= 3 && (
               <div style={{ display:"flex", alignItems:"flex-end", gap:8, marginBottom:12, justifyContent:"center" }}>
                 {[leaderboard[1], leaderboard[0], leaderboard[2]].map((u, i) => {
