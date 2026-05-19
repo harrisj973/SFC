@@ -4984,15 +4984,20 @@ class ErrorBoundary extends Component {
   }
 }
 
+const _D = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("demo") === "1";
+const _DS = [{id:"d1",name:"PUSH DAY",exs:[{id:1,name:"Barbell Bench Press",sets:[{r:"5",w:"185",type:"working"},{r:"5",w:"185",type:"working"},{r:"5",w:"185",type:"working"}],rest:90}],sets:3,vol:2775,pts:80,date:"May 17",createdAt:new Date(Date.now()-86400000).toISOString(),tag:"push"},{id:"d2",name:"PULL DAY",exs:[{id:1,name:"Barbell Deadlift",sets:[{r:"3",w:"315",type:"working"},{r:"3",w:"315",type:"working"}],rest:120}],sets:2,vol:1890,pts:60,date:"May 15",createdAt:new Date(Date.now()-3*86400000).toISOString()},{id:"d3",name:"LEG DAY",exs:[{id:1,name:"Barbell Squat",sets:[{r:"5",w:"225",type:"working"},{r:"5",w:"225",type:"working"},{r:"5",w:"225",type:"working"}],rest:120}],sets:3,vol:3375,pts:90,date:"May 13",createdAt:new Date(Date.now()-5*86400000).toISOString()},{id:"d4",name:"PUSH DAY 2",exs:[{id:1,name:"Barbell Bench Press",sets:[{r:"5",w:"190",type:"working"},{r:"5",w:"190",type:"working"},{r:"5",w:"190",type:"working"}],rest:90},{id:2,name:"Incline Dumbbell Press",sets:[{r:"10",w:"60",type:"working"},{r:"10",w:"60",type:"working"}],rest:60}],sets:5,vol:3900,pts:100,date:"May 11",createdAt:new Date(Date.now()-7*86400000).toISOString(),tag:"push"},{id:"d5",name:"LEG DAY 2",exs:[{id:1,name:"Barbell Squat",sets:[{r:"5",w:"230",type:"working"},{r:"5",w:"230",type:"working"},{r:"5",w:"230",type:"working"}],rest:120},{id:2,name:"Leg Press",sets:[{r:"12",w:"270",type:"working"},{r:"12",w:"270",type:"working"}],rest:90}],sets:5,vol:9990,pts:110,date:"May 9",createdAt:new Date(Date.now()-9*86400000).toISOString(),tag:"legs"}];
+const _DP = {id:"demo",username:"DEMOUSER",avatar_initials:"DU",points:1650,streak:7,sessions_count:5};
+const _DL = [{rank:1,name:"DEMOUSER",pts:1650,sessions:5,streak:7,av:"DU",isMe:true},{rank:2,name:"MARCUS J",pts:1200,sessions:9,streak:3,av:"MJ",isMe:false},{rank:3,name:"SARAH K",pts:980,sessions:7,streak:5,av:"SK",isMe:false},{rank:4,name:"ALEX T",pts:750,sessions:5,streak:2,av:"AT",isMe:false}];
+
 function SocialFitClubInner() {
   const [tab, setTab] = useState("home");
-  const [sessions, setSessions] = useState([]);
+  const [sessions, setSessions] = useState(_D ? _DS : []);
   const [quickStartWorkout, setQuickStartWorkout] = useState(null);
-  const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboard, setLeaderboard] = useState(_D ? _DL : []);
   const [toast, setToast] = useState(null);
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
+  const [user, setUser] = useState(_D ? {id:"demo",email:"demo@demo.com"} : null);
+  const [profile, setProfile] = useState(_D ? _DP : null);
+  const [authReady, setAuthReady] = useState(_D ? true : false);
   const [dataLoadFailed, setDataLoadFailed] = useState(false);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const toastTimer = useRef(null);
@@ -5056,6 +5061,7 @@ function SocialFitClubInner() {
   };
 
   useEffect(() => {
+    if (_D) return;
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) { loadProfile(session.user.id); loadSessions(session.user.id); loadLeaderboard(session.user.id); }
@@ -5071,7 +5077,7 @@ function SocialFitClubInner() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || _D) return;
     const lbChannel = supabase
       .channel("leaderboard-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
