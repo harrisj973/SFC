@@ -40,6 +40,17 @@ await page.goto(BASE, { waitUntil: "networkidle" });
 await page.screenshot({ path: "/tmp/ss-home.png" });
 console.log("  ✅ App loaded");
 
+// Daily motivational popup — verify it shows then dismiss
+console.log("\n=== DAILY MOTIV POPUP ===");
+await check("Popup shown on first load", async () => {
+  await page.waitForSelector("text=LET'S GO ◆", { timeout: 3000 });
+});
+await page.screenshot({ path: "/tmp/ss-daily-motiv.png" });
+await check("Popup dismisses on button click", async () => {
+  await page.click("text=LET'S GO ◆");
+  await page.waitForSelector("text=QUICK START", { timeout: 3000 });
+});
+
 // ── HOME SCREEN ──
 console.log("\n=== HOME SCREEN ===");
 await check("Quick Start card visible", async () => {

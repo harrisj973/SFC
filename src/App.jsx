@@ -86,6 +86,85 @@ const SESSION_TYPES = [
 ];
 
 const MACRO_COACH_KEY = "sfc_macro_coach";
+
+const DAILY_MESSAGES = [
+  { msg: "Champions are made in the moments they want to quit.", sub: "Show up anyway." },
+  { msg: "Your only competition is who you were yesterday.", sub: "Outwork your past self." },
+  { msg: "Progress, not perfection.", sub: "One rep at a time." },
+  { msg: "The pain you feel today is the strength you'll feel tomorrow.", sub: "Trust the process." },
+  { msg: "Discipline is choosing between what you want now and what you want most.", sub: "Stay locked in." },
+  { msg: "You don't have to be extreme. Just be consistent.", sub: "Show up every day." },
+  { msg: "Strong is built, not born.", sub: "Every session counts." },
+  { msg: "The body achieves what the mind believes.", sub: "Believe in your potential." },
+  { msg: "Rest days are part of the plan. Hard days are too.", sub: "Honor both." },
+  { msg: "No one regrets a workout. Ever.", sub: "Get it done." },
+  { msg: "The gym is the one place where you always win if you show up.", sub: "Walk in. Win." },
+  { msg: "Sweat is just your body crying happy tears.", sub: "Make it cry today." },
+  { msg: "Excuses don't build muscle.", sub: "Neither does yesterday. Go." },
+  { msg: "Small steps taken consistently create massive results.", sub: "Keep stacking." },
+  { msg: "You are stronger than your excuses.", sub: "Prove it today." },
+  { msg: "Every rep is a vote for who you're becoming.", sub: "Cast your vote." },
+  { msg: "Motivation gets you started. Habit keeps you going.", sub: "Build the habit." },
+  { msg: "The hardest part is lacing up your shoes.", sub: "You're already past the hard part." },
+  { msg: "Your future self is watching. Make them proud.", sub: "Work for that version of you." },
+  { msg: "One workout at a time. One day at a time.", sub: "Stay present." },
+  { msg: "The difference between try and triumph is a little umph.", sub: "Add the umph today." },
+  { msg: "Greatness isn't given. It's earned every single day.", sub: "Go earn it." },
+  { msg: "Push through the discomfort. Comfort never built anyone great.", sub: "Embrace the grind." },
+  { msg: "You have survived 100% of your hardest days.", sub: "Today is no different." },
+  { msg: "Results don't lie. Neither does effort.", sub: "Put in the real work." },
+  { msg: "A year from now you'll wish you started today.", sub: "Today is that day." },
+  { msg: "The gym doesn't care about your mood. It just works.", sub: "Go work." },
+  { msg: "Consistency beats intensity every time.", sub: "Show up, show out." },
+  { msg: "Pain is temporary. PRs are forever.", sub: "Chase the record." },
+  { msg: "The iron never lies. What are you made of?", sub: "Time to find out." },
+  { msg: "Your goals don't care how you feel this morning.", sub: "Get up and go." },
+  { msg: "Every rep you do is one your competition skipped.", sub: "Stay ahead." },
+  { msg: "Build a body your mind can rely on.", sub: "Strength is security." },
+  { msg: "Train hard. Rest smart. Repeat forever.", sub: "That's the formula." },
+  { msg: "The weight doesn't get lighter. You get stronger.", sub: "Keep lifting." },
+  { msg: "Nobody who ever gave their best regretted it.", sub: "Give your best today." },
+  { msg: "Showing up is 80% of the battle.", sub: "You're already winning." },
+  { msg: "Today's effort is tomorrow's result.", sub: "Invest wisely." },
+  { msg: "What you do in the dark shows up in the light.", sub: "Put in the work." },
+  { msg: "Your body is your most important investment.", sub: "Protect it. Strengthen it." },
+  { msg: "Fall in love with the process and the results will follow.", sub: "Enjoy the grind." },
+  { msg: "Set the bar. Then raise it.", sub: "You're capable of more." },
+  { msg: "Tired? Good. That means you're working.", sub: "Push through it." },
+  { msg: "Champions train. Everyone else wishes.", sub: "Be a champion." },
+];
+
+function DailyMotivModal({ onClose }) {
+  const [nowMs] = useState(() => Date.now());
+  const dateLabel = new Date(nowMs).toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric" }).toUpperCase();
+  const dayOfYear = Math.floor((nowMs - new Date(new Date(nowMs).getFullYear(), 0, 0)) / 86400000);
+  const { msg, sub } = DAILY_MESSAGES[dayOfYear % DAILY_MESSAGES.length];
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:800, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 24px", animation:"motivFadeIn 0.4s ease" }}
+      onClick={onClose}>
+      <div style={{ position:"absolute", inset:0, background:"rgba(6,6,14,0.88)", backdropFilter:"blur(8px)" }}/>
+      <div onClick={e => e.stopPropagation()}
+        style={{ position:"relative", background:"linear-gradient(145deg,#110D28,#0A0819)", border:`1px solid ${G.gold}55`, borderRadius:18, padding:"32px 28px 28px", maxWidth:380, width:"100%", boxShadow:`0 0 60px ${G.gold}22, 0 24px 64px rgba(0,0,0,0.7)`, textAlign:"center" }}>
+        <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:4, color:G.gold, textTransform:"uppercase", marginBottom:18, opacity:0.8 }}>
+          {dateLabel}
+        </div>
+        <div style={{ fontSize:36, marginBottom:14, lineHeight:1 }}>💪</div>
+        <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:1.5, color:"#fff", lineHeight:1.35, marginBottom:12, textTransform:"uppercase" }}>
+          {msg}
+        </div>
+        <div style={{ fontFamily:FONT.body, fontSize:13, letterSpacing:2, color:G.gold, textTransform:"uppercase", marginBottom:28, opacity:0.9 }}>
+          {sub}
+        </div>
+        <div style={{ width:48, height:2, background:`linear-gradient(90deg,transparent,${G.gold},transparent)`, margin:"0 auto 28px", borderRadius:1 }}/>
+        <button onClick={onClose}
+          style={{ background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", borderRadius:10, padding:"13px 36px", color:"#0A0810", fontFamily:FONT.display, fontSize:14, letterSpacing:3, cursor:"pointer", textTransform:"uppercase", fontWeight:700, width:"100%", boxShadow:`0 4px 20px ${G.gold}44` }}>
+          LET'S GO ◆
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function loadMacroCoach() {
   try { return JSON.parse(localStorage.getItem(MACRO_COACH_KEY) || "null"); } catch { return null; }
 }
@@ -5000,6 +5079,10 @@ function SocialFitClubInner() {
   const [authReady, setAuthReady] = useState(_D ? true : false);
   const [dataLoadFailed, setDataLoadFailed] = useState(false);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [showDailyMotiv, setShowDailyMotiv] = useState(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    try { return localStorage.getItem("sfc_daily_motiv") !== today; } catch { return true; }
+  });
   const toastTimer = useRef(null);
 
   const loadProfile = async (userId) => {
@@ -5109,7 +5192,7 @@ function SocialFitClubInner() {
     ["sfc_feed","sfc_body_log","sfc_goals","sfc_macro_coach","sfc_pledge","sfc_streak_freezes",
      "sfc_notif_prefs","sfc_session_tags","sfc_templates","sfc_wip_session",
      "sfc_nutrition_log","sfc_supplement_log","sfc_water_log","sfc_water_goal",
-     "sfc_challenges","sfc_meal_templates"].forEach(k => localStorage.removeItem(k));
+     "sfc_challenges","sfc_meal_templates","sfc_daily_motiv"].forEach(k => localStorage.removeItem(k));
     setTab("home");
     setSessions([]);
     setProfile(null);
@@ -5234,6 +5317,12 @@ function SocialFitClubInner() {
         <div style={{ position:"fixed", top:18, left:"50%", transform:"translateX(-50%)", background:G.bg3, border:`1px solid ${G.gold}55`, borderRadius:7, padding:"10px 18px", zIndex:9999, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.gold, boxShadow:`${G.goldGlow}, 0 8px 32px rgba(0,0,0,0.6)`, whiteSpace:"nowrap", textTransform:"uppercase", animation:"toastIn 0.25s ease" }}>{toast}</div>
       )}
 
+      {showDailyMotiv && <DailyMotivModal onClose={() => {
+        const today = new Date().toISOString().slice(0, 10);
+        try { localStorage.setItem("sfc_daily_motiv", today); } catch { /* ignore */ }
+        setShowDailyMotiv(false);
+      }}/>}
+
       <div style={{ paddingBottom:82, position:"relative", zIndex:2, minHeight:"100vh" }}>
         {tab==="home" && <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile}/>}
         {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions}/>}
@@ -5261,6 +5350,7 @@ function SocialFitClubInner() {
 
       <style>{`
         @keyframes toastIn { from{opacity:0;transform:translate(-50%,-10px)} to{opacity:1;transform:translate(-50%,0)} }
+        @keyframes motivFadeIn { from{opacity:0;transform:scale(0.96)} to{opacity:1;transform:scale(1)} }
         @keyframes heatPulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
         @keyframes scanLine { from{top:0} to{top:100%} }
         * { -webkit-tap-highlight-color: transparent; }
