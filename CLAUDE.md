@@ -11,7 +11,9 @@ npm run lint      # ESLint check
 npm run preview   # preview production build locally
 ```
 
-No test suite is configured. Deployment is via GitHub Actions → GitHub Pages on push to `claude/social-fit-club-ui-XeD03`. The workflow (`/.github/workflows/deploy.yml`) uses `peaceiris/actions-gh-pages@v4` to push the built `dist/` to the `gh-pages` branch. Custom domain: `socialfitclub26.com`.
+No test suite is configured. **Primary deployment target is Vercel** — connect the repo on vercel.com and point it at the `claude/social-fit-club-ui-XeD03` branch; Vite is auto-detected (`npm run build` → `dist/`). `vercel.json` sets `Service-Worker-Allowed: /` and `Cache-Control: no-cache` on `/sw.js`. After any new Vercel domain is added, update **Supabase → Authentication → URL Configuration** (Site URL + Redirect URLs) or auth email links will redirect to the wrong origin.
+
+A legacy GitHub Actions workflow (`/.github/workflows/deploy.yml`) also exists — it uses `peaceiris/actions-gh-pages@v4` to push `dist/` to the `gh-pages` branch with the custom domain `socialfitclub26.com`. Both can coexist.
 
 ## Architecture
 
@@ -235,6 +237,19 @@ Four tabs: `📋 LOG` (food by meal), `📷 SCAN` (camera AI + barcode), `🔍 S
 
 The `scanTarget` state (`"food"` | `"supplement"`) controls where scan results are routed. When `"supplement"`, only the barcode button is shown (no meal photo scan), and results go to `suppLog` / `sfc_supplement_log`. `SUPPLEMENTS_DB` has 25 entries.
 
+### PWA / Icons
+
+`public/manifest.json` enables home-screen installation. Key fields: `display: "standalone"`, `orientation: "portrait"`, `background_color`/`theme_color` both `#06060E`.
+
+Icons live in `public/`: `favicon.svg` (vector badge logo, also the browser tab icon), `icon-192.png` (home screen), `icon-512.png` (splash / maskable). `index.html` wires them up via `<link rel="manifest">`, `<link rel="apple-touch-icon">`, and the iOS-specific meta tags (`apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`, `apple-mobile-web-app-title`).
+
+**Regenerating PNG icons** — if `favicon.svg` or `public/logo-source.png` changes, run a one-off Node script using Playwright (already a dev dependency) to render at 192×192 and 512×512 and write back to `public/icon-{size}.png`. Pattern:
+```js
+import { chromium } from "playwright";
+const CHROME = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+// load SVG via data URI into a full-bleed <img> on a #06060E page, screenshot, writeFileSync
+```
+
 ### Service Worker
 
 `public/sw.js` is registered in `src/main.jsx` on every app load. It listens for `postMessage` events:
@@ -279,11 +294,12 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 - `react-hooks/exhaustive-deps` — all state variables referenced inside `useEffect` must be in the dependency array.
 - `react-hooks/refs` — prohibits `ref.current = value` directly in render; wrap in `useEffect`.
 - `no-unused-vars` — unused destructured parameters (e.g. `(s, i)` where `i` is unused) must be removed.
+- `react-hooks/set-state-in-effect` — calling `setState` synchronously inside a `useEffect` body triggers cascading renders. Wrap in `setTimeout(..., 0)` to defer out of the effect body.
 
 ### Known implementation invariants
 
 - **Stable callback refs**: `RestTimer` uses `useRef` + `useEffect(() => { ref.current = onDone; })` (no deps) to keep the `onDone` callback current without restarting the interval on every parent re-render. Do not replace with a direct dependency.
 - **Streak calculation in `handleSave`**: compares the most recent existing session's `createdAt` date against today/yesterday to decide whether to extend or reset the streak. This must remain before the optimistic state update.
-- **Sign-out cleanup**: `handleSignOut` clears 14 `sfc_*` localStorage keys before resetting state. Note: `sfc_challenges`, `sfc_home_widgets`, and `sfc_meal_templates` are not currently cleared on sign-out (challenges and templates are user data; widget order is device preference).
+- **Sign-out cleanup**: `handleSignOut` clears 16 `sfc_*` localStorage keys. `sfc_home_widgets` is intentionally excluded (it's a device-level UI preference, not user data).
 - **Blob URL lifecycle in `FormCheckModal`**: uses `previewUrlRef` to revoke the previous object URL both when a new file is picked and on unmount, preventing memory leaks.
 - **Challenge auto-complete**: the `useEffect` in `FeedScreen` that watches `sessions` compares current progress against targets and only fires the completion logic once (checks `!ch.completed` before updating). Do not add `challenges` to the dependency array or it will loop.
