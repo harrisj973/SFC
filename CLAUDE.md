@@ -11,13 +11,20 @@ npm run lint      # ESLint check
 npm run preview   # preview production build locally
 ```
 
-No test suite is configured. **Primary deployment target is Vercel** — connect the repo on vercel.com and point it at the `claude/social-fit-club-ui-XeD03` branch; Vite is auto-detected (`npm run build` → `dist/`). `vercel.json` sets `Service-Worker-Allowed: /` and `Cache-Control: no-cache` on `/sw.js`. After any new Vercel domain is added, update **Supabase → Authentication → URL Configuration** (Site URL + Redirect URLs) or auth email links will redirect to the wrong origin.
+No test suite is configured. **Smoke tests** can be run against the dev server with Playwright:
+
+```bash
+npm run dev          # start dev server first
+node test-bugcheck.mjs   # 53-check headless browser sweep (uses ?demo=1 mode)
+```
+
+**Primary deployment target is Vercel** — connect the repo on vercel.com and point it at the `claude/social-fit-club-ui-XeD03` branch; Vite is auto-detected (`npm run build` → `dist/`). `vercel.json` sets `Service-Worker-Allowed: /` and `Cache-Control: no-cache` on `/sw.js`. After any new Vercel domain is added, update **Supabase → Authentication → URL Configuration** (Site URL + Redirect URLs) or auth email links will redirect to the wrong origin.
 
 A legacy GitHub Actions workflow (`/.github/workflows/deploy.yml`) also exists — it uses `peaceiris/actions-gh-pages@v4` to push `dist/` to the `gh-pages` branch with the custom domain `socialfitclub26.com`. Both can coexist.
 
 ## Architecture
 
-The entire app lives in a **single file**: `src/App.jsx` (~5270 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+The entire app lives in a **single file**: `src/App.jsx` (~5380 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
 
 `SocialFitClubInner` contains all app logic and is wrapped by an `ErrorBoundary` class component (exported as `SocialFitClub`). Unhandled render errors show a styled "SOMETHING WENT WRONG" screen with a reload button.
 
@@ -57,7 +64,9 @@ Deploy a new function with `supabase functions deploy <name>`. All three use `su
 
 `ResetPasswordScreen` is shown when `onAuthStateChange` fires a `PASSWORD_RECOVERY` event (user clicked reset link in email). It calls `supabase.auth.updateUser({ password })` and returns to the main app on success.
 
-Render guards (in order): blank screen while `authReady` is false → `<ResetPasswordScreen/>` when `passwordRecovery` is true → `<LoginScreen/>` when no user → "CONNECTION ERROR" screen with Retry button when `!profile && dataLoadFailed` (network errors in `loadProfile`/`loadSessions` set this flag; a missing profile row — Postgres error `PGRST116` — does not) → blank while profile loads → main app.
+Render guards (in order): blank screen while `authReady` is false → `<ResetPasswordScreen/>` when `passwordRecovery` is true → `<LoginScreen/>` when no user → "CONNECTION ERROR" screen with Retry button when `!profile && dataLoadFailed` (network errors in `loadProfile`/`loadSessions` set this flag; a missing profile row — Postgres error `PGRST116` — does not) → blank while profile loads → main app + `<DailyMotivModal/>` overlay on first open of the day.
+
+**Demo mode** — appending `?demo=1` to the URL bypasses Supabase auth entirely and seeds the app with hardcoded sessions, profile, and leaderboard. Controlled by the module-level `_D` constant. The auth useEffect and real-time leaderboard subscription both guard with `if (_D) return`. Used by `test-bugcheck.mjs` to run headless tests without a live backend.
 
 ### Navigation model
 
@@ -121,6 +130,7 @@ Root state passed as props:
 | `sfc_challenges` | `[{ id, type, exercise?, target, created, deadline, completed, completedAt }]` | Never |
 | `sfc_home_widgets` | `{ order: string[], hidden: string[] }` widget display preferences | Never |
 | `sfc_meal_templates` | `[{ id, name, items: [{ name, cal, pro, carb, fat, brand? }] }]` | Never |
+| `sfc_daily_motiv` | `"YYYY-MM-DD"` — date the daily motivational popup was last shown | Auto-cleared on sign-out |
 
 ### Module-level helpers
 
@@ -175,6 +185,14 @@ Three tabs via `activeTab` state:
 - Dismissed widgets appear in a HIDDEN WIDGETS restore section at the bottom of the screen
 
 `touchAction: "pan-y"` is set on `SwipeWidget` so vertical scroll is handled natively by the browser while horizontal swipes are captured by pointer events.
+
+### Daily Motivational Popup
+
+`DailyMotivModal` renders as a fixed overlay (zIndex 800) on first app open each day. `showDailyMotiv` state is initialised via `useState(() => localStorage.getItem("sfc_daily_motiv") !== today)` — true if today's date hasn't been stored yet. Dismissing writes today's ISO date to `sfc_daily_motiv` and sets state to false.
+
+`DAILY_MESSAGES` is a module-level array of 44 `{ msg, sub }` objects. The message is selected by `dayOfYear % DAILY_MESSAGES.length` so all users see the same quote on a given calendar day. Uses `const [nowMs] = useState(() => Date.now())` inside the component to avoid the `react-hooks/purity` ESLint error.
+
+The `motivFadeIn` CSS animation (`opacity 0 → 1`, `scale 0.96 → 1`) is declared in the `<style>` block at the bottom of `SocialFitClubInner`'s render.
 
 ### MoreScreen modals
 
@@ -283,7 +301,7 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 
 ### Module-level constants
 
-`ADMIN_EMAIL`, `REACTIONS`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `FEED_DATA` (default feed seed), `REST_OPTIONS`, `MACRO_COACH_KEY`.
+`ADMIN_EMAIL`, `REACTIONS`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `FEED_DATA` (default feed seed), `REST_OPTIONS`, `MACRO_COACH_KEY`, `DAILY_MESSAGES`.
 
 `SESSION_TYPES` is `[{ id, label, color }]` — 9 workout categories each with a hex color used for chip backgrounds and history badges.
 
@@ -300,6 +318,6 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 
 - **Stable callback refs**: `RestTimer` uses `useRef` + `useEffect(() => { ref.current = onDone; })` (no deps) to keep the `onDone` callback current without restarting the interval on every parent re-render. Do not replace with a direct dependency.
 - **Streak calculation in `handleSave`**: compares the most recent existing session's `createdAt` date against today/yesterday to decide whether to extend or reset the streak. This must remain before the optimistic state update.
-- **Sign-out cleanup**: `handleSignOut` clears 16 `sfc_*` localStorage keys. `sfc_home_widgets` is intentionally excluded (it's a device-level UI preference, not user data).
+- **Sign-out cleanup**: `handleSignOut` clears 17 `sfc_*` localStorage keys. `sfc_home_widgets` is intentionally excluded (it's a device-level UI preference, not user data).
 - **Blob URL lifecycle in `FormCheckModal`**: uses `previewUrlRef` to revoke the previous object URL both when a new file is picked and on unmount, preventing memory leaks.
 - **Challenge auto-complete**: the `useEffect` in `FeedScreen` that watches `sessions` compares current progress against targets and only fires the completion logic once (checks `!ch.completed` before updating). Do not add `challenges` to the dependency array or it will loop.
