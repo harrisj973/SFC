@@ -1002,180 +1002,179 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
     const weekStart = new Date(now); weekStart.setHours(0,0,0,0); weekStart.setDate(now.getDate()-dow);
     return sessions.filter(s => s.createdAt && new Date(s.createdAt) >= weekStart).length;
   })();
+  const [lbExpanded, setLbExpanded] = useState(false);
+  const [qsExpanded, setQsExpanded] = useState(true);
 
-  const [widgetOrder, setWidgetOrder] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("sfc_home_widgets") || "{}").order || ["quickstart","leaderboard"]; } catch { return ["quickstart","leaderboard"]; }
-  });
-  const [hiddenWidgets, setHiddenWidgets] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("sfc_home_widgets") || "{}").hidden || []; } catch { return []; }
-  });
-  useEffect(() => {
-    localStorage.setItem("sfc_home_widgets", JSON.stringify({ order: widgetOrder, hidden: hiddenWidgets }));
-  }, [widgetOrder, hiddenWidgets]);
+  const WORKOUTS = [
+    { name:"PUSH DAY", ico:"⊞", iconBg:"#4A2BE2", sub:"Chest · Shoulders · Tris", exs:["Barbell Bench Press","Incline Dumbbell Press","Lateral Raises","Tricep Pushdown"] },
+    { name:"PULL DAY", ico:"◎", iconBg:"#1A6FD4", sub:"Back · Biceps", exs:["Barbell Deadlift","Barbell Row","Lat Pulldown","Barbell Curl"] },
+    { name:"LEG DAY", ico:"◈", iconBg:"#C4520A", sub:"Legs · Glutes · Calves", exs:["Barbell Squat","Leg Press","Romanian Deadlift","Leg Curl"] },
+    { name:"FULL BODY", ico:"⚡", iconBg:"#16873A", sub:"Total Strength", exs:["Barbell Squat","Barbell Bench Press","Barbell Deadlift","Barbell Row"] },
+  ];
 
-  const hideWidget = id => setHiddenWidgets(p => [...p, id]);
-  const restoreWidget = id => setHiddenWidgets(p => p.filter(x => x !== id));
-  const moveWidget = (id, dir) => setWidgetOrder(p => {
-    const i = p.indexOf(id);
-    const j = i + dir;
-    if (j < 0 || j >= p.length) return p;
-    const next = [...p];
-    [next[i], next[j]] = [next[j], next[i]];
-    return next;
-  });
-  const visibleWidgets = widgetOrder.filter(id => !hiddenWidgets.includes(id));
+  const P = G.purple;
 
   return (
-    <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 22px) 18px 0" }}>
-      <div style={{ marginBottom:24, display:"flex", flexDirection:"column", alignItems:"center" }}>
-        <img
-          src={logoImg}
-          alt="Social Fit Club"
-          style={{ width:160, height:160, borderRadius:"50%", objectFit:"cover", objectPosition:"center top", boxShadow:`0 0 30px rgba(253,185,39,0.5), 0 0 60px rgba(85,37,131,0.4), 0 8px 32px rgba(0,0,0,0.7)`, border:`3px solid ${G.gold}88` }}
-        />
-        <div style={{ fontFamily:FONT.body, fontSize:11, letterSpacing:3, color:G.textMid, textTransform:"uppercase", marginTop:10 }}>
-          ◆ &nbsp;STRENGTH IN COMMUNITY&nbsp; ◆
+    <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 10px) 0 0", minHeight:"100vh" }}>
+
+      {/* ── Header ── */}
+      <div style={{ display:"flex", alignItems:"center", padding:"0 18px", marginBottom:12 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, flex:1 }}>
+          <img src={logoImg} alt="SFC" style={{ width:46, height:46, borderRadius:"50%", objectFit:"cover", objectPosition:"center top", border:`2px solid ${P}66`, boxShadow:`0 0 14px ${P}55` }}/>
+          <div>
+            <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:3, color:"#fff", lineHeight:1, textTransform:"uppercase" }}>SOCIAL</div>
+            <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:1 }}>
+              <div style={{ flex:1, height:1, background:`linear-gradient(90deg,${P},transparent)`, width:14 }}/>
+              <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:3, color:P, textTransform:"uppercase" }}>FIT CLUB</div>
+              <div style={{ flex:1, height:1, background:`linear-gradient(90deg,transparent,${P})`, width:14 }}/>
+            </div>
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+          <div style={{ width:38, height:38, border:`1.5px solid ${P}66`, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, position:"relative", background:`${P}15` }}>
+            🔔
+            {sessions.length === 0 && <div style={{ position:"absolute", top:2, right:2, width:8, height:8, borderRadius:"50%", background:P, boxShadow:`0 0 6px ${P}` }}/>}
+          </div>
+          <div style={{ width:38, height:38, border:`1.5px solid ${P}88`, borderRadius:"50%", overflow:"hidden", background:`linear-gradient(135deg,${P},${G.purpleBright})`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+            {profile?.avatar_url
+              ? <img src={profile.avatar_url} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+              : <span style={{ fontFamily:FONT.display, fontSize:16, color:"#fff", letterSpacing:1 }}>{(profile?.avatar_initials||"ME")[0]}</span>
+            }
+          </div>
         </div>
       </div>
 
-      <ChromeCard gold glow style={{ padding:"16px", marginBottom:14 }}>
-        <div style={{ position:"absolute", top:0, right:0, width:80, height:80, overflow:"hidden", borderRadius:"0 10px 0 0" }}>
-          <div style={{ position:"absolute", top:-20, right:-20, width:100, height:40, background:G.gold, transform:"rotate(45deg)", opacity:0.12 }}/>
-        </div>
-        <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-          <AvatarBadge initials={profile?.avatar_initials || "ME"} size={52} gold/>
+      {/* Tagline */}
+      <div style={{ padding:"0 18px", marginBottom:14, display:"flex", alignItems:"center", gap:7 }}>
+        <div style={{ width:7, height:7, borderRadius:"50%", background:P, boxShadow:`0 0 8px ${P}` }}/>
+        <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>Strength in Community</div>
+      </div>
+
+      {/* ── Stats Card ── */}
+      <div style={{ margin:"0 16px 12px", background:"rgba(20,18,40,0.95)", border:`1px solid ${P}33`, borderRadius:14, padding:"16px", position:"relative", overflow:"hidden" }}>
+        <div style={{ position:"absolute", top:-30, right:-30, width:120, height:120, borderRadius:"50%", background:`${P}15`, pointerEvents:"none" }}/>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
+          <div style={{ width:50, height:50, borderRadius:"50%", border:`2px solid ${P}66`, overflow:"hidden", background:`linear-gradient(135deg,${P}44,${G.purpleBright}44)`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            {profile?.avatar_url
+              ? <img src={profile.avatar_url} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+              : <span style={{ fontFamily:FONT.display, fontSize:20, color:"#fff" }}>{(profile?.avatar_initials||"ME")[0]}</span>
+            }
+          </div>
           <div style={{ flex:1 }}>
-            <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>YOUR STATS</div>
-            <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>{sessions.length} sessions logged</div>
+            <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>YOUR STATS</div>
+            <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1 }}>{sessions.length} sessions logged</div>
           </div>
           <div style={{ textAlign:"right" }}>
-            <div style={{ fontFamily:FONT.display, fontSize:32, color:G.gold, letterSpacing:1, textShadow:G.goldGlow2, lineHeight:1 }}>{myPts.toLocaleString()}</div>
+            <div style={{ fontFamily:FONT.display, fontSize:30, color:P, letterSpacing:1, lineHeight:1, textShadow:`0 0 16px ${P}` }}>{myPts.toLocaleString()}</div>
             <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>POINTS</div>
           </div>
         </div>
-        <div style={{ display:"flex", gap:8, marginTop:14 }}>
-          {[{l:"RANK",v:`#${myRank}`,ico:"👑"},{l:"STREAK",v:`${profile?.streak||0}D`,ico:"🔥"},{l:"THIS WK",v:`${thisWeekSessions}`,ico:"💪"}].map(s=>(
-            <div key={s.l} style={{ flex:1, background:"rgba(0,0,0,0.3)", borderRadius:6, padding:"9px 6px", textAlign:"center", border:`1px solid rgba(253,185,39,0.15)` }}>
-              <div style={{ fontSize:14, marginBottom:3 }}>{s.ico}</div>
-              <div style={{ fontFamily:FONT.display, fontSize:18, color:G.gold, letterSpacing:1 }}>{s.v}</div>
-              <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>{s.l}</div>
+        <div style={{ display:"flex", gap:6 }}>
+          {[{l:"RANK",v:`#${myRank}`,ico:"👑"},{l:"DAY STREAK",v:`${profile?.streak||0}`,ico:"🔥"},{l:"THIS WEEK",v:`${thisWeekSessions}`,ico:"💪"}].map(s=>(
+            <div key={s.l} style={{ flex:1, background:"rgba(0,0,0,0.35)", borderRadius:9, padding:"10px 4px", textAlign:"center", border:`1px solid ${P}22` }}>
+              <div style={{ fontSize:14, marginBottom:4 }}>{s.ico}</div>
+              <div style={{ fontFamily:FONT.display, fontSize:19, color:"#fff", letterSpacing:1 }}>{s.v}</div>
+              <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{s.l}</div>
             </div>
           ))}
         </div>
-      </ChromeCard>
+      </div>
 
-      <ChromeCard style={{ padding:"14px", marginBottom:14 }}>
+      {/* ── Weekly Volume ── */}
+      <div style={{ margin:"0 16px 12px", background:"rgba(20,18,40,0.95)", border:`1px solid ${P}22`, borderRadius:14, padding:"14px" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-          <SectionLabel>Weekly Volume</SectionLabel>
-          <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1 }}>LBS</div>
+          <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+            <span style={{ fontSize:15 }}>📊</span>
+            <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>Weekly Volume</div>
+          </div>
+          <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1 }}>LBS</div>
         </div>
-        <div style={{ display:"flex", alignItems:"flex-end", gap:6, height:60 }}>
-          {weeklyVol.map((v, i) => {
-            const todayIdx = (new Date().getDay() + 6) % 7;
-            const pct = v / maxVol;
-            const isToday = i === todayIdx;
-            return (
-              <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-                <div style={{
-                  width:"100%", height: Math.max(3, pct * 52),
-                  background: isToday
-                    ? `linear-gradient(180deg, ${G.goldHot} 0%, ${G.gold} 100%)`
-                    : `linear-gradient(180deg, ${G.purple}cc 0%, ${G.purple}44 100%)`,
-                  borderRadius:"3px 3px 0 0",
-                  boxShadow: isToday ? G.goldGlow2 : `0 0 6px ${G.purple}66`,
-                  transition:"height 0.6s ease",
-                }}/>
-                <div style={{ fontFamily:FONT.mono, fontSize:9, color: isToday ? G.gold : G.textDim, letterSpacing:1 }}>{DAYS_SHORT[i]}</div>
+        {/* Line-style chart */}
+        <div style={{ position:"relative", height:64 }}>
+          <svg width="100%" height="64" style={{ overflow:"visible" }}>
+            {weeklyVol.map((v, i) => {
+              const x = `${(i / 6) * 100}%`;
+              const y = 52 - Math.max(0, (v / maxVol) * 48);
+              const todayIdx = (new Date().getDay() + 6) % 7;
+              return (
+                <g key={i}>
+                  {i < 6 && (() => {
+                    const x2 = `${((i+1) / 6) * 100}%`;
+                    const y2 = 52 - Math.max(0, (weeklyVol[i+1] / maxVol) * 48);
+                    return <line x1={x} y1={y} x2={x2} y2={y2} stroke={`${P}88`} strokeWidth="1.5" strokeDasharray="3,2"/>;
+                  })()}
+                  <circle cx={x} cy={y} r={i === todayIdx ? 5 : 3.5}
+                    fill={i === todayIdx ? P : `${P}66`}
+                    stroke={i === todayIdx ? "#fff" : "none"} strokeWidth="1.5"/>
+                </g>
+              );
+            })}
+          </svg>
+          <div style={{ display:"flex", justifyContent:"space-between", marginTop:6 }}>
+            {DAYS_SHORT.map((d, i) => {
+              const todayIdx = (new Date().getDay() + 6) % 7;
+              return <div key={i} style={{ fontFamily:FONT.mono, fontSize:9, color: i===todayIdx ? P : G.textDim, letterSpacing:1, flex:1, textAlign:"center" }}>{d}</div>;
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Leaderboard row ── */}
+      <div style={{ margin:"0 16px 8px" }}>
+        <div onClick={()=>setLbExpanded(p=>!p)} style={{ display:"flex", alignItems:"center", gap:12, background:"rgba(20,18,40,0.95)", border:`1px solid ${P}22`, borderRadius:lbExpanded ? "14px 14px 0 0" : 14, padding:"14px 16px", cursor:"pointer" }}>
+          <div style={{ width:36, height:36, borderRadius:9, background:`${P}25`, border:`1px solid ${P}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>🏆</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>LEADERBOARD</div>
+            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1 }}>All time</div>
+          </div>
+          <div style={{ fontFamily:FONT.mono, fontSize:18, color:G.textDim, transform: lbExpanded ? "rotate(90deg)" : "none", transition:"transform 0.2s" }}>›</div>
+        </div>
+        {lbExpanded && (
+          <div style={{ background:"rgba(16,14,34,0.98)", border:`1px solid ${P}22`, borderTop:"none", borderRadius:"0 0 14px 14px", padding:"8px 12px 12px" }}>
+            {leaderboard.length === 0 && <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:1, textAlign:"center", padding:"16px 0" }}>No users yet</div>}
+            {leaderboard.slice(0, 5).map(u => (
+              <div key={u.rank} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 4px", borderBottom:`1px solid ${P}11` }}>
+                <div style={{ fontFamily:FONT.mono, fontSize:11, color:G.textDim, width:20 }}>#{u.rank}</div>
+                <AvatarBadge initials={u.av} url={u.url} size={32} gold={u.isMe}/>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:1.5, color:u.isMe?P:"#fff", textTransform:"uppercase" }}>{u.name}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>{u.sessions} sessions · {u.streak}d streak</div>
+                </div>
+                <div style={{ fontFamily:FONT.display, fontSize:14, color:u.isMe?P:G.textMid }}>{u.pts.toLocaleString()}</div>
               </div>
-            );
-          })}
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Quick Start row ── */}
+      <div style={{ margin:"0 16px 16px" }}>
+        <div onClick={()=>setQsExpanded(p=>!p)} style={{ display:"flex", alignItems:"center", gap:12, background:"rgba(20,18,40,0.95)", border:`1px solid ${P}22`, borderRadius:qsExpanded ? "14px 14px 0 0" : 14, padding:"14px 16px", cursor:"pointer" }}>
+          <div style={{ width:36, height:36, borderRadius:9, background:`${P}25`, border:`1px solid ${P}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>⚡</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>QUICK START</div>
+            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1 }}>Start a workout</div>
+          </div>
+          <div style={{ fontFamily:FONT.mono, fontSize:18, color:G.textDim, transform: qsExpanded ? "rotate(90deg)" : "none", transition:"transform 0.2s" }}>›</div>
         </div>
-      </ChromeCard>
-
-      {visibleWidgets.map((id) => {
-        const visIdx = visibleWidgets.indexOf(id);
-        const canUp = visIdx > 0;
-        const canDown = visIdx < visibleWidgets.length - 1;
-        const wProps = {
-          onDismiss: () => hideWidget(id),
-          onMoveUp: () => moveWidget(id, -1),
-          onMoveDown: () => moveWidget(id, 1),
-          canMoveUp: canUp,
-          canMoveDown: canDown,
-        };
-
-        if (id === "quickstart") return (
-          <SwipeWidget key={id} {...wProps} title="Quick Start">
+        {qsExpanded && (
+          <div style={{ background:"rgba(16,14,34,0.98)", border:`1px solid ${P}22`, borderTop:"none", borderRadius:"0 0 14px 14px", padding:"10px 12px 12px" }}>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9 }}>
-              {[
-                { name:"PUSH DAY", ico:"💪", color:G.gold, sub:"CHEST · SHOULDERS · TRIS", exs:["Barbell Bench Press","Incline Dumbbell Press","Lateral Raises","Tricep Pushdown"] },
-                { name:"PULL DAY", ico:"🏋️", color:G.purpleLight, sub:"BACK · BICEPS", exs:["Barbell Deadlift","Barbell Row","Lat Pulldown","Barbell Curl"] },
-                { name:"LEG DAY", ico:"🦵", color:"#FF3D5A", sub:"QUADS · HAMS · GLUTES", exs:["Barbell Squat","Leg Press","Romanian Deadlift","Leg Curl"] },
-                { name:"FULL BODY", ico:"⚡", color:G.gold, sub:"COMPOUND MOVEMENTS", exs:["Barbell Squat","Barbell Bench Press","Barbell Deadlift","Barbell Row"] },
-              ].map(w => (
-                <div key={w.name} onClick={() => { onQuickStart(w); showToast(`${w.ico} ${w.name} — loading in Train tab!`); }}
-                  style={{ background:`${w.color}0C`, border:`1px solid ${w.color}30`, borderRadius:9, padding:"14px 12px", cursor:"pointer", position:"relative", overflow:"hidden" }}>
-                  <div style={{ position:"absolute", top:-8, right:-8, fontSize:40, opacity:0.15 }}>{w.ico}</div>
-                  <div style={{ fontFamily:FONT.display, fontSize:17, color:"#fff", letterSpacing:2, textTransform:"uppercase", lineHeight:1, marginBottom:4 }}>{w.name}</div>
-                  <div style={{ fontFamily:FONT.body, fontSize:9, color:w.color, letterSpacing:1.5, textTransform:"uppercase" }}>{w.sub}</div>
+              {WORKOUTS.map(w => (
+                <div key={w.name} onClick={() => { onQuickStart(w); showToast(`${w.name} — loading in Train tab!`); }}
+                  style={{ display:"flex", alignItems:"center", gap:10, background:"rgba(0,0,0,0.3)", border:`1px solid rgba(255,255,255,0.07)`, borderLeft:`3px solid ${w.iconBg}`, borderRadius:10, padding:"12px 10px", cursor:"pointer" }}>
+                  <div style={{ width:36, height:36, borderRadius:8, background:w.iconBg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, color:"#fff", flexShrink:0 }}>{w.ico}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:12, color:"#fff", letterSpacing:1.5, textTransform:"uppercase", lineHeight:1.2 }}>{w.name}</div>
+                    <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:0.5, marginTop:2 }}>{w.sub}</div>
+                  </div>
+                  <div style={{ color:G.textDim, fontSize:14, flexShrink:0 }}>›</div>
                 </div>
               ))}
             </div>
-          </SwipeWidget>
-        );
-
-        if (id === "leaderboard") return (
-          <SwipeWidget key={id} {...wProps} title="Leaderboard" extra={<div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textDim, textTransform:"uppercase" }}>ALL TIME</div>}>
-            {leaderboard.length >= 3 && (
-              <div style={{ display:"flex", alignItems:"flex-end", gap:8, marginBottom:12, justifyContent:"center" }}>
-                {[leaderboard[1], leaderboard[0], leaderboard[2]].map((u, i) => {
-                  const order = [1,0,2][i];
-                  const ht = [88, 112, 70][i];
-                  const col = ["#C0C0C0", G.gold, "#CD7F32"][order];
-                  return (
-                    <div key={u.name} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
-                      {u.isMe && <div style={{ fontFamily:FONT.body, fontSize:8, color:G.gold, letterSpacing:2, textTransform:"uppercase" }}>YOU</div>}
-                      <AvatarBadge initials={u.av} url={u.url} size={order===0?48:40} gold={order===0}/>
-                      <div style={{ fontFamily:FONT.display, fontSize:11, color:"#fff", letterSpacing:2, textAlign:"center", textTransform:"uppercase", maxWidth:60, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{u.name.split(" ")[0]}</div>
-                      <div style={{ width:"100%", height:ht, background:`${col}18`, border:`1px solid ${col}44`, borderRadius:"6px 6px 0 0", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", boxShadow:`0 0 12px ${col}22` }}>
-                        <div style={{ fontFamily:FONT.display, fontSize:20, color:col, textShadow:`0 0 10px ${col}` }}>{"🥇🥈🥉"[order]}</div>
-                        <div style={{ fontFamily:FONT.display, fontSize:13, color:col, letterSpacing:1 }}>{u.pts.toLocaleString()}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {leaderboard.slice(3).map(u => (
-              <ChromeCard key={u.rank} gold={u.isMe} style={{ padding:"10px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:12 }}>
-                <div style={{ fontFamily:FONT.mono, fontSize:12, color:G.textDim, width:18 }}>#{u.rank}</div>
-                <AvatarBadge initials={u.av} url={u.url} size={32} gold={u.isMe}/>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:u.isMe?G.gold:"#fff", textTransform:"uppercase" }}>{u.name}</div>
-                  <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1, textTransform:"uppercase" }}>{u.sessions} sessions · {u.streak}d streak</div>
-                </div>
-                <div style={{ fontFamily:FONT.display, fontSize:16, color:u.isMe?G.gold:"#fff", letterSpacing:1 }}>{u.pts.toLocaleString()}</div>
-              </ChromeCard>
-            ))}
-          </SwipeWidget>
-        );
-
-        return null;
-      })}
-
-      {hiddenWidgets.length > 0 && (
-        <div style={{ marginBottom:24 }}>
-          <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textDim, textTransform:"uppercase", marginBottom:10 }}>◆ HIDDEN WIDGETS</div>
-          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-            {hiddenWidgets.map(id => (
-              <button key={id} onClick={() => restoreWidget(id)} style={{ background:"rgba(255,255,255,0.04)", border:`1px solid ${G.borderB}`, borderRadius:8, padding:"10px 16px", cursor:"pointer", fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:G.textMid, display:"flex", alignItems:"center", gap:7, textTransform:"uppercase" }}>
-                <span style={{ color:G.gold }}>+</span>
-                {id === "quickstart" ? "QUICK START" : "LEADERBOARD"}
-              </button>
-            ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -5543,12 +5542,12 @@ function SocialFitClubInner() {
   };
 
   const TABS = [
-    { id:"home", ico:"⬡", l:"HOME" },
-    { id:"train", ico:"🏋️", l:"TRAIN" },
-    { id:"progress", ico:"📈", l:"STATS" },
-    { id:"nutrition", ico:"🥗", l:"FUEL" },
-    { id:"feed", ico:"👥", l:"SQUAD" },
-    { id:"more", ico:"⋯", l:"MORE" },
+    { id:"home",      ico:"⌂",  l:"HOME"  },
+    { id:"train",     ico:"⊞",  l:"TRAIN" },
+    { id:"progress",  ico:"⤴",  l:"STATS" },
+    { id:"nutrition", ico:"◉",  l:"FUEL"  },
+    { id:"feed",      ico:"⚇",  l:"SQUAD" },
+    { id:"more",      ico:"···", l:"MORE"  },
   ];
 
   if (!authReady) return <div style={{ minHeight:"100vh", background:G.bg }}/>;
