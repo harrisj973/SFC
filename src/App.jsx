@@ -5691,14 +5691,14 @@ function SocialFitClubInner() {
         setShowDailyMotiv(false);
       }}/>}
 
-      <div style={{ paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 82px)", position:"relative", zIndex:2, minHeight:"100vh" }}>
+      <main style={{ paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 82px)", position:"relative", zIndex:2, minHeight:"100vh" }}>
         {tab==="home" && (user?.email?.toLowerCase()===ADMIN_EMAIL ? <AdminHomeScreen/> : <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile}/>)}
         {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions}/>}
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile}/>}
         {tab==="nutrition" && <NutritionScreen showToast={showToast}/>}
         {tab==="feed" && <FeedScreen showToast={showToast} profile={profile} sessions={sessions}/>}
         {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut} onProfileUpdate={p => setProfile(p)} userId={user?.id} sessions={sessions} muscleScores={calcMuscleScores(sessions)} isAdmin={user?.email?.toLowerCase()===ADMIN_EMAIL}/>}
-      </div>
+      </main>
 
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, zIndex:50 }}>
         <div style={{ height:1, background:`linear-gradient(90deg,transparent,${G.gold}66,${G.gold},${G.gold}66,transparent)`, boxShadow:`0 0 10px ${G.gold}55` }}/>
