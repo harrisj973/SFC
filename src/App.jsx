@@ -759,9 +759,9 @@ function SectionLabel({ children, accent = true }) {
   );
 }
 
-function ChromeCard({ children, glow = false, gold = false, style = {} }) {
+function ChromeCard({ children, glow = false, gold = false, style = {}, onClick }) {
   return (
-    <div style={{
+    <div onClick={onClick} style={{
       background: gold
         ? `linear-gradient(135deg, rgba(253,185,39,0.07) 0%, rgba(85,37,131,0.15) 100%)`
         : `linear-gradient(160deg, rgba(255,255,255,0.05) 0%, rgba(10,8,24,0.8) 100%)`,
