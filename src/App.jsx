@@ -4789,6 +4789,7 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
   const [macroCoachOpen, setMacroCoachOpen] = useState(false);
   const [formCheckOpen, setFormCheckOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const FEATURES = [
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
     {id:"reports", l:"WEEKLY REPORTS", ico:"📋", desc:"Personalized coaching notes", col:G.purpleLight, hot:true},
@@ -4830,6 +4831,7 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
       {macroCoachOpen && <MacroCoachModal onClose={()=>setMacroCoachOpen(false)}/>}
       {formCheckOpen && <FormCheckModal onClose={()=>setFormCheckOpen(false)}/>}
       {profileOpen && <ProfileModal profile={profile} userId={userId} onClose={()=>setProfileOpen(false)} onSave={onProfileUpdate}/>}
+      {helpOpen && <HelpSupportModal onClose={()=>setHelpOpen(false)}/>}
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:20 }}>
         {FEATURES.map(f => (
@@ -4870,13 +4872,18 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
           <span style={{ color:G.gold, fontSize:13 }}>›</span>
         </div>
       )}
-      {[{l:"PRIVACY & SECURITY",ico:"🔒",col:G.textMid},{l:"HELP & SUPPORT",ico:"❓",col:G.textMid}].map((item)=>(
+      {[{l:"PRIVACY & SECURITY",ico:"🔒",col:G.textMid}].map((item)=>(
         <div key={item.l} onClick={()=>showToast(item.l)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
           <span style={{ fontSize:18, flexShrink:0 }}>{item.ico}</span>
           <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:item.col, textTransform:"uppercase" }}>{item.l}</div>
           <span style={{ color:G.textDim, fontSize:13 }}>›</span>
         </div>
       ))}
+      <div onClick={()=>setHelpOpen(true)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
+        <span style={{ fontSize:18, flexShrink:0 }}>❓</span>
+        <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.textMid, textTransform:"uppercase" }}>HELP & SUPPORT</div>
+        <span style={{ color:G.textDim, fontSize:13 }}>›</span>
+      </div>
       <div onClick={()=>setNotifOpen(true)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
         <span style={{ fontSize:18, flexShrink:0 }}>🔔</span>
         <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.textMid, textTransform:"uppercase" }}>NOTIFICATION SETTINGS</div>
@@ -5093,6 +5100,42 @@ const _D = new URLSearchParams(typeof window !== "undefined" ? window.location.s
 const _DS = [{id:"d1",name:"PUSH DAY",exs:[{id:1,name:"Barbell Bench Press",sets:[{r:"5",w:"185",type:"working"},{r:"5",w:"185",type:"working"},{r:"5",w:"185",type:"working"}],rest:90}],sets:3,vol:2775,pts:80,date:"May 17",createdAt:new Date(Date.now()-86400000).toISOString(),tag:"push"},{id:"d2",name:"PULL DAY",exs:[{id:1,name:"Barbell Deadlift",sets:[{r:"3",w:"315",type:"working"},{r:"3",w:"315",type:"working"}],rest:120}],sets:2,vol:1890,pts:60,date:"May 15",createdAt:new Date(Date.now()-3*86400000).toISOString()},{id:"d3",name:"LEG DAY",exs:[{id:1,name:"Barbell Squat",sets:[{r:"5",w:"225",type:"working"},{r:"5",w:"225",type:"working"},{r:"5",w:"225",type:"working"}],rest:120}],sets:3,vol:3375,pts:90,date:"May 13",createdAt:new Date(Date.now()-5*86400000).toISOString()},{id:"d4",name:"PUSH DAY 2",exs:[{id:1,name:"Barbell Bench Press",sets:[{r:"5",w:"190",type:"working"},{r:"5",w:"190",type:"working"},{r:"5",w:"190",type:"working"}],rest:90},{id:2,name:"Incline Dumbbell Press",sets:[{r:"10",w:"60",type:"working"},{r:"10",w:"60",type:"working"}],rest:60}],sets:5,vol:3900,pts:100,date:"May 11",createdAt:new Date(Date.now()-7*86400000).toISOString(),tag:"push"},{id:"d5",name:"LEG DAY 2",exs:[{id:1,name:"Barbell Squat",sets:[{r:"5",w:"230",type:"working"},{r:"5",w:"230",type:"working"},{r:"5",w:"230",type:"working"}],rest:120},{id:2,name:"Leg Press",sets:[{r:"12",w:"270",type:"working"},{r:"12",w:"270",type:"working"}],rest:90}],sets:5,vol:9990,pts:110,date:"May 9",createdAt:new Date(Date.now()-9*86400000).toISOString(),tag:"legs"}];
 const _DP = {id:"demo",username:"DEMOUSER",avatar_initials:"DU",points:1650,streak:7,sessions_count:5};
 const _DL = [{rank:1,name:"DEMOUSER",pts:1650,sessions:5,streak:7,av:"DU",isMe:true},{rank:2,name:"MARCUS J",pts:1200,sessions:9,streak:3,av:"MJ",isMe:false},{rank:3,name:"SARAH K",pts:980,sessions:7,streak:5,av:"SK",isMe:false},{rank:4,name:"ALEX T",pts:750,sessions:5,streak:2,av:"AT",isMe:false}];
+
+function HelpSupportModal({ onClose }) {
+  useScrollLock();
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.96)", zIndex:500, display:"flex", flexDirection:"column" }}>
+      <div style={{ background:`linear-gradient(135deg,${G.purple}44,rgba(0,0,0,0.8))`, borderBottom:`1px solid ${G.gold}33`, padding:"16px 18px", display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
+        <div style={{ width:42, height:42, borderRadius:10, background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, boxShadow:G.goldGlow, flexShrink:0 }}>❓</div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:G.gold, textTransform:"uppercase", textShadow:G.goldGlow2 }}>HELP & SUPPORT</div>
+          <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>We're here to help</div>
+        </div>
+        <button onClick={onClose} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:8, color:G.textMid, cursor:"pointer", fontSize:16, padding:"6px 10px" }}>✕</button>
+      </div>
+
+      <div style={{ flex:1, overflowY:"auto", padding:"32px 24px", maxWidth:480, width:"100%", margin:"0 auto", boxSizing:"border-box" }}>
+        <ChromeCard style={{ padding:"24px", textAlign:"center", marginBottom:16 }}>
+          <div style={{ fontSize:40, marginBottom:16 }}>📧</div>
+          <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:3, color:G.gold, textTransform:"uppercase", marginBottom:10 }}>CONTACT US</div>
+          <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:1, lineHeight:1.6, marginBottom:20 }}>
+            Have a question, feedback, or need help with your account? Reach out to our support team and we'll get back to you as soon as possible.
+          </div>
+          <a href="mailto:sfcsupport@gmail.com" style={{ display:"block", background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, color:"#0A0810", fontFamily:FONT.display, fontSize:14, letterSpacing:3, textTransform:"uppercase", padding:"14px 20px", borderRadius:10, textDecoration:"none", boxShadow:G.goldGlow }}>
+            sfcsupport@gmail.com ◆
+          </a>
+        </ChromeCard>
+
+        <ChromeCard style={{ padding:"18px" }}>
+          <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:3, color:G.gold, textTransform:"uppercase", marginBottom:12 }}>RESPONSE TIME</div>
+          <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:0.5, lineHeight:1.7 }}>
+            We typically respond within <span style={{ color:"#fff" }}>24–48 hours</span>. For the fastest response, include your username and a description of the issue.
+          </div>
+        </ChromeCard>
+      </div>
+    </div>
+  );
+}
 
 function ProfileModal({ profile, userId, onClose, onSave }) {
   useScrollLock();
