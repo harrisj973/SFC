@@ -4260,7 +4260,7 @@ function AdminDashboardModal({ onClose }) {
         <button onClick={onClose} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:8, color:G.textMid, cursor:"pointer", fontSize:16, padding:"6px 10px" }}>✕</button>
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", padding:"18px 18px 48px", maxWidth:480, width:"100%", margin:"0 auto", boxSizing:"border-box" }}>
+      <div style={{ flex:1, overflowY:"auto", padding:"18px 18px 0", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 48px)", maxWidth:480, width:"100%", margin:"0 auto", boxSizing:"border-box" }}>
         {loading && (
           <div style={{ textAlign:"center", padding:"60px 0" }}>
             <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:3, color:G.gold, textTransform:"uppercase" }}>LOADING DATA...</div>
@@ -4436,7 +4436,7 @@ function NotificationsModal({ onClose, sessions }) {
           <button onClick={onClose} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:20 }}>✕</button>
         </div>
 
-        <div style={{ overflowY:"auto", flex:1, padding:"0 18px 32px" }}>
+        <div style={{ overflowY:"auto", flex:1, padding:"0 18px 0", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 32px)" }}>
 
           {/* Permission status */}
           {permission !== "granted" ? (
@@ -4599,7 +4599,7 @@ function MacroCoachModal({ onClose }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.97)", zIndex:800, display:"flex", flexDirection:"column", overflowY:"auto" }}>
       <GridBg/>
-      <div style={{ position:"relative", zIndex:1, padding:"24px 18px 40px", maxWidth:480, margin:"0 auto", width:"100%" }}>
+      <div style={{ position:"relative", zIndex:1, padding:"24px 18px 0", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 40px)", maxWidth:480, margin:"0 auto", width:"100%" }}>
         <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:22 }}>
           <button onClick={onClose} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:7, padding:"6px 10px", color:G.textMid, cursor:"pointer", fontSize:13 }}>✕</button>
           <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
@@ -5113,7 +5113,7 @@ function HelpSupportModal({ onClose }) {
         <button onClick={onClose} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:8, color:G.textMid, cursor:"pointer", fontSize:16, padding:"6px 10px" }}>✕</button>
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", padding:"32px 24px", maxWidth:480, width:"100%", margin:"0 auto", boxSizing:"border-box" }}>
+      <div style={{ flex:1, overflowY:"auto", padding:"32px 24px 0", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 32px)", maxWidth:480, width:"100%", margin:"0 auto", boxSizing:"border-box" }}>
         <ChromeCard style={{ padding:"24px", textAlign:"center", marginBottom:16 }}>
           <div style={{ fontSize:40, marginBottom:16 }}>📧</div>
           <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:3, color:G.gold, textTransform:"uppercase", marginBottom:10 }}>CONTACT US</div>
@@ -5188,7 +5188,7 @@ function ProfileModal({ profile, userId, onClose, onSave }) {
         <button onClick={onClose} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:8, color:G.textMid, cursor:"pointer", fontSize:16, padding:"6px 10px" }}>✕</button>
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", padding:"32px 24px 48px", maxWidth:480, width:"100%", margin:"0 auto", boxSizing:"border-box" }}>
+      <div style={{ flex:1, overflowY:"auto", padding:"32px 24px 0", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 48px)", maxWidth:480, width:"100%", margin:"0 auto", boxSizing:"border-box" }}>
         {/* Avatar */}
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", marginBottom:32 }}>
           <div style={{ position:"relative", cursor:"pointer" }} onClick={() => !uploading && fileRef.current?.click()}>
