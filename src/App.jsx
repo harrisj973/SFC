@@ -5190,14 +5190,17 @@ function SocialFitClubInner() {
     if (data) { setProfile(data); return data; }
     if (error) {
       if (error.code === "PGRST116") return null; // row not found — new user
-      // avatar_url column not yet migrated — retry without it
-      if (error.message?.includes("avatar_url")) {
-        const { data: d2, error: e2 } = await supabase.from("profiles").select("id, username, avatar_initials, points, streak, sessions_count").eq("id", userId).single();
-        if (d2) { setProfile(d2); return d2; }
-        if (e2 && e2.code !== "PGRST116") setDataLoadFailed(true);
+      // Column may not be migrated yet — retry with safe baseline columns
+      const { data: d2, error: e2 } = await supabase.from("profiles").select("id, username, avatar_initials, points, streak, sessions_count").eq("id", userId).single();
+      if (d2) { setProfile(d2); return d2; }
+      if (e2) {
+        if (e2.code === "PGRST116") return null;
+        // sessions_count may also be missing — retry with absolute minimum
+        const { data: d3, error: e3 } = await supabase.from("profiles").select("id, username, avatar_initials, points, streak").eq("id", userId).single();
+        if (d3) { setProfile(d3); return d3; }
+        if (e3 && e3.code !== "PGRST116") setDataLoadFailed(true);
         return null;
       }
-      setDataLoadFailed(true);
     }
     return null;
   };
