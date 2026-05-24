@@ -5188,8 +5188,17 @@ function SocialFitClubInner() {
   const loadProfile = async (userId) => {
     const { data, error } = await supabase.from("profiles").select("id, username, avatar_initials, avatar_url, points, streak, sessions_count").eq("id", userId).single();
     if (data) { setProfile(data); return data; }
-    // PGRST116 = row not found (new user, not a network issue)
-    if (error && error.code !== "PGRST116") setDataLoadFailed(true);
+    if (error) {
+      if (error.code === "PGRST116") return null; // row not found — new user
+      // avatar_url column not yet migrated — retry without it
+      if (error.message?.includes("avatar_url")) {
+        const { data: d2, error: e2 } = await supabase.from("profiles").select("id, username, avatar_initials, points, streak, sessions_count").eq("id", userId).single();
+        if (d2) { setProfile(d2); return d2; }
+        if (e2 && e2.code !== "PGRST116") setDataLoadFailed(true);
+        return null;
+      }
+      setDataLoadFailed(true);
+    }
     return null;
   };
 
