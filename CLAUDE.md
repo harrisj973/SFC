@@ -18,13 +18,13 @@ npm run dev          # start dev server first
 node test-bugcheck.mjs   # 53-check headless browser sweep (uses ?demo=1 mode)
 ```
 
-**Primary deployment target is Vercel** — connect the repo on vercel.com and point it at the `claude/social-fit-club-ui-XeD03` branch; Vite is auto-detected (`npm run build` → `dist/`). `vercel.json` sets `Service-Worker-Allowed: /` and `Cache-Control: no-cache` on `/sw.js`. After any new Vercel domain is added, update **Supabase → Authentication → URL Configuration** (Site URL + Redirect URLs) or auth email links will redirect to the wrong origin.
+**Primary deployment target is Vercel** — production branch is `main`; Vite is auto-detected (`npm run build` → `dist/`). `vercel.json` sets `Service-Worker-Allowed: /` and `Cache-Control: no-cache` on `/sw.js`. After any new Vercel domain is added, update **Supabase → Authentication → URL Configuration** (Site URL + Redirect URLs) or auth email links will redirect to the wrong origin.
 
 A legacy GitHub Actions workflow (`/.github/workflows/deploy.yml`) also exists — it uses `peaceiris/actions-gh-pages@v4` to push `dist/` to the `gh-pages` branch with the custom domain `socialfitclub26.com`. Both can coexist.
 
 ## Architecture
 
-The entire app lives in a **single file**: `src/App.jsx` (~5380 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+The entire app lives in a **single file**: `src/App.jsx` (~5600 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
 
 `SocialFitClubInner` contains all app logic and is wrapped by an `ErrorBoundary` class component (exported as `SocialFitClub`). Unhandled render errors show a styled "SOMETHING WENT WRONG" screen with a reload button.
 
@@ -36,14 +36,25 @@ The client is initialised at the top of `App.jsx` with hardcoded public keys (an
 
 | Table | Key columns | Notes |
 |---|---|---|
-| `profiles` | `id`, `username`, `avatar_initials`, `points`, `streak`, `sessions_count` | Read-all, write-own RLS |
+| `profiles` | `id`, `username`, `avatar_initials`, `avatar_url`, `points`, `streak`, `sessions_count` | Read-all, write-own RLS |
 | `sessions` | `user_id`, `name`, `exercises` (jsonb), `sets`, `volume`, `points`, `date`, `created_at` | Write/read-own RLS |
 
-Real-time is enabled on `profiles` for the live leaderboard. If `sessions_count` is missing:
+Real-time is enabled on `profiles` for the live leaderboard. Required migrations:
 
 ```sql
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS sessions_count integer NOT NULL DEFAULT 0;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url text;
 ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
+```
+
+**Supabase Storage** — profile photo uploads use a public bucket named `avatars`. Files are stored as `{userId}.jpg` (upserted on each upload). Required RLS policies:
+```sql
+CREATE POLICY "Users can upload own avatar" ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'avatars' AND name = auth.uid() || '.jpg');
+CREATE POLICY "Users can update own avatar" ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'avatars' AND name = auth.uid() || '.jpg');
+CREATE POLICY "Public avatar read" ON storage.objects FOR SELECT TO public
+  USING (bucket_id = 'avatars');
 ```
 
 **Edge Functions** (all require `ANTHROPIC_API_KEY` set as a Supabase secret):
@@ -66,6 +77,8 @@ Deploy a new function with `supabase functions deploy <name>`. All three use `su
 
 Render guards (in order): blank screen while `authReady` is false → `<ResetPasswordScreen/>` when `passwordRecovery` is true → `<LoginScreen/>` when no user → "CONNECTION ERROR" screen with Retry button when `!profile && dataLoadFailed` (network errors in `loadProfile`/`loadSessions` set this flag; a missing profile row — Postgres error `PGRST116` — does not) → blank while profile loads → main app + `<DailyMotivModal/>` overlay on first open of the day.
 
+`loadProfile` uses a **cascading fallback** SELECT: tries the full column set first (`avatar_url`, `sessions_count`, etc.), then retries with progressively simpler queries if a column doesn't exist yet. This prevents CONNECTION ERROR when the database schema is behind the code. Only sets `dataLoadFailed` if the minimal baseline query also fails.
+
 **Demo mode** — appending `?demo=1` to the URL bypasses Supabase auth entirely and seeds the app with hardcoded sessions, profile, and leaderboard. Controlled by the module-level `_D` constant. The auth useEffect and real-time leaderboard subscription both guard with `if (_D) return`. Used by `test-bugcheck.mjs` to run headless tests without a live backend.
 
 ### Navigation model
@@ -78,7 +91,7 @@ Root state passed as props:
 |---|---|---|
 | `sessions` | `{ id, name, exs, sets, vol, pts, date, createdAt, tag? }[]` | Home, Train, Progress, Feed, More |
 | `profile` | Supabase profiles row | Home, Progress, Feed, More |
-| `leaderboard` | sorted profiles array with `{ rank, name, pts, sessions, streak, av, isMe }` | Home |
+| `leaderboard` | sorted profiles array with `{ rank, name, pts, sessions, streak, av, url, isMe }` | Home |
 
 `tag` on sessions is a `SESSION_TYPES` id string — not stored in Supabase, persisted in `sfc_session_tags` localStorage and merged in on `loadSessions`.
 
@@ -91,7 +104,7 @@ Root state passed as props:
 | `ProgressScreen` | `sessions`, `profile`, `showToast` |
 | `NutritionScreen` | `showToast` |
 | `FeedScreen` | `profile`, `sessions`, `showToast` |
-| `MoreScreen` | `profile`, `sessions`, `muscleScores`, `onSignOut`, `showToast`, `isAdmin` |
+| `MoreScreen` | `profile`, `sessions`, `muscleScores`, `onSignOut`, `onProfileUpdate`, `userId`, `showToast`, `isAdmin` |
 
 `isAdmin` is computed as `user?.email?.toLowerCase() === ADMIN_EMAIL` (module-level constant `"harrisj1025@gmail.com"`) and passed from `SocialFitClubInner`.
 
@@ -207,12 +220,16 @@ The `motivFadeIn` CSS animation (`opacity 0 → 1`, `scale 0.96 → 1`) is decla
 | `AdminDashboardModal` | ADMIN DASHBOARD (admin only) | — | `onClose` |
 | `NotificationsModal` | NOTIFICATIONS | `sfc_notif_prefs` | `sessions`, `onClose` |
 | `FormCheckModal` | FORM CHECK | — | `onClose` |
+| `ProfileModal` | EDIT PROFILE (via profile card) | — | `profile`, `userId`, `onClose`, `onSave` |
+| `HelpSupportModal` | HELP & SUPPORT | — | `onClose` |
 
 `MacroCoachModal` has a multi-step setup wizard (sex, age, height, weight, activity, goal) that calculates TDEE and macro splits, stores results in `sfc_macro_coach`, and runs a weekly check-in adjustment algorithm. Uses `const [nowMs] = useState(() => Date.now())` to avoid the `react-hooks/purity` ESLint error — do not replace with inline `Date.now()`.
 
 `FormCheckModal` — video file picker (`accept="video/*" capture="environment"`, max 100 MB), calls `extractFrames()` to get 3 frames, shows a thumbnail strip, then calls the `form-check` Edge Function. Results view: colour-coded score ring (green ≥8, gold ≥6, red <6), optional safety warning, strengths list, correction cards (`{ issue, fix }`), and purple coaching-cue chips.
 
-The Merch tile shows a "COMING SOON" toast.
+The Merch and Privacy & Security tiles show a "COMING SOON" toast. The profile card at the top of MoreScreen is tappable and opens `ProfileModal` directly (bypassing the tile grid).
+
+**Profile editing** — `ProfileModal` allows username change and profile photo upload. Photo is compressed via `compressImage()`, uploaded to `storage.avatars/{userId}.jpg` (upserted), and the public URL is stored in `profiles.avatar_url`. After save, `onProfileUpdate(updatedProfile)` is called to sync the parent state in `SocialFitClubInner`.
 
 ### Health Connect (Web Bluetooth)
 
@@ -223,6 +240,8 @@ The Merch tile shows a "COMING SOON" toast.
 `AdminDashboardModal` fetches all rows from `profiles` (read-all RLS) and displays: platform overview stats (total users, active users, total sessions, total points, avg sessions, users on streaks), engagement bars (activation/streak/churn rates), top performer card, and a full ranked user table. Visible only when `isAdmin` is true in `MoreScreen`.
 
 ### FeedScreen
+
+The feed **starts empty** for new users — there is no seeded `FEED_DATA`. Posts accumulate only from real user activity. `sfc_feed` is cleared on sign-out.
 
 Posts stored in `sfc_feed` as:
 ```js
@@ -261,11 +280,12 @@ The `scanTarget` state (`"food"` | `"supplement"`) controls where scan results a
 
 Icons live in `public/`: `favicon.svg` (vector badge logo, also the browser tab icon), `icon-192.png` (home screen), `icon-512.png` (splash / maskable). `index.html` wires them up via `<link rel="manifest">`, `<link rel="apple-touch-icon">`, and the iOS-specific meta tags (`apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`, `apple-mobile-web-app-title`).
 
-**Regenerating PNG icons** — if `favicon.svg` or `public/logo-source.png` changes, run a one-off Node script using Playwright (already a dev dependency) to render at 192×192 and 512×512 and write back to `public/icon-{size}.png`. Pattern:
+**Regenerating PNG icons** — the source logo is `public/sfcc.jpg`. To regenerate at 192×192 and 512×512, run a one-off Node script using Playwright:
 ```js
 import { chromium } from "playwright";
+import { readFileSync, writeFileSync } from "fs";
 const CHROME = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
-// load SVG via data URI into a full-bleed <img> on a #06060E page, screenshot, writeFileSync
+// read sfcc.jpg → base64 data URI → render in headless page → screenshot → writeFileSync icon-{size}.png
 ```
 
 ### Service Worker
@@ -293,6 +313,8 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 
 `ChromeCard`, `NeonBtn`, `NeonOutlineBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `RestTimer`, `TogglePill`, `ExercisePicker`, `SwipeWidget`, `PlateCalculatorModal` — all defined in `App.jsx`.
 
+`AvatarBadge` accepts an optional `url` prop. When provided it renders an `<img>` (circular, `object-fit: cover`) instead of the initials gradient. Both `leaderboard` items and the `profile` object carry `url`/`avatar_url` respectively and should be passed through.
+
 `ExercisePicker` is a bottom-sheet modal used in `TrainScreen`. It receives `{ onSelect, onClose }` and renders a search bar + category chips (from `EXERCISE_CATS`) + a filtered list of `EXERCISES` with primary muscle label and category badge. Opens via the ⊞ button next to each exercise name input.
 
 `SwipeWidget` wraps each dismissible home tile. Uses pointer events for horizontal swipe detection; `touchAction: "pan-y"` lets the browser handle vertical scroll. See HomeScreen section above.
@@ -301,7 +323,7 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 
 ### Module-level constants
 
-`ADMIN_EMAIL`, `REACTIONS`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `FEED_DATA` (default feed seed), `REST_OPTIONS`, `MACRO_COACH_KEY`, `DAILY_MESSAGES`.
+`ADMIN_EMAIL`, `REACTIONS`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `REST_OPTIONS`, `MACRO_COACH_KEY`, `DAILY_MESSAGES`.
 
 `SESSION_TYPES` is `[{ id, label, color }]` — 9 workout categories each with a hex color used for chip backgrounds and history badges.
 
@@ -318,6 +340,8 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 
 - **Stable callback refs**: `RestTimer` uses `useRef` + `useEffect(() => { ref.current = onDone; })` (no deps) to keep the `onDone` callback current without restarting the interval on every parent re-render. Do not replace with a direct dependency.
 - **Streak calculation in `handleSave`**: compares the most recent existing session's `createdAt` date against today/yesterday to decide whether to extend or reset the streak. This must remain before the optimistic state update.
-- **Sign-out cleanup**: `handleSignOut` clears 17 `sfc_*` localStorage keys. `sfc_home_widgets` is intentionally excluded (it's a device-level UI preference, not user data).
+- **Sign-out cleanup**: `handleSignOut` clears 17 `sfc_*` localStorage keys (including `sfc_daily_motiv`). `sfc_home_widgets` is intentionally excluded (it's a device-level UI preference, not user data).
+- **Body scroll lock**: `useScrollLock()` is a module-level hook called at the top of every modal component. It sets `document.body.style.overflow = "hidden"` on mount and restores the previous value on unmount, preventing iOS Safari background scroll bleed-through.
+- **Bottom sheet safe area**: All bottom sheet containers use `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 48px)"` and `maxHeight: "88vh"` with `overflowY: "auto"` to clear the iOS home indicator and stay within viewport bounds.
 - **Blob URL lifecycle in `FormCheckModal`**: uses `previewUrlRef` to revoke the previous object URL both when a new file is picked and on unmount, preventing memory leaks.
 - **Challenge auto-complete**: the `useEffect` in `FeedScreen` that watches `sessions` compares current progress against targets and only fires the completion logic once (checks `!ch.completed` before updating). Do not add `challenges` to the dependency array or it will loop.
