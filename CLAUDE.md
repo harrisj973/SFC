@@ -18,7 +18,7 @@ npm run dev          # start dev server first
 node test-bugcheck.mjs   # 53-check headless browser sweep (uses ?demo=1 mode)
 ```
 
-**Primary deployment target is Vercel** — production branch is `main`; Vite is auto-detected (`npm run build` → `dist/`). `vercel.json` sets `Service-Worker-Allowed: /` and `Cache-Control: no-cache` on `/sw.js`. After any new Vercel domain is added, update **Supabase → Authentication → URL Configuration** (Site URL + Redirect URLs) or auth email links will redirect to the wrong origin.
+**Primary deployment target is Vercel** — production branch is `main`; Vite is auto-detected (`npm run build` → `dist/`). `vercel.json` sets `Service-Worker-Allowed: /` and `Cache-Control: no-cache` on `/sw.js`. The custom domain is `socialfitclub26.com` (purchased on Vercel, auto-configured DNS). After any new Vercel domain is added, update **Supabase → Authentication → URL Configuration** (Site URL + Redirect URLs) or auth email links will redirect to the wrong origin.
 
 A legacy GitHub Actions workflow (`/.github/workflows/deploy.yml`) also exists — it uses `peaceiris/actions-gh-pages@v4` to push `dist/` to the `gh-pages` branch with the custom domain `socialfitclub26.com`. Both can coexist.
 
@@ -64,7 +64,9 @@ CREATE POLICY "Public avatar read" ON storage.objects FOR SELECT TO public
 | `analyze-meal` | `{ image: base64jpeg }` | `{ name, cal, pro, carb, fat, confidence }` |
 | `form-check` | `{ frames: base64jpeg[], exercise: string }` | `{ score, summary, strengths[], corrections[], cues[], safety }` |
 
-Deploy with `supabase functions deploy <name>`. Both use `supabase.functions.invoke(name, { body })`.
+Both functions are deployed. Deploy with `supabase functions deploy <name>` or paste the source into **Supabase → Edge Functions → New Function** in the dashboard. Both use `supabase.functions.invoke(name, { body })`.
+
+**Transactional email** — configured via Resend SMTP (`smtp.resend.com:465`, username `resend`). Domain `socialfitclub26.com` is verified in Resend. Supabase sends auth emails (confirm signup, reset password) from `support@socialfitclub26.com` via custom SMTP in **Supabase → Project Settings → Authentication → SMTP**. Support contact in the app is `sfcsupport26@gmail.com`.
 
 **AI Coach is local-only** — `AiCoachModal` does not call the `ai-coach` Edge Function. Instead `buildLocalCoaching()` generates personalized recommendations entirely client-side from `muscleScores`, `sessions`, and `profile` (streak, session count). The Edge Function source remains in `supabase/functions/ai-coach/` but is not called. Do not revert to the Edge Function call without verifying it is deployed and the API key is set.
 
@@ -108,6 +110,12 @@ Root state passed as props:
 | `MoreScreen` | `profile`, `sessions`, `muscleScores`, `onSignOut`, `onProfileUpdate`, `userId`, `showToast`, `isAdmin` |
 
 `isAdmin` is computed as `user?.email?.toLowerCase() === ADMIN_EMAIL` (module-level constant `"harrisj1025@gmail.com"`) and passed from `SocialFitClubInner`.
+
+**Admin home screen** — when `isAdmin` is true, the `home` tab renders `AdminHomeScreen` instead of `HomeScreen`. Regular users are completely unaffected. `AdminHomeScreen` is a full-screen version of the admin dashboard (no modal chrome, no close button, has a REFRESH button). The data fetching and content rendering are extracted into two shared pieces:
+- `useAdminData()` — custom hook that fetches all profiles with cascading fallback for missing `sessions_count` column
+- `AdminDashboardContent({ data, loading, error, load })` — pure render component shared by both `AdminHomeScreen` and `AdminDashboardModal`
+
+`AdminDashboardModal` in MoreScreen still works unchanged — it now uses `useAdminData()` + `AdminDashboardContent` internally.
 
 ### Data flow for saving / editing / deleting a workout
 
