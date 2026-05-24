@@ -545,6 +545,7 @@ function extractFrames(videoFile) {
 }
 
 function FormCheckModal({ onClose }) {
+  useScrollLock();
   const [exercise, setExercise] = useState("");
   const [videoFile, setVideoFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -849,6 +850,14 @@ function AvatarBadge({ initials, size = 42, gold = false, url = null }) {
       {initials}
     </div>
   );
+}
+
+function useScrollLock() {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
 }
 
 function Chip({ label, color = G.gold, small = false }) {
@@ -3651,6 +3660,7 @@ function FeedScreen({ showToast, profile, sessions = [] }) {
 }
 
 function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
+  useScrollLock();
   const [state, setState] = useState("idle"); // idle | loading | result | error
   const [result, setResult] = useState(null);
 
@@ -3760,6 +3770,7 @@ function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
 }
 
 function GoalsModal({ sessions, profile, onClose }) {
+  useScrollLock();
   const totalVol = sessions.reduce((a, s) => a + (s.vol || 0), 0);
   const streak = profile?.streak || 0;
   const [goals, setGoals] = useState(() => {
@@ -3840,6 +3851,7 @@ function GoalsModal({ sessions, profile, onClose }) {
 }
 
 function WeeklyReportModal({ sessions, muscleScores, onClose }) {
+  useScrollLock();
   const now = new Date();
   const dayOfWeek = (now.getDay() + 6) % 7;
   const startOfThisWeek = new Date(now);
@@ -3939,6 +3951,7 @@ function WeeklyReportModal({ sessions, muscleScores, onClose }) {
 }
 
 function AccountabilityModal({ sessions, profile, onClose }) {
+  useScrollLock();
   const [pledge, setPledge] = useState(() => {
     try { return parseInt(localStorage.getItem("sfc_pledge") || "4", 10); } catch { return 4; }
   });
@@ -4023,6 +4036,7 @@ function AccountabilityModal({ sessions, profile, onClose }) {
 }
 
 function HealthConnectModal({ onClose }) {
+  useScrollLock();
   const [status, setStatus] = useState("idle"); // idle | scanning | connected | error | unsupported
   const [heartRate, setHeartRate] = useState(null);
   const [deviceName, setDeviceName] = useState(() => {
@@ -4195,6 +4209,7 @@ function HealthConnectModal({ onClose }) {
 }
 
 function AdminDashboardModal({ onClose }) {
+  useScrollLock();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -4374,6 +4389,7 @@ async function scheduleReminder(prefs, swReg) {
 }
 
 function NotificationsModal({ onClose, sessions }) {
+  useScrollLock();
   const [prefs, setPrefs] = useState(loadNotifPrefs);
   const [permission, setPermission] = useState(() => ("Notification" in window ? Notification.permission : "denied"));
   const [swReg, setSwReg] = useState(null);
@@ -4501,6 +4517,7 @@ function NotificationsModal({ onClose, sessions }) {
 }
 
 function MacroCoachModal({ onClose }) {
+  useScrollLock();
   const existing = loadMacroCoach();
   const bodyLog = (() => { try { return JSON.parse(localStorage.getItem("sfc_body_log") || "[]"); } catch { return []; } })();
 
@@ -5078,6 +5095,7 @@ const _DP = {id:"demo",username:"DEMOUSER",avatar_initials:"DU",points:1650,stre
 const _DL = [{rank:1,name:"DEMOUSER",pts:1650,sessions:5,streak:7,av:"DU",isMe:true},{rank:2,name:"MARCUS J",pts:1200,sessions:9,streak:3,av:"MJ",isMe:false},{rank:3,name:"SARAH K",pts:980,sessions:7,streak:5,av:"SK",isMe:false},{rank:4,name:"ALEX T",pts:750,sessions:5,streak:2,av:"AT",isMe:false}];
 
 function ProfileModal({ profile, userId, onClose, onSave }) {
+  useScrollLock();
   const [username, setUsername] = useState(profile?.username || "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || null);
   const [uploading, setUploading] = useState(false);
