@@ -4951,13 +4951,6 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
           <span style={{ color:G.gold, fontSize:13 }}>›</span>
         </div>
       )}
-      {[{l:"PRIVACY & SECURITY",ico:"🔒",col:G.textMid}].map((item)=>(
-        <div key={item.l} onClick={()=>showToast(`${item.ico} ${item.l} — COMING SOON`)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
-          <span style={{ fontSize:18, flexShrink:0 }}>{item.ico}</span>
-          <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:item.col, textTransform:"uppercase" }}>{item.l}</div>
-          <span style={{ color:G.textDim, fontSize:13 }}>›</span>
-        </div>
-      ))}
       <div onClick={()=>setHelpOpen(true)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
         <span style={{ fontSize:18, flexShrink:0 }}>❓</span>
         <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.textMid, textTransform:"uppercase" }}>HELP & SUPPORT</div>
