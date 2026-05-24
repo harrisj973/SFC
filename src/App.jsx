@@ -3662,9 +3662,11 @@ function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
   useScrollLock();
   const [state, setState] = useState("idle"); // idle | loading | result | error
   const [result, setResult] = useState(null);
+  const [errMsg, setErrMsg] = useState("");
 
   const fetchCoach = async () => {
     setState("loading");
+    setErrMsg("");
     try {
       const { data, error } = await supabase.functions.invoke("ai-coach", {
         body: { sessions, profile, muscleScores },
@@ -3672,7 +3674,8 @@ function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
       if (error || data?.error) throw new Error(error?.message || data?.error);
       setResult(data);
       setState("result");
-    } catch {
+    } catch (e) {
+      setErrMsg(e?.message || "Unknown error");
       setState("error");
     }
   };
@@ -3717,6 +3720,9 @@ function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
           <div style={{ padding:"32px 18px", textAlign:"center" }}>
             <div style={{ fontSize:36, marginBottom:12 }}>⚠️</div>
             <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:G.red, textTransform:"uppercase", marginBottom:8 }}>COACH UNAVAILABLE</div>
+            {errMsg ? (
+              <div style={{ fontFamily:FONT.mono, fontSize:10, color:G.red+"bb", letterSpacing:0.5, marginBottom:8, padding:"8px 12px", background:"rgba(255,60,60,0.08)", borderRadius:8, border:`1px solid ${G.red}33`, wordBreak:"break-all" }}>{errMsg}</div>
+            ) : null}
             <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1, marginBottom:20 }}>Check your connection and try again.</div>
             <NeonBtn onClick={fetchCoach} full>RETRY</NeonBtn>
           </div>
