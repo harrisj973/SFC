@@ -208,7 +208,7 @@ The HomeScreen was redesigned with a purple-dominant theme. Layout (top to botto
 5. **Leaderboard row** — tappable, expands (`lbExpanded` state) to show top-5 ranked users inline.
 6. **Quick Start row** — tappable, expands (`qsExpanded` state, default open) to reveal a 2×2 grid of workout cards. Each card has a colored icon square (purple/blue/orange/green), name, subtitle, and chevron.
 
-`SwipeWidget` is still defined in the file (used by no screen currently) but `HomeScreen` no longer uses it. The `sfc_home_widgets` localStorage key is written by the old widget system; new HomeScreen ignores it.
+`sfc_home_widgets` is a localStorage key written by a legacy widget system; the current HomeScreen ignores it and does not clear it on sign-out.
 
 ### Daily Motivational Popup
 
@@ -238,7 +238,7 @@ The `motivFadeIn` CSS animation (`opacity 0 → 1`, `scale 0.96 → 1`) is decla
 
 `FormCheckModal` — video file picker (`accept="video/*" capture="environment"`, max 100 MB), calls `extractFrames()` to get 3 frames, shows a thumbnail strip, then calls the `form-check` Edge Function. Results view: colour-coded score ring (green ≥8, gold ≥6, red <6), optional safety warning, strengths list, correction cards (`{ issue, fix }`), and purple coaching-cue chips.
 
-The Merch and Privacy & Security tiles show a "COMING SOON" toast. The profile card at the top of MoreScreen is tappable and opens `ProfileModal` directly (bypassing the tile grid).
+The SFC MERCH tile shows a "COMING SOON" toast. The profile card at the top of MoreScreen is tappable and opens `ProfileModal` directly (bypassing the tile grid).
 
 **Profile editing** — `ProfileModal` allows username change and profile photo upload. Photo is compressed via `compressImage()`, uploaded to `storage.avatars/{userId}.jpg` (upserted), and the public URL is stored in `profiles.avatar_url`. After save, `onProfileUpdate(updatedProfile)` is called to sync the parent state in `SocialFitClubInner`.
 
@@ -360,15 +360,13 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 
 ### Shared UI atoms
 
-`ChromeCard`, `NeonBtn`, `NeonOutlineBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `RestTimer`, `TogglePill`, `ExercisePicker`, `SwipeWidget`, `PlateCalculatorModal` — all defined in `App.jsx`.
+`ChromeCard`, `NeonBtn`, `NeonOutlineBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `RestTimer`, `TogglePill`, `ExercisePicker`, `PlateCalculatorModal` — all defined in `App.jsx`.
 
 `AvatarBadge` accepts an optional `url` prop. When provided it renders an `<img>` (circular, `object-fit: cover`) instead of the initials gradient. Has an `imgErr` state + `onError` handler — falls back to the initials gradient if the image URL fails to load. Both `leaderboard` items and the `profile` object carry `url`/`avatar_url` respectively and should be passed through.
 
 `ChromeCard` accepts an optional `onClick` prop which is forwarded to the root div. Always pass `onClick` directly to `ChromeCard` — do not wrap it in another div to handle clicks, as `ChromeCard` now supports this natively.
 
 `ExercisePicker` is a bottom-sheet modal used in `TrainScreen`. It receives `{ onSelect, onClose }` and renders a search bar + category chips (from `EXERCISE_CATS`) + a filtered list of `EXERCISES` with primary muscle label and category badge. Opens via the ⊞ button next to each exercise name input.
-
-`SwipeWidget` wraps each dismissible home tile. Uses pointer events for horizontal swipe detection; `touchAction: "pan-y"` lets the browser handle vertical scroll. See HomeScreen section above.
 
 `PlateCalculatorModal` is a standalone modal (not a MoreScreen tile). Opened from the TrainScreen header ⚖️ PLATES button. Accepts `{ onClose, initialWeight }`.
 
