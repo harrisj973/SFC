@@ -5281,15 +5281,14 @@ function ProfileModal({ profile, userId, onClose, onSave }) {
     const initials = trimmed.split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2) || "ME";
     const updates = { username: trimmed, avatar_initials: initials };
     if (avatarUrl) updates.avatar_url = avatarUrl;
-    // Try full update first; if avatar_url column missing, retry without it
-    let { data: updated, error: e2 } = await supabase.from("profiles").update(updates).eq("id", userId).select().single();
+    let { error: e2 } = await supabase.from("profiles").update(updates).eq("id", userId);
     if (e2 && (e2.message?.includes("avatar_url") || e2.code === "42703")) {
       const { username: u, avatar_initials: ai } = updates;
-      ({ data: updated, error: e2 } = await supabase.from("profiles").update({ username: u, avatar_initials: ai }).eq("id", userId).select().single());
+      ({ error: e2 } = await supabase.from("profiles").update({ username: u, avatar_initials: ai }).eq("id", userId));
     }
     setSaving(false);
     if (e2) { setErr(`Save failed: ${e2.message}`); return; }
-    onSave({ ...profile, ...updates, ...(updated || {}) });
+    onSave({ ...profile, ...updates });
     onClose();
   };
 
