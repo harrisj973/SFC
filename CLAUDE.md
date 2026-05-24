@@ -314,6 +314,40 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 - No CSS classes except the minimal reset in `src/index.css`
 - Max width `480px`, `margin: 0 auto`, mobile-first; `viewport-fit=cover` in `index.html`
 
+### Screen header pattern
+
+Every screen uses a **consistent header block** immediately inside the root padding div:
+
+```jsx
+<div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+  <div>
+    <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>
+      SCREEN <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>WORD</span>
+    </div>
+    <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
+      <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple }}/>
+      <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>Tagline here</div>
+    </div>
+  </div>
+  {/* optional right-side button */}
+</div>
+```
+
+- Title is 22px `FONT.display`, white base + **purple** highlighted word (not gold)
+- Purple dot (7px circle) + short tagline below
+- Gold is reserved for points, PR badges, achievements, and the calorie ring — not for screen chrome
+
+### Sub-tab pill pattern
+
+All sub-tab selectors (Train, Progress, Nutrition) use **purple** for the active state:
+
+```jsx
+background: active ? `linear-gradient(135deg,${G.purple},${G.purpleBright})` : "transparent"
+color: active ? "#fff" : G.textMid
+```
+
+Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
+
 ### Shared UI atoms
 
 `ChromeCard`, `NeonBtn`, `NeonOutlineBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `RestTimer`, `TogglePill`, `ExercisePicker`, `SwipeWidget`, `PlateCalculatorModal` — all defined in `App.jsx`.
