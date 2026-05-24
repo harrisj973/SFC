@@ -5245,22 +5245,28 @@ function ProfileModal({ profile, userId, onClose, onSave }) {
       const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(`${userId}.jpg`);
       setAvatarUrl(publicUrl + "?t=" + Date.now());
     } catch (e2) {
-      setErr(e2?.message || "Upload failed");
+      setErr(`Photo upload failed: ${e2?.message || "Unknown error"}`);
     } finally {
       setUploading(false);
     }
   };
 
   const handleSave = async () => {
+    if (!userId) { setErr("Not logged in — please sign out and sign back in."); return; }
     setSaving(true); setErr(null);
     const trimmed = username.trim().toUpperCase().slice(0, 20) || "ATHLETE";
     const initials = trimmed.split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2) || "ME";
     const updates = { username: trimmed, avatar_initials: initials };
     if (avatarUrl) updates.avatar_url = avatarUrl;
-    const { error: e2 } = await supabase.from("profiles").update(updates).eq("id", userId);
+    // Try full update first; if avatar_url column missing, retry without it
+    let { data: updated, error: e2 } = await supabase.from("profiles").update(updates).eq("id", userId).select().single();
+    if (e2 && (e2.message?.includes("avatar_url") || e2.code === "42703")) {
+      const { username: u, avatar_initials: ai } = updates;
+      ({ data: updated, error: e2 } = await supabase.from("profiles").update({ username: u, avatar_initials: ai }).eq("id", userId).select().single());
+    }
     setSaving(false);
-    if (e2) { setErr(e2.message); return; }
-    onSave({ ...profile, ...updates });
+    if (e2) { setErr(`Save failed: ${e2.message}`); return; }
+    onSave({ ...profile, ...updates, ...(updated || {}) });
     onClose();
   };
 
