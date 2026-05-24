@@ -3572,10 +3572,27 @@ function FeedScreen({ showToast, profile, sessions = [] }) {
 
 
       {feed.length === 0 && (
-        <div style={{ textAlign:"center", padding:"48px 24px" }}>
-          <div style={{ fontSize:40, marginBottom:16 }}>💪</div>
-          <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:3, color:G.purple, textTransform:"uppercase", marginBottom:8 }}>BE THE FIRST TO POST</div>
-          <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:1, lineHeight:1.6 }}>Share a PR, milestone, or what you crushed today. Hit + POST to get the squad going.</div>
+        <div style={{ padding:"32px 4px 16px" }}>
+          <div style={{ textAlign:"center", marginBottom:24 }}>
+            <div style={{ fontSize:44, marginBottom:12 }}>🤝</div>
+            <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:6 }}>START THE <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>SQUAD FEED</span></div>
+            <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:1, lineHeight:1.6 }}>Be the first to post. Share a win and get the community moving.</div>
+          </div>
+          {[
+            { type:"pr",        ico:"🏆", label:"LOG A PR",       ex:"Just hit 315 lbs on deadlift — new personal best!" },
+            { type:"post",      ico:"📢", label:"SHARE A WIN",    ex:"Crushed leg day. Squats felt strong today." },
+            { type:"milestone", ico:"⭐", label:"HIT A MILESTONE", ex:"10 sessions logged this month. Let's go!" },
+            { type:"challenge", ico:"⚔️", label:"START A CHALLENGE", ex:"Challenge the squad — who can hit 225 bench first?" },
+          ].map(item => (
+            <div key={item.type} onClick={()=>{ setNewType(item.type); setShowPost(true); }} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.04),rgba(10,8,24,0.6))`, border:`1px solid ${G.borderB}`, borderRadius:12, padding:"14px 16px", marginBottom:9, display:"flex", alignItems:"center", gap:14, cursor:"pointer" }}>
+              <div style={{ width:42, height:42, borderRadius:10, background:`${G.purple}22`, border:`1px solid ${G.purple}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>{item.ico}</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:"#fff", textTransform:"uppercase", marginBottom:3 }}>{item.label}</div>
+                <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:0.5, lineHeight:1.4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>"{item.ex}"</div>
+              </div>
+              <span style={{ color:G.purple, fontSize:16, flexShrink:0 }}>›</span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -3711,7 +3728,7 @@ function FeedScreen({ showToast, profile, sessions = [] }) {
                 {newType !== "post" && (
                   <input value={newTag} onChange={e=>setNewTag(e.target.value)} placeholder={newType==="pr" ? "E.G. 315LBS DEADLIFT" : "E.G. 100 SESSIONS"} style={{ ...inp, width:"100%", boxSizing:"border-box", marginBottom:10 }}/>
                 )}
-                <textarea value={newTxt} onChange={e=>setNewTxt(e.target.value)} placeholder="WHAT DID YOU CRUSH TODAY..." style={{ width:"100%", padding:"12px 13px", borderRadius:7, background:"rgba(0,0,0,0.5)", border:`1px solid ${G.borderB}`, color:"#fff", fontSize:13, outline:"none", resize:"none", height:90, boxSizing:"border-box", lineHeight:1.5, marginBottom:13, fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" }}/>
+                <textarea value={newTxt} onChange={e=>setNewTxt(e.target.value)} placeholder={newType==="pr" ? "DESCRIBE YOUR PR — HOW DID IT FEEL?" : newType==="milestone" ? "WHAT MILESTONE DID YOU HIT? HOW LONG DID IT TAKE?" : "WHAT DID YOU CRUSH TODAY?"} style={{ width:"100%", padding:"12px 13px", borderRadius:7, background:"rgba(0,0,0,0.5)", border:`1px solid ${G.borderB}`, color:"#fff", fontSize:13, outline:"none", resize:"none", height:90, boxSizing:"border-box", lineHeight:1.5, marginBottom:13, fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" }}/>
                 <NeonBtn onClick={submitPost} full>POST TO SQUAD ◆</NeonBtn>
               </>
             )}
