@@ -161,8 +161,8 @@ await check("Navigate to SQUAD", async () => {
 });
 await page.screenshot({ path: "/tmp/ss-squad.png" });
 
-await check("Feed posts visible", async () => {
-  await page.waitForSelector("text=🔥", { timeout: 3000 });
+await check("Squad feed loaded", async () => {
+  await page.waitForSelector("text=SQUAD FEED", { timeout: 3000 });
 });
 await check("Open compose sheet", async () => {
   await page.click("text=+ POST");

@@ -65,11 +65,7 @@ const EX_CAT_LOOKUP = {};
 Object.entries(EXERCISE_CATS).forEach(([cat, arr]) => arr.forEach(n => { EX_CAT_LOOKUP[n] = cat; }));
 
 const REACTIONS = ["🔥","💪","👊","⚡","🙌"];
-const FEED_DATA = [
-  { id:"f1", user:"MARCUS J.", av:"MJ", time:"2H AGO", txt:"315lb deadlift PR. 5 sets of 3. The iron never lies. 🔥", likes:47, liked:false, commentList:[], type:"pr", tag:"315LBS DEADLIFT", reactions:{"🔥":18,"💪":12,"👊":7,"⚡":3,"🙌":5}, myReactions:[] },
-  { id:"f2", user:"SOFIA R.", av:"SR", time:"4H AGO", txt:"100 logged workouts on SFC. This community keeps me showing up every single day.", likes:89, liked:true, commentList:[], type:"milestone", tag:"100 SESSIONS", reactions:{"🔥":24,"💪":31,"👊":4,"⚡":6,"🙌":19}, myReactions:[] },
-  { id:"f3", user:"DEVON K.", av:"DK", time:"YESTERDAY", txt:"Consistency over motivation. Always.", likes:34, liked:false, commentList:[], type:"post", tag:null, reactions:{"🔥":9,"💪":14,"👊":2,"⚡":0,"🙌":8}, myReactions:[] },
-];
+
 
 const MACROS_GOAL = { cal:2200, pro:180, carb:220, fat:65 };
 
@@ -3338,8 +3334,8 @@ function FeedScreen({ showToast, profile, sessions = [] }) {
   const [feed, setFeed] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("sfc_feed") || "null");
-      return saved || FEED_DATA;
-    } catch { return FEED_DATA; }
+      return saved || [];
+    } catch { return []; }
   });
   const [activeComment, setActiveComment] = useState(null);
   const [cTxt, setCTxt] = useState("");
