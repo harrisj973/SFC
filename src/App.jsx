@@ -3760,7 +3760,7 @@ function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.96)", zIndex:400, display:"flex", alignItems:"flex-end" }} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.gold}44`, borderBottom:"none", maxHeight:"93vh", overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 48px)" }}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.gold}44`, borderBottom:"none", maxHeight:"80vh", overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 72px)" }}>
 
         {/* Handle bar */}
         <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"14px auto 0" }}/>
@@ -3881,7 +3881,7 @@ function GoalsModal({ sessions, profile, onClose }) {
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.96)", zIndex:400, display:"flex", alignItems:"flex-end" }} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.gold}44`, borderBottom:"none", maxHeight:"93vh", overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 48px)" }}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.gold}44`, borderBottom:"none", maxHeight:"80vh", overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 72px)" }}>
         <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"14px auto 0" }}/>
         <div style={{ padding:"14px 18px 0", display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
           <div style={{ width:44, height:44, borderRadius:12, background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, boxShadow:G.goldGlow, flexShrink:0 }}>🎯</div>
@@ -3961,7 +3961,7 @@ function WeeklyReportModal({ sessions, muscleScores, onClose }) {
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.96)", zIndex:400, display:"flex", alignItems:"flex-end" }} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.purpleLight}44`, borderBottom:"none", maxHeight:"93vh", overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 48px)" }}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.purpleLight}44`, borderBottom:"none", maxHeight:"80vh", overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 72px)" }}>
         <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"14px auto 0" }}/>
         <div style={{ padding:"14px 18px 0", display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
           <div style={{ width:44, height:44, borderRadius:12, background:`linear-gradient(135deg,${G.purpleLight},${G.purple})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, boxShadow:G.purpleGlow, flexShrink:0 }}>📋</div>
@@ -4064,7 +4064,7 @@ function AccountabilityModal({ sessions, profile, onClose }) {
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.96)", zIndex:400, display:"flex", alignItems:"flex-end" }} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.green}44`, borderBottom:"none", maxHeight:"93vh", overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 48px)" }}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.green}44`, borderBottom:"none", maxHeight:"80vh", overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 72px)" }}>
         <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"14px auto 0" }}/>
         <div style={{ padding:"14px 18px 0", display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
           <div style={{ width:44, height:44, borderRadius:12, background:`${G.green}22`, border:`1px solid ${G.green}55`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>🤝</div>
@@ -4177,7 +4177,7 @@ function HealthConnectModal({ onClose }) {
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.96)", zIndex:400, display:"flex", alignItems:"flex-end" }} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.blue}44`, borderBottom:"none", maxHeight:"93vh", overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 48px)" }}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.blue}44`, borderBottom:"none", maxHeight:"80vh", overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 72px)" }}>
         <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"14px auto 0" }}/>
         <div style={{ padding:"14px 18px 0", display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
           <div style={{ width:44, height:44, borderRadius:12, background:`${G.blue}22`, border:`1px solid ${G.blue}55`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>⌚</div>
