@@ -4200,13 +4200,18 @@ function AdminDashboardModal({ onClose }) {
 
   const load = async () => {
     setLoading(true); setError(null);
-    const { data: profiles, error: e } = await supabase
-      .from("profiles")
-      .select("id, username, avatar_initials, points, streak, sessions_count")
-      .order("points", { ascending: false });
-    if (e) { setError(e.message); setLoading(false); return; }
-    setData(profiles || []);
-    setLoading(false);
+    try {
+      const { data: profiles, error: e } = await supabase
+        .from("profiles")
+        .select("id, username, avatar_initials, points, streak, sessions_count")
+        .order("points", { ascending: false });
+      if (e) { setError(e.message); return; }
+      setData(profiles || []);
+    } catch (err) {
+      setError(err?.message || "Failed to connect");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/set-state-in-effect
