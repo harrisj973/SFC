@@ -223,7 +223,7 @@ The `motivFadeIn` CSS animation (`opacity 0 → 1`, `scale 0.96 → 1`) is decla
 | `AdminDashboardModal` | ADMIN DASHBOARD (admin only) | — | `onClose` |
 | `NotificationsModal` | NOTIFICATIONS | `sfc_notif_prefs` | `sessions`, `onClose` |
 | `FormCheckModal` | FORM CHECK | — | `onClose` |
-| `ProfileModal` | EDIT PROFILE (via profile card) | — | `profile`, `userId`, `onClose`, `onSave` |
+| `ProfileModal` | EDIT PROFILE (via profile card) | — | `profile`, `userId`, `onClose`, `onSave`, `showToast` |
 | `HelpSupportModal` | HELP & SUPPORT | — | `onClose` |
 
 `MacroCoachModal` has a multi-step setup wizard (sex, age, height, weight, activity, goal) that calculates TDEE and macro splits, stores results in `sfc_macro_coach`, and runs a weekly check-in adjustment algorithm. Uses `const [nowMs] = useState(() => Date.now())` to avoid the `react-hooks/purity` ESLint error — do not replace with inline `Date.now()`.
@@ -233,6 +233,8 @@ The `motivFadeIn` CSS animation (`opacity 0 → 1`, `scale 0.96 → 1`) is decla
 The Merch and Privacy & Security tiles show a "COMING SOON" toast. The profile card at the top of MoreScreen is tappable and opens `ProfileModal` directly (bypassing the tile grid).
 
 **Profile editing** — `ProfileModal` allows username change and profile photo upload. Photo is compressed via `compressImage()`, uploaded to `storage.avatars/{userId}.jpg` (upserted), and the public URL is stored in `profiles.avatar_url`. After save, `onProfileUpdate(updatedProfile)` is called to sync the parent state in `SocialFitClubInner`.
+
+`handleSave` uses `.update(updates).eq("id", userId).select("id")` — the `.select("id")` is intentional to detect silent RLS failures. Supabase returns HTTP 200 with 0 rows (not an error) when an UPDATE is blocked by RLS; checking `rows.length === 0` catches this and shows an informative error. Do not remove the `.select("id")` or revert to a bare `.update()` with no return check. The `avatars` storage bucket must be set to **Public** in the Supabase dashboard or photo URLs will fail to load.
 
 ### Health Connect (Web Bluetooth)
 
@@ -352,7 +354,9 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 
 `ChromeCard`, `NeonBtn`, `NeonOutlineBtn`, `SectionLabel`, `StatPill`, `AvatarBadge`, `Chip`, `RingMeter`, `GridBg`, `RestTimer`, `TogglePill`, `ExercisePicker`, `SwipeWidget`, `PlateCalculatorModal` — all defined in `App.jsx`.
 
-`AvatarBadge` accepts an optional `url` prop. When provided it renders an `<img>` (circular, `object-fit: cover`) instead of the initials gradient. Both `leaderboard` items and the `profile` object carry `url`/`avatar_url` respectively and should be passed through.
+`AvatarBadge` accepts an optional `url` prop. When provided it renders an `<img>` (circular, `object-fit: cover`) instead of the initials gradient. Has an `imgErr` state + `onError` handler — falls back to the initials gradient if the image URL fails to load. Both `leaderboard` items and the `profile` object carry `url`/`avatar_url` respectively and should be passed through.
+
+`ChromeCard` accepts an optional `onClick` prop which is forwarded to the root div. Always pass `onClick` directly to `ChromeCard` — do not wrap it in another div to handle clicks, as `ChromeCard` now supports this natively.
 
 `ExercisePicker` is a bottom-sheet modal used in `TrainScreen`. It receives `{ onSelect, onClose }` and renders a search bar + category chips (from `EXERCISE_CATS`) + a filtered list of `EXERCISES` with primary muscle label and category badge. Opens via the ⊞ button next to each exercise name input.
 
