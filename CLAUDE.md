@@ -153,6 +153,7 @@ Root state passed as props:
 | `sfc_home_widgets` | `{ order: string[], hidden: string[] }` widget display preferences | Never |
 | `sfc_meal_templates` | `[{ id, name, items: [{ name, cal, pro, carb, fat, brand? }] }]` | Never |
 | `sfc_daily_motiv` | `"YYYY-MM-DD"` — date the daily motivational popup was last shown | Auto-cleared on sign-out |
+| `sfc_onboarded` | `"1"` — set after user completes or skips the onboarding flow | Never (persists across sign-outs) |
 
 ### Module-level helpers
 
@@ -209,6 +210,14 @@ The HomeScreen was redesigned with a purple-dominant theme. Layout (top to botto
 6. **Quick Start row** — tappable, expands (`qsExpanded` state, default open) to reveal a 2×2 grid of workout cards. Each card has a colored icon square (purple/blue/orange/green), name, subtitle, and chevron.
 
 `sfc_home_widgets` is a localStorage key written by a legacy widget system; the current HomeScreen ignores it and does not clear it on sign-out.
+
+### Onboarding Flow
+
+`OnboardingModal` is a 3-slide full-screen overlay (zIndex 850) shown to first-time users. Controlled by `showOnboarding` state, initialised via `useState(() => !localStorage.getItem("sfc_onboarded"))`. On complete or skip, sets `sfc_onboarded = "1"` in localStorage (intentionally not cleared on sign-out — it's device-level state).
+
+Slides: (1) Welcome + brand identity, (2) 2×2 feature grid (Train, Nutrition, Progress, Squad), (3) Points/leaderboard pitch with gold CTA. Dot indicators show progress; active dot expands to a pill. Navigation: SKIP top-right, ← BACK / NEXT → bottom, final slide shows gold "LET'S GET STARTED ◆" button.
+
+`OnboardingModal` renders before `DailyMotivModal` in the overlay stack. `DailyMotivModal` is suppressed while onboarding is active (`{!showOnboarding && showDailyMotiv && <DailyMotivModal .../>}`), so new users see onboarding first, then the daily quote on their next visit.
 
 ### Daily Motivational Popup
 

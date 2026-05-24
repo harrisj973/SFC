@@ -130,6 +130,103 @@ const DAILY_MESSAGES = [
   { msg: "Champions train. Everyone else wishes.", sub: "Be a champion." },
 ];
 
+function OnboardingModal({ onDone }) {
+  useScrollLock();
+  const [slide, setSlide] = useState(0);
+
+  const SLIDES = [
+    {
+      icon: "💪",
+      titleTop: "WELCOME TO",
+      titleBottom: "SOCIAL FIT CLUB",
+      accent: G.purple,
+      sub: "Your all-in-one fitness community. Train hard, track progress, and connect with your squad.",
+      features: null,
+    },
+    {
+      icon: null,
+      titleTop: "EVERYTHING YOU NEED",
+      titleBottom: "TO LEVEL UP",
+      accent: G.purpleBright,
+      sub: null,
+      features: [
+        { ico: "🏋️", label: "TRAIN & TRACK", desc: "Log workouts & hit PRs" },
+        { ico: "🥗", label: "NUTRITION", desc: "Macros, AI meal scan & more" },
+        { ico: "📊", label: "PROGRESS", desc: "Stats, streaks & heat maps" },
+        { ico: "🤝", label: "SQUAD", desc: "Compete & share with crew" },
+      ],
+    },
+    {
+      icon: "🏆",
+      titleTop: "EARN POINTS.",
+      titleBottom: "CLIMB THE RANKS.",
+      accent: G.gold,
+      sub: "Every workout earns points. Hit streaks, set PRs, and compete on the live leaderboard.",
+      features: null,
+    },
+  ];
+
+  const s = SLIDES[slide];
+  const isLast = slide === SLIDES.length - 1;
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:850, background:"rgba(6,6,14,0.99)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"space-between", padding:"calc(env(safe-area-inset-top,0px) + 36px) 28px calc(env(safe-area-inset-bottom,0px) + 36px)", animation:"motivFadeIn 0.35s ease" }}>
+      {/* Skip */}
+      <div style={{ width:"100%", display:"flex", justifyContent:"flex-end" }}>
+        <button onClick={onDone} style={{ background:"none", border:"none", color:G.textDim, fontFamily:FONT.body, fontSize:12, letterSpacing:2.5, cursor:"pointer", padding:"4px 0", textTransform:"uppercase" }}>SKIP</button>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", gap:20, width:"100%" }}>
+        {s.icon && (
+          <div style={{ fontSize:76, lineHeight:1, filter:`drop-shadow(0 0 24px ${s.accent}99)` }}>{s.icon}</div>
+        )}
+
+        {s.features && (
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, width:"100%", marginBottom:4 }}>
+            {s.features.map(f => (
+              <div key={f.label} style={{ background:`linear-gradient(135deg,${G.purple}20,rgba(255,255,255,0.03))`, border:`1px solid ${G.purple}44`, borderRadius:14, padding:"18px 12px", display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:30 }}>{f.ico}</span>
+                <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>{f.label}</div>
+                <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:1, color:G.textMid, textTransform:"uppercase", lineHeight:1.4 }}>{f.desc}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+          <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:4, color:"#fff", textTransform:"uppercase", opacity:0.7 }}>{s.titleTop}</div>
+          <div style={{ fontFamily:FONT.display, fontSize:32, letterSpacing:3, color:s.accent, textTransform:"uppercase", textShadow:`0 0 24px ${s.accent}88`, lineHeight:1.05 }}>{s.titleBottom}</div>
+        </div>
+
+        {s.sub && (
+          <div style={{ fontFamily:FONT.body, fontSize:14, letterSpacing:0.5, color:G.textMid, lineHeight:1.65, maxWidth:310 }}>{s.sub}</div>
+        )}
+      </div>
+
+      {/* Dot indicators */}
+      <div style={{ display:"flex", gap:8, marginBottom:20 }}>
+        {SLIDES.map((_, i) => (
+          <div key={i} style={{ width:i===slide?22:7, height:7, borderRadius:4, background:i===slide?s.accent:G.borderB, transition:"all 0.3s ease", boxShadow:i===slide?`0 0 8px ${s.accent}`:"none" }}/>
+        ))}
+      </div>
+
+      {/* Nav buttons */}
+      <div style={{ width:"100%", display:"flex", gap:10 }}>
+        {slide > 0 && (
+          <button onClick={()=>setSlide(p=>p-1)} style={{ flex:1, background:"transparent", border:`1px solid ${G.borderB}`, borderRadius:12, padding:"14px", color:G.textMid, fontFamily:FONT.display, fontSize:13, letterSpacing:3, cursor:"pointer", textTransform:"uppercase" }}>← BACK</button>
+        )}
+        <button
+          onClick={isLast ? onDone : ()=>setSlide(p=>p+1)}
+          style={{ flex:2, background:isLast?`linear-gradient(135deg,${G.gold},${G.goldDark})`:`linear-gradient(135deg,${G.purple},${G.purpleBright})`, border:"none", borderRadius:12, padding:"16px", color:isLast?"#0A0810":"#fff", fontFamily:FONT.display, fontSize:15, letterSpacing:3, cursor:"pointer", textTransform:"uppercase", boxShadow:isLast?G.goldGlow:G.purpleGlow }}
+        >
+          {isLast ? "LET'S GET STARTED ◆" : "NEXT →"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DailyMotivModal({ onClose }) {
   const [nowMs] = useState(() => Date.now());
   const dateLabel = new Date(nowMs).toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric" }).toUpperCase();
@@ -5313,6 +5410,9 @@ function SocialFitClubInner() {
   const [authReady, setAuthReady] = useState(_D ? true : false);
   const [dataLoadFailed, setDataLoadFailed] = useState(false);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try { return !localStorage.getItem("sfc_onboarded"); } catch { return true; }
+  });
   const [showDailyMotiv, setShowDailyMotiv] = useState(() => {
     const today = new Date().toISOString().slice(0, 10);
     try { return localStorage.getItem("sfc_daily_motiv") !== today; } catch { return true; }
@@ -5565,7 +5665,11 @@ function SocialFitClubInner() {
         <div style={{ position:"fixed", top:"calc(env(safe-area-inset-top, 0px) + 14px)", left:"50%", transform:"translateX(-50%)", background:G.bg3, border:`1px solid ${G.gold}55`, borderRadius:7, padding:"10px 18px", zIndex:9999, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.gold, boxShadow:`${G.goldGlow}, 0 8px 32px rgba(0,0,0,0.6)`, whiteSpace:"nowrap", textTransform:"uppercase", animation:"toastIn 0.25s ease" }}>{toast}</div>
       )}
 
-      {showDailyMotiv && <DailyMotivModal onClose={() => {
+      {showOnboarding && <OnboardingModal onDone={() => {
+        try { localStorage.setItem("sfc_onboarded", "1"); } catch { /* ignore */ }
+        setShowOnboarding(false);
+      }}/>}
+      {!showOnboarding && showDailyMotiv && <DailyMotivModal onClose={() => {
         const today = new Date().toISOString().slice(0, 10);
         try { localStorage.setItem("sfc_daily_motiv", today); } catch { /* ignore */ }
         setShowDailyMotiv(false);
