@@ -4222,10 +4222,18 @@ function AdminDashboardModal({ onClose }) {
   const load = async () => {
     setLoading(true); setError(null);
     try {
-      const { data: profiles, error: e } = await supabase
+      // Try full query first; fall back if sessions_count column doesn't exist yet
+      let profiles, e;
+      ({ data: profiles, error: e } = await supabase
         .from("profiles")
         .select("id, username, avatar_initials, points, streak, sessions_count")
-        .order("points", { ascending: false });
+        .order("points", { ascending: false }));
+      if (e && (e.message?.includes("sessions_count") || e.code === "42703")) {
+        ({ data: profiles, error: e } = await supabase
+          .from("profiles")
+          .select("id, username, avatar_initials, points, streak")
+          .order("points", { ascending: false }));
+      }
       if (e) { setError(e.message); return; }
       setData(profiles || []);
     } catch (err) {
