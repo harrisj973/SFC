@@ -3664,20 +3664,94 @@ function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
   const [result, setResult] = useState(null);
   const [errMsg, setErrMsg] = useState("");
 
-  const fetchCoach = async () => {
+  const buildLocalCoaching = () => {
+    const name = profile?.username || "ATHLETE";
+    const streak = profile?.streak || 0;
+    const totalSessions = profile?.sessions_count || sessions.length || 0;
+    const recent = sessions.slice(0, 7);
+
+    // Determine most and least trained muscles
+    const sorted = Object.entries(muscleScores || {}).sort(([,a],[,b]) => b - a);
+    const topMuscle = sorted[0]?.[0] || null;
+    const bottomMuscle = sorted[sorted.length - 1]?.[0] || null;
+
+    // Figure out what was trained most recently
+    const lastSession = recent[0];
+    const daysSinceLast = lastSession
+      ? Math.floor((Date.now() - new Date(lastSession.createdAt || lastSession.date).getTime()) / 86400000)
+      : 99;
+
+    // Pick today's focus based on muscle fatigue
+    const muscleToFocusLabel = {
+      chest:"CHEST & TRIS", back:"BACK & BIS", quads:"LEGS & QUADS",
+      hamstrings:"HAMSTRINGS & GLUTES", shoulders:"SHOULDERS", biceps:"ARMS",
+      triceps:"ARMS", glutes:"GLUTES & HIPS", core:"CORE & ABS", calves:"LOWER LEGS"
+    };
+    let todayFocus = "FULL BODY";
+    if (sorted.length > 0) {
+      // Train the least-worked muscle group
+      const target = sorted[sorted.length - 1]?.[0];
+      todayFocus = muscleToFocusLabel[target] || "FULL BODY";
+    }
+    if (daysSinceLast === 0) todayFocus = "ACTIVE RECOVERY";
+
+    // Greeting
+    let greeting = `Welcome back, ${name}! `;
+    if (streak >= 7) greeting += `You're on a 🔥 ${streak}-day streak — that's elite consistency. Keep the chain going!`;
+    else if (streak >= 3) greeting += `${streak} days strong and building momentum. Your body is adapting — trust the process.`;
+    else if (totalSessions === 0) greeting += `Every legend started somewhere. Log your first session and let's build something great together.`;
+    else if (daysSinceLast >= 3) greeting += `It's been ${daysSinceLast} days since your last session. Time to get back at it — your muscles are recovered and ready.`;
+    else greeting += `Great work staying consistent. You've put in ${totalSessions} sessions and the results will show.`;
+
+    // Workout recommendation
+    const workoutRec = (() => {
+      if (daysSinceLast === 0) return { type:"recovery", icon:"🧘", title:"REST DAY PROTOCOL", text:"You already trained today — prioritize sleep and light movement. A 20-min walk or stretch session is perfect." };
+      if (topMuscle && (muscleScores[topMuscle] || 0) > 75) return { type:"workout", icon:"🏋️", title:"SMART ROTATION", text:`Your ${topMuscle} score is high — avoid training it again today. Focus on ${todayFocus} to balance your program and prevent overuse.` };
+      return { type:"workout", icon:"🏋️", title:"PROGRESSIVE OVERLOAD", text:`Add 5 lbs or 1 rep to your key lifts this session. Small consistent gains compound into massive results over time.` };
+    })();
+
+    // Recovery recommendation
+    const recoveryRec = (() => {
+      if ((muscleScores[topMuscle] || 0) > 80) return { type:"recovery", icon:"🧊", title:"PRIORITIZE RECOVERY", text:`Your ${topMuscle} is heavily loaded. Use contrast therapy (hot/cold), foam rolling, and get 8+ hours of sleep tonight.` };
+      if (streak >= 5) return { type:"recovery", icon:"😴", title:"SLEEP IS YOUR SUPERPOWER", text:`On a ${streak}-day streak, sleep quality becomes critical. Aim for 8 hours — that's when muscle protein synthesis peaks.` };
+      return { type:"recovery", icon:"💧", title:"HYDRATION CHECK", text:"Aim for at least 100oz of water on training days. Dehydration reduces strength output by up to 10% — don't leave gains on the table." };
+    })();
+
+    // Nutrition recommendation
+    const totalVol = recent.reduce((a, s) => a + (s.vol || 0), 0);
+    const nutritionRec = (() => {
+      if (totalVol > 50000) return { type:"nutrition", icon:"🥩", title:"HIGH OUTPUT — FUEL UP", text:"Your training volume is serious. Hit 1g of protein per lb of bodyweight and keep carbs high on training days to fuel performance." };
+      if (daysSinceLast >= 2) return { type:"nutrition", icon:"⚡", title:"PRE-WORKOUT FUEL", text:"Eat a balanced meal with carbs and protein 60–90 min before training. A banana + Greek yogurt is a simple, effective combo." };
+      return { type:"nutrition", icon:"🥗", title:"POST-WORKOUT WINDOW", text:"Within 30–60 min of finishing, get 30–40g of protein and fast carbs. This window is when muscle repair starts — don't miss it." };
+    })();
+
+    // Motivational
+    const motivos = [
+      "The only bad workout is the one that didn't happen.",
+      "Champions are built in the sessions nobody sees.",
+      "Progress, not perfection. Show up again tomorrow.",
+      "Your future self is watching. Make them proud.",
+      "Discipline is doing it even when the motivation is gone.",
+      streak > 0 ? `${streak} days in a row. That streak is your identity now — protect it.` : "Start the streak today. Day 1 is always the hardest.",
+    ];
+    const motivational = motivos[Math.floor(Date.now() / 86400000) % motivos.length];
+
+    return { greeting, todayFocus, recommendations:[workoutRec, recoveryRec, nutritionRec], motivational };
+  };
+
+  const fetchCoach = () => {
     setState("loading");
     setErrMsg("");
-    try {
-      const { data, error } = await supabase.functions.invoke("ai-coach", {
-        body: { sessions, profile, muscleScores },
-      });
-      if (error || data?.error) throw new Error(error?.message || data?.error);
-      setResult(data);
-      setState("result");
-    } catch (e) {
-      setErrMsg(e?.message || "Unknown error");
-      setState("error");
-    }
+    // Simulate brief analysis delay for UX, then generate locally
+    setTimeout(() => {
+      try {
+        setResult(buildLocalCoaching());
+        setState("result");
+      } catch (e) {
+        setErrMsg(e?.message || "Unknown error");
+        setState("error");
+      }
+    }, 1200);
   };
 
   useEffect(() => { fetchCoach(); }, []); // eslint-disable-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
@@ -3696,7 +3770,7 @@ function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
           <div style={{ width:44, height:44, borderRadius:12, background:`linear-gradient(135deg,${G.purple},${G.purpleBright})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, boxShadow:G.purpleGlow, flexShrink:0 }}>🤖</div>
           <div>
             <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>AI COACH</div>
-            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>Powered by Claude · Personalized for you</div>
+            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>Smart coaching · Personalized for you</div>
           </div>
           <button onClick={onClose} style={{ marginLeft:"auto", background:"none", border:"none", color:G.textMid, cursor:"pointer", fontSize:18, padding:"4px 6px", flexShrink:0 }}>✕</button>
         </div>
@@ -3708,7 +3782,7 @@ function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
           <div style={{ padding:"48px 18px", textAlign:"center" }}>
             <div style={{ fontSize:40, marginBottom:14 }}>🤖</div>
             <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:3, color:G.gold, textTransform:"uppercase", marginBottom:8 }}>ANALYZING YOUR TRAINING...</div>
-            <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>Claude is reviewing your sessions & muscle data</div>
+            <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>Analyzing your sessions & muscle data</div>
             <div style={{ width:160, height:3, background:"rgba(255,255,255,0.07)", borderRadius:2, margin:"20px auto 0", overflow:"hidden" }}>
               <div style={{ height:"100%", width:"60%", background:`linear-gradient(90deg,${G.purple},${G.gold})`, borderRadius:2, animation:"scanLine 1.5s ease-in-out infinite" }}/>
             </div>
