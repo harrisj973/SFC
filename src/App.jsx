@@ -1493,16 +1493,22 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
       {restSec && <RestTimer sec={restSec} onDone={() => { setRestSec(null); showToast("✓ REST COMPLETE"); }}/>}
       {plateCalcOpen && <PlateCalculatorModal initialWeight={plateCalcWeight} onClose={() => setPlateCalcOpen(false)}/>}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:16 }}>
-        <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
-          TRAINING <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>HUB</span>
+        <div>
+          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+            TRAINING <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>HUB</span>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:4 }}>
+            <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple, boxShadow:`0 0 8px ${G.purple}` }}/>
+            <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>Track · Log · Progress</div>
+          </div>
         </div>
-        <button onClick={() => { setPlateCalcWeight(""); setPlateCalcOpen(true); }} style={{ background:`${G.gold}14`, border:`1px solid ${G.gold}44`, borderRadius:8, padding:"8px 12px", color:G.gold, fontFamily:FONT.display, fontSize:11, letterSpacing:2, cursor:"pointer", display:"flex", alignItems:"center", gap:5, textTransform:"uppercase", flexShrink:0, marginBottom:2 }}>
+        <button onClick={() => { setPlateCalcWeight(""); setPlateCalcOpen(true); }} style={{ background:`${G.purple}15`, border:`1px solid ${G.purple}44`, borderRadius:8, padding:"8px 12px", color:G.purple, fontFamily:FONT.display, fontSize:11, letterSpacing:2, cursor:"pointer", display:"flex", alignItems:"center", gap:5, textTransform:"uppercase", flexShrink:0, marginBottom:2 }}>
           ⚖️ PLATES
         </button>
       </div>
       <div style={{ display:"flex", background:"rgba(0,0,0,0.5)", borderRadius:7, padding:3, gap:3, marginBottom:18, border:`1px solid ${G.borderB}` }}>
         {SUB_TABS.map(t => (
-          <button key={t.id} onClick={() => setSubTab(t.id)} style={{ flex:1, padding:"9px 4px", borderRadius:5, border:"none", background: subTab===t.id ? `linear-gradient(135deg,${G.gold},${G.goldDark})` : "transparent", color: subTab===t.id ? "#0A0810" : G.textMid, fontFamily:FONT.display, fontSize:13, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
+          <button key={t.id} onClick={() => setSubTab(t.id)} style={{ flex:1, padding:"9px 4px", borderRadius:5, border:"none", background: subTab===t.id ? `linear-gradient(135deg,${G.purple},${G.purpleBright})` : "transparent", color: subTab===t.id ? "#fff" : G.textMid, fontFamily:FONT.display, fontSize:13, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
         ))}
       </div>
 
@@ -2330,12 +2336,18 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
   const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"10px 12px", color:"#fff", fontSize:14, outline:"none", flex:1, fontFamily:FONT.body, letterSpacing:1 };
   return (
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
-      <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase", marginBottom:16 }}>
-        PROGRESS <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>VAULT</span>
+      <div style={{ marginBottom:16 }}>
+        <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+          PROGRESS <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>VAULT</span>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:4 }}>
+          <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple, boxShadow:`0 0 8px ${G.purple}` }}/>
+          <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>Stats · Streak · Heat Map</div>
+        </div>
       </div>
       <div style={{ display:"flex", background:"rgba(0,0,0,0.5)", borderRadius:7, padding:3, gap:3, marginBottom:18, border:`1px solid ${G.borderB}` }}>
         {[{id:"stats",l:"STATS"},{id:"streak",l:"STREAK"},{id:"heatmap",l:"HEAT MAP"}].map(t=>(
-          <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{ flex:1, padding:"8px 2px", borderRadius:5, border:"none", background:activeTab===t.id?`linear-gradient(135deg,${G.gold},${G.goldDark})`:"transparent", color:activeTab===t.id?"#0A0810":G.textMid, fontFamily:FONT.display, fontSize:10, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
+          <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{ flex:1, padding:"8px 2px", borderRadius:5, border:"none", background:activeTab===t.id?`linear-gradient(135deg,${G.purple},${G.purpleBright})`:"transparent", color:activeTab===t.id?"#fff":G.textMid, fontFamily:FONT.display, fontSize:10, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
         ))}
       </div>
 
@@ -2866,8 +2878,14 @@ function NutritionScreen({ showToast }) {
 
   return (
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
-      <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase", marginBottom:16 }}>
-        NUTRITION <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>LAB</span>
+      <div style={{ marginBottom:16 }}>
+        <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+          NUTRITION <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>LAB</span>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:4 }}>
+          <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple, boxShadow:`0 0 8px ${G.purple}` }}/>
+          <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>Log · Scan · Search</div>
+        </div>
       </div>
 
       <ChromeCard gold glow style={{ padding:"16px", marginBottom:14 }}>
@@ -2911,7 +2929,7 @@ function NutritionScreen({ showToast }) {
 
       <div style={{ display:"flex", background:"rgba(0,0,0,0.5)", borderRadius:7, padding:3, gap:3, marginBottom:14, border:`1px solid ${G.borderB}` }}>
         {[{id:"log",l:"📋 LOG"},{id:"scan",l:"📷 SCAN"},{id:"search",l:"🔍 SEARCH"},{id:"supps",l:"💊 SUPPS"}].map(t=>(
-          <button key={t.id} onClick={()=>{ setView(t.id); if(t.id==="scan"&&scanMode==="idle") startCameraScan(); }} style={{ flex:1, padding:"8px 4px", borderRadius:5, border:"none", background:view===t.id?`linear-gradient(135deg,${G.gold},${G.goldDark})`:"transparent", color:view===t.id?"#0A0810":G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
+          <button key={t.id} onClick={()=>{ setView(t.id); if(t.id==="scan"&&scanMode==="idle") startCameraScan(); }} style={{ flex:1, padding:"8px 4px", borderRadius:5, border:"none", background:view===t.id?`linear-gradient(135deg,${G.purple},${G.purpleBright})`:"transparent", color:view===t.id?"#fff":G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
         ))}
       </div>
 
@@ -3497,8 +3515,8 @@ function FeedScreen({ showToast, profile, sessions = [] }) {
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18 }}>
         <div>
-          <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase", lineHeight:1 }}>
-            SQUAD <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>FEED</span>
+          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase", lineHeight:1 }}>
+            SQUAD <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>FEED</span>
           </div>
           <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginTop:3 }}>STRENGTH IN COMMUNITY</div>
         </div>
@@ -3509,7 +3527,7 @@ function FeedScreen({ showToast, profile, sessions = [] }) {
       {feed.length === 0 && (
         <div style={{ textAlign:"center", padding:"48px 24px" }}>
           <div style={{ fontSize:40, marginBottom:16 }}>💪</div>
-          <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:3, color:G.gold, textTransform:"uppercase", marginBottom:8 }}>BE THE FIRST TO POST</div>
+          <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:3, color:G.purple, textTransform:"uppercase", marginBottom:8 }}>BE THE FIRST TO POST</div>
           <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:1, lineHeight:1.6 }}>Share a PR, milestone, or what you crushed today. Hit + POST to get the squad going.</div>
         </div>
       )}
@@ -4903,10 +4921,15 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
 
   return (
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
-      <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase", marginBottom:6 }}>
-        MORE <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>TOOLS</span>
+      <div style={{ marginBottom:18 }}>
+        <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+          MORE <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>TOOLS</span>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:4 }}>
+          <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple, boxShadow:`0 0 8px ${G.purple}` }}/>
+          <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>All Features</div>
+        </div>
       </div>
-      <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:18 }}>◆ &nbsp;ALL FEATURES</div>
       {aiCoachOpen && <AiCoachModal profile={profile} sessions={sessions} muscleScores={muscleScores} onClose={()=>setAiCoachOpen(false)}/>}
       {goalsOpen && <GoalsModal sessions={sessions} profile={profile} onClose={()=>setGoalsOpen(false)}/>}
       {reportsOpen && <WeeklyReportModal sessions={sessions} muscleScores={muscleScores} onClose={()=>setReportsOpen(false)}/>}
