@@ -940,58 +940,6 @@ function RestTimer({ sec, onDone }) {
   );
 }
 
-// eslint-disable-next-line no-unused-vars
-function SwipeWidget({ title, extra, onDismiss, onMoveUp, onMoveDown, canMoveUp, canMoveDown, children }) {
-  const [dx, setDx] = useState(0);
-  const [dismissing, setDismissing] = useState(false);
-  const startXRef = useRef(null);
-
-  const handlePointerDown = e => { startXRef.current = e.clientX; };
-  const handlePointerMove = e => {
-    if (startXRef.current === null) return;
-    const d = e.clientX - startXRef.current;
-    if (d < -6) setDx(Math.max(d, -220));
-  };
-  const handlePointerUp = () => {
-    if (dx < -90) { setDismissing(true); setTimeout(onDismiss, 280); }
-    else setDx(0);
-    startXRef.current = null;
-  };
-  const dismiss = () => { setDismissing(true); setTimeout(onDismiss, 280); };
-
-  return (
-    <div
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
-      style={{
-        transform: dismissing ? "translateX(-110%)" : `translateX(${dx}px)`,
-        opacity: dismissing ? 0 : dx < -30 ? Math.max(0.3, 1 + (dx + 30) / 140) : 1,
-        transition: (dx === 0 || dismissing) ? "transform 0.28s ease, opacity 0.28s ease" : "none",
-        touchAction: "pan-y", userSelect: "none",
-        marginBottom: 18, position: "relative",
-      }}
-    >
-      {dx < -24 && !dismissing && (
-        <div style={{ position:"absolute", right:6, top:"50%", transform:"translateY(-50%)", background:"rgba(255,61,90,0.14)", border:"1px solid rgba(255,61,90,0.4)", borderRadius:6, padding:"4px 10px", color:"#FF3D5A", fontFamily:FONT.display, fontSize:11, letterSpacing:2, opacity:Math.min(1,(Math.abs(dx)-24)/66), pointerEvents:"none", zIndex:1, textTransform:"uppercase" }}>← HIDE</div>
-      )}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:3, height:18, background:G.gold, boxShadow:G.goldGlow2, borderRadius:1, flexShrink:0 }}/>
-          <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:3, color:G.gold, textTransform:"uppercase" }}>{title}</div>
-          {extra}
-        </div>
-        <div style={{ display:"flex", gap:4, alignItems:"center" }}>
-          {canMoveUp && <button onClick={e=>{e.stopPropagation();onMoveUp();}} style={{ background:"rgba(255,255,255,0.05)", border:`1px solid ${G.borderB}`, borderRadius:5, color:G.textMid, cursor:"pointer", fontSize:12, width:26, height:26, display:"flex", alignItems:"center", justifyContent:"center" }}>↑</button>}
-          {canMoveDown && <button onClick={e=>{e.stopPropagation();onMoveDown();}} style={{ background:"rgba(255,255,255,0.05)", border:`1px solid ${G.borderB}`, borderRadius:5, color:G.textMid, cursor:"pointer", fontSize:12, width:26, height:26, display:"flex", alignItems:"center", justifyContent:"center" }}>↓</button>}
-          <button onClick={e=>{e.stopPropagation();dismiss();}} style={{ background:"rgba(255,61,90,0.08)", border:"1px solid rgba(255,61,90,0.25)", borderRadius:5, color:"#FF3D5A", cursor:"pointer", fontSize:11, padding:"4px 8px", fontFamily:FONT.body, letterSpacing:0.5, lineHeight:1 }}>✕ HIDE</button>
-        </div>
-      </div>
-      {children}
-    </div>
-  );
-}
 
 function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile }) {
   const weeklyVol = calcWeeklyVolume(sessions);
@@ -5004,7 +4952,7 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
         </div>
       )}
       {[{l:"PRIVACY & SECURITY",ico:"🔒",col:G.textMid}].map((item)=>(
-        <div key={item.l} onClick={()=>showToast(item.l)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
+        <div key={item.l} onClick={()=>showToast(`${item.ico} ${item.l} — COMING SOON`)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
           <span style={{ fontSize:18, flexShrink:0 }}>{item.ico}</span>
           <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:item.col, textTransform:"uppercase" }}>{item.l}</div>
           <span style={{ color:G.textDim, fontSize:13 }}>›</span>
@@ -5013,11 +4961,6 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
       <div onClick={()=>setHelpOpen(true)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
         <span style={{ fontSize:18, flexShrink:0 }}>❓</span>
         <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.textMid, textTransform:"uppercase" }}>HELP & SUPPORT</div>
-        <span style={{ color:G.textDim, fontSize:13 }}>›</span>
-      </div>
-      <div onClick={()=>setNotifOpen(true)} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(10,8,24,0.8) 100%)`, border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
-        <span style={{ fontSize:18, flexShrink:0 }}>🔔</span>
-        <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.textMid, textTransform:"uppercase" }}>NOTIFICATION SETTINGS</div>
         <span style={{ color:G.textDim, fontSize:13 }}>›</span>
       </div>
       <div onClick={onSignOut} style={{ background:"rgba(255,61,90,0.07)", border:`1px solid ${G.red}33`, borderRadius:10, padding:"13px 14px", marginTop:4, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
