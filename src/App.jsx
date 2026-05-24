@@ -1026,7 +1026,7 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
   const visibleWidgets = widgetOrder.filter(id => !hiddenWidgets.includes(id));
 
   return (
-    <div style={{ padding:"22px 18px 0" }}>
+    <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 22px) 18px 0" }}>
       <div style={{ marginBottom:24, display:"flex", flexDirection:"column", alignItems:"center" }}>
         <img
           src={logoImg}
@@ -1489,7 +1489,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   const SUB_TABS = [{ id:"track", l:"TRACK" }, { id:"log", l:"HISTORY" }, { id:"prs", l:"PRs" }, { id:"programs", l:"PROGRAMS" }];
 
   return (
-    <div style={{ padding:"20px 18px 0" }}>
+    <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       {pickerFor && <ExercisePicker onSelect={name=>{ selectExercise(pickerFor, name); }} onClose={()=>setPickerFor(null)}/>}
       {restSec && <RestTimer sec={restSec} onDone={() => { setRestSec(null); showToast("✓ REST COMPLETE"); }}/>}
       {plateCalcOpen && <PlateCalculatorModal initialWeight={plateCalcWeight} onClose={() => setPlateCalcOpen(false)}/>}
@@ -2330,7 +2330,7 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
 
   const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"10px 12px", color:"#fff", fontSize:14, outline:"none", flex:1, fontFamily:FONT.body, letterSpacing:1 };
   return (
-    <div style={{ padding:"20px 18px 0" }}>
+    <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase", marginBottom:16 }}>
         PROGRESS <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>VAULT</span>
       </div>
@@ -2866,7 +2866,7 @@ function NutritionScreen({ showToast }) {
   });
 
   return (
-    <div style={{ padding:"20px 18px 0" }}>
+    <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase", marginBottom:16 }}>
         NUTRITION <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>LAB</span>
       </div>
@@ -3495,7 +3495,7 @@ function FeedScreen({ showToast, profile, sessions = [] }) {
   const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"9px 12px", color:"#fff", fontSize:13, outline:"none", fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" };
 
   return (
-    <div style={{ padding:"20px 18px 0" }}>
+    <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18 }}>
         <div>
           <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase", lineHeight:1 }}>
@@ -4903,7 +4903,7 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
   const handleEditProfile = () => setProfileOpen(true);
 
   return (
-    <div style={{ padding:"20px 18px 0" }}>
+    <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       <div style={{ fontFamily:FONT.display, fontSize:30, letterSpacing:4, color:"#fff", textTransform:"uppercase", marginBottom:6 }}>
         MORE <span style={{ color:G.gold, textShadow:G.goldGlow2 }}>TOOLS</span>
       </div>
@@ -5572,7 +5572,7 @@ function SocialFitClubInner() {
       <GridBg/>
 
       {toast && (
-        <div style={{ position:"fixed", top:18, left:"50%", transform:"translateX(-50%)", background:G.bg3, border:`1px solid ${G.gold}55`, borderRadius:7, padding:"10px 18px", zIndex:9999, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.gold, boxShadow:`${G.goldGlow}, 0 8px 32px rgba(0,0,0,0.6)`, whiteSpace:"nowrap", textTransform:"uppercase", animation:"toastIn 0.25s ease" }}>{toast}</div>
+        <div style={{ position:"fixed", top:"calc(env(safe-area-inset-top, 0px) + 14px)", left:"50%", transform:"translateX(-50%)", background:G.bg3, border:`1px solid ${G.gold}55`, borderRadius:7, padding:"10px 18px", zIndex:9999, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.gold, boxShadow:`${G.goldGlow}, 0 8px 32px rgba(0,0,0,0.6)`, whiteSpace:"nowrap", textTransform:"uppercase", animation:"toastIn 0.25s ease" }}>{toast}</div>
       )}
 
       {showDailyMotiv && <DailyMotivModal onClose={() => {
@@ -5581,7 +5581,7 @@ function SocialFitClubInner() {
         setShowDailyMotiv(false);
       }}/>}
 
-      <div style={{ paddingBottom:82, position:"relative", zIndex:2, minHeight:"100vh" }}>
+      <div style={{ paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 82px)", position:"relative", zIndex:2, minHeight:"100vh" }}>
         {tab==="home" && <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile}/>}
         {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions}/>}
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile}/>}
@@ -5592,7 +5592,7 @@ function SocialFitClubInner() {
 
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, zIndex:50 }}>
         <div style={{ height:1, background:`linear-gradient(90deg,transparent,${G.gold}66,${G.gold},${G.gold}66,transparent)`, boxShadow:`0 0 10px ${G.gold}55` }}/>
-        <div style={{ background:`linear-gradient(180deg,rgba(6,6,14,0.97) 0%,rgba(8,8,16,1) 100%)`, backdropFilter:"blur(20px)", display:"flex", padding:"8px 0 20px" }}>
+        <div style={{ background:`linear-gradient(180deg,rgba(6,6,14,0.97) 0%,rgba(8,8,16,1) 100%)`, backdropFilter:"blur(20px)", display:"flex", padding:`8px 0 calc(env(safe-area-inset-bottom, 0px) + 12px)` }}>
           {TABS.map(t => {
             const active = tab === t.id;
             return (
