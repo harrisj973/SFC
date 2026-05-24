@@ -5453,6 +5453,7 @@ function SocialFitClubInner() {
     setTab("home");
     setSessions([]);
     setProfile(null);
+    setUser(null);
   };
 
   const showToast = msg => {
