@@ -3343,7 +3343,9 @@ function FeedScreen({ showToast, profile, sessions = [] }) {
   const [feed, setFeed] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("sfc_feed") || "null");
-      return saved || [];
+      // Purge old seeded placeholder posts (ids f1, f2, f3)
+      if (Array.isArray(saved)) return saved.filter(p => !["f1","f2","f3"].includes(p.id));
+      return [];
     } catch { return []; }
   });
   const [activeComment, setActiveComment] = useState(null);
@@ -3515,6 +3517,14 @@ function FeedScreen({ showToast, profile, sessions = [] }) {
         </div>
         <div style={{ background:"linear-gradient(135deg,#833AB4,#FD1D1D,#FCB045)", borderRadius:6, padding:"7px 12px", fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:"#fff", flexShrink:0, textTransform:"uppercase", boxShadow:"0 0 10px rgba(253,29,29,0.35)" }}>FOLLOW</div>
       </div>
+
+      {feed.length === 0 && (
+        <div style={{ textAlign:"center", padding:"48px 24px" }}>
+          <div style={{ fontSize:40, marginBottom:16 }}>💪</div>
+          <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:3, color:G.gold, textTransform:"uppercase", marginBottom:8 }}>BE THE FIRST TO POST</div>
+          <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:1, lineHeight:1.6 }}>Share a PR, milestone, or what you crushed today. Hit + POST to get the squad going.</div>
+        </div>
+      )}
 
       {feed.map(post => {
         const tc = typeConfig[post.type] || typeConfig.post;
