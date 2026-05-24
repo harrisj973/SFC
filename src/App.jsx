@@ -4939,7 +4939,7 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
       {notifOpen && <NotificationsModal sessions={sessions} onClose={()=>setNotifOpen(false)}/>}
       {macroCoachOpen && <MacroCoachModal onClose={()=>setMacroCoachOpen(false)}/>}
       {formCheckOpen && <FormCheckModal onClose={()=>setFormCheckOpen(false)}/>}
-      {profileOpen && <ProfileModal profile={profile} userId={userId} onClose={()=>setProfileOpen(false)} onSave={onProfileUpdate}/>}
+      {profileOpen && <ProfileModal profile={profile} userId={userId} onClose={()=>setProfileOpen(false)} onSave={onProfileUpdate} showToast={showToast}/>}
       {helpOpen && <HelpSupportModal onClose={()=>setHelpOpen(false)}/>}
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:20 }}>
@@ -5246,7 +5246,7 @@ function HelpSupportModal({ onClose }) {
   );
 }
 
-function ProfileModal({ profile, userId, onClose, onSave }) {
+function ProfileModal({ profile, userId, onClose, onSave, showToast }) {
   useScrollLock();
   const [username, setUsername] = useState(profile?.username || "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || null);
@@ -5281,14 +5281,19 @@ function ProfileModal({ profile, userId, onClose, onSave }) {
     const initials = trimmed.split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2) || "ME";
     const updates = { username: trimmed, avatar_initials: initials };
     if (avatarUrl) updates.avatar_url = avatarUrl;
-    let { error: e2 } = await supabase.from("profiles").update(updates).eq("id", userId);
+    let { data: rows, error: e2 } = await supabase.from("profiles").update(updates).eq("id", userId).select("id");
     if (e2 && (e2.message?.includes("avatar_url") || e2.code === "42703")) {
       const { username: u, avatar_initials: ai } = updates;
-      ({ error: e2 } = await supabase.from("profiles").update({ username: u, avatar_initials: ai }).eq("id", userId));
+      ({ data: rows, error: e2 } = await supabase.from("profiles").update({ username: u, avatar_initials: ai }).eq("id", userId).select("id"));
     }
     setSaving(false);
     if (e2) { setErr(`Save failed: ${e2.message}`); return; }
+    if (!rows || rows.length === 0) {
+      setErr(`Save blocked — no matching profile row. Your user ID: ${userId?.slice(0,8)}... Please sign out and sign back in, then try again.`);
+      return;
+    }
     onSave({ ...profile, ...updates });
+    showToast?.("PROFILE UPDATED!");
     onClose();
   };
 
