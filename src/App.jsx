@@ -5252,8 +5252,8 @@ function HelpSupportModal({ onClose }) {
           <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:1, lineHeight:1.6, marginBottom:20 }}>
             Have a question, feedback, or need help with your account? Reach out to our support team and we'll get back to you as soon as possible.
           </div>
-          <a href="mailto:sfcsupport@gmail.com" style={{ display:"block", background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, color:"#0A0810", fontFamily:FONT.display, fontSize:14, letterSpacing:3, textTransform:"uppercase", padding:"14px 20px", borderRadius:10, textDecoration:"none", boxShadow:G.goldGlow }}>
-            sfcsupport@gmail.com ◆
+          <a href="mailto:sfcsupport26@gmail.com" style={{ display:"block", background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, color:"#0A0810", fontFamily:FONT.display, fontSize:14, letterSpacing:3, textTransform:"uppercase", padding:"14px 20px", borderRadius:10, textDecoration:"none", boxShadow:G.goldGlow }}>
+            sfcsupport26@gmail.com ◆
           </a>
         </ChromeCard>
 
