@@ -830,9 +830,10 @@ function StatPill({ label, value, color = G.gold, icon }) {
 }
 
 function AvatarBadge({ initials, size = 42, gold = false, url = null }) {
-  if (url) return (
+  const [imgErr, setImgErr] = React.useState(false);
+  if (url && !imgErr) return (
     <div style={{ width:size, height:size, borderRadius:"50%", flexShrink:0, overflow:"hidden", border:`1.5px solid ${gold ? G.gold+"88" : G.purple+"88"}`, boxShadow: gold ? G.goldGlow2 : `0 0 8px ${G.purple}88` }}>
-      <img src={url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+      <img src={url} alt="" onError={()=>setImgErr(true)} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
     </div>
   );
   return (
