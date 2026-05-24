@@ -832,7 +832,12 @@ function StatPill({ label, value, color = G.gold, icon }) {
   );
 }
 
-function AvatarBadge({ initials, size = 42, gold = false }) {
+function AvatarBadge({ initials, size = 42, gold = false, url = null }) {
+  if (url) return (
+    <div style={{ width:size, height:size, borderRadius:"50%", flexShrink:0, overflow:"hidden", border:`1.5px solid ${gold ? G.gold+"88" : G.purple+"88"}`, boxShadow: gold ? G.goldGlow2 : `0 0 8px ${G.purple}88` }}>
+      <img src={url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+    </div>
+  );
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%", flexShrink: 0,
@@ -1125,7 +1130,7 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
                   return (
                     <div key={u.name} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
                       {u.isMe && <div style={{ fontFamily:FONT.body, fontSize:8, color:G.gold, letterSpacing:2, textTransform:"uppercase" }}>YOU</div>}
-                      <AvatarBadge initials={u.av} size={order===0?48:40} gold={order===0}/>
+                      <AvatarBadge initials={u.av} url={u.url} size={order===0?48:40} gold={order===0}/>
                       <div style={{ fontFamily:FONT.display, fontSize:11, color:"#fff", letterSpacing:2, textAlign:"center", textTransform:"uppercase", maxWidth:60, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{u.name.split(" ")[0]}</div>
                       <div style={{ width:"100%", height:ht, background:`${col}18`, border:`1px solid ${col}44`, borderRadius:"6px 6px 0 0", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", boxShadow:`0 0 12px ${col}22` }}>
                         <div style={{ fontFamily:FONT.display, fontSize:20, color:col, textShadow:`0 0 10px ${col}` }}>{"🥇🥈🥉"[order]}</div>
@@ -1139,7 +1144,7 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
             {leaderboard.slice(3).map(u => (
               <ChromeCard key={u.rank} gold={u.isMe} style={{ padding:"10px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:12 }}>
                 <div style={{ fontFamily:FONT.mono, fontSize:12, color:G.textDim, width:18 }}>#{u.rank}</div>
-                <AvatarBadge initials={u.av} size={32} gold={u.isMe}/>
+                <AvatarBadge initials={u.av} url={u.url} size={32} gold={u.isMe}/>
                 <div style={{ flex:1 }}>
                   <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:u.isMe?G.gold:"#fff", textTransform:"uppercase" }}>{u.name}</div>
                   <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1, textTransform:"uppercase" }}>{u.sessions} sessions · {u.streak}d streak</div>
@@ -4760,7 +4765,7 @@ function MacroCoachModal({ onClose }) {
   );
 }
 
-function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isAdmin }) {
+function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, muscleScores, isAdmin, userId }) {
   const [aiCoachOpen, setAiCoachOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
@@ -4770,6 +4775,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
   const [notifOpen, setNotifOpen] = useState(false);
   const [macroCoachOpen, setMacroCoachOpen] = useState(false);
   const [formCheckOpen, setFormCheckOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const FEATURES = [
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
     {id:"reports", l:"WEEKLY REPORTS", ico:"📋", desc:"Personalized coaching notes", col:G.purpleLight, hot:true},
@@ -4793,6 +4799,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
     else if (id === "form") setFormCheckOpen(true);
     else showToast(`${FEATURES.find(f=>f.id===id)?.ico} ${FEATURES.find(f=>f.id===id)?.l} — COMING SOON`);
   };
+  const handleEditProfile = () => setProfileOpen(true);
 
   return (
     <div style={{ padding:"20px 18px 0" }}>
@@ -4809,6 +4816,7 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
       {notifOpen && <NotificationsModal sessions={sessions} onClose={()=>setNotifOpen(false)}/>}
       {macroCoachOpen && <MacroCoachModal onClose={()=>setMacroCoachOpen(false)}/>}
       {formCheckOpen && <FormCheckModal onClose={()=>setFormCheckOpen(false)}/>}
+      {profileOpen && <ProfileModal profile={profile} userId={userId} onClose={()=>setProfileOpen(false)} onSave={onProfileUpdate}/>}
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:20 }}>
         {FEATURES.map(f => (
@@ -4834,13 +4842,13 @@ function MoreScreen({ showToast, profile, onSignOut, sessions, muscleScores, isA
       </div>
       <SectionLabel>Account</SectionLabel>
       {/* Logged-in user card */}
-      <ChromeCard gold style={{ padding:"13px 14px", marginBottom:10, display:"flex", alignItems:"center", gap:12 }}>
-        <AvatarBadge initials={profile?.avatar_initials||"ME"} size={44} gold/>
+      <ChromeCard gold style={{ padding:"13px 14px", marginBottom:10, display:"flex", alignItems:"center", gap:12, cursor:"pointer" }} onClick={handleEditProfile}>
+        <AvatarBadge initials={profile?.avatar_initials||"ME"} url={profile?.avatar_url||null} size={44} gold/>
         <div style={{ flex:1 }}>
           <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>{profile?.username||"ATHLETE"}</div>
           <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, marginTop:2 }}>{profile?.points||0} pts · MEMBER</div>
         </div>
-        <div style={{ fontFamily:FONT.display, fontSize:22, color:G.gold, letterSpacing:1 }}>💪</div>
+        <div style={{ fontFamily:FONT.body, fontSize:9, color:G.gold, letterSpacing:2, textTransform:"uppercase", border:`1px solid ${G.gold}44`, borderRadius:6, padding:"4px 8px" }}>EDIT ✎</div>
       </ChromeCard>
       {isAdmin && (
         <div onClick={()=>setAdminOpen(true)} style={{ background:`linear-gradient(135deg,${G.gold}10,${G.purple}08)`, border:`1px solid ${G.gold}44`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer", boxShadow:G.goldGlow2 }}>
@@ -5073,6 +5081,93 @@ const _DS = [{id:"d1",name:"PUSH DAY",exs:[{id:1,name:"Barbell Bench Press",sets
 const _DP = {id:"demo",username:"DEMOUSER",avatar_initials:"DU",points:1650,streak:7,sessions_count:5};
 const _DL = [{rank:1,name:"DEMOUSER",pts:1650,sessions:5,streak:7,av:"DU",isMe:true},{rank:2,name:"MARCUS J",pts:1200,sessions:9,streak:3,av:"MJ",isMe:false},{rank:3,name:"SARAH K",pts:980,sessions:7,streak:5,av:"SK",isMe:false},{rank:4,name:"ALEX T",pts:750,sessions:5,streak:2,av:"AT",isMe:false}];
 
+function ProfileModal({ profile, userId, onClose, onSave }) {
+  const [username, setUsername] = useState(profile?.username || "");
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || null);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+  const fileRef = useRef(null);
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true); setErr(null);
+    try {
+      const base64 = await compressImage(file);
+      const res = await fetch(base64);
+      const blob = await res.blob();
+      const { error: upErr } = await supabase.storage.from("avatars").upload(`${userId}.jpg`, blob, { upsert: true, contentType: "image/jpeg" });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(`${userId}.jpg`);
+      setAvatarUrl(publicUrl + "?t=" + Date.now());
+    } catch (e2) {
+      setErr(e2?.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true); setErr(null);
+    const trimmed = username.trim().toUpperCase().slice(0, 20) || "ATHLETE";
+    const initials = trimmed.split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2) || "ME";
+    const updates = { username: trimmed, avatar_initials: initials };
+    if (avatarUrl) updates.avatar_url = avatarUrl;
+    const { error: e2 } = await supabase.from("profiles").update(updates).eq("id", userId);
+    setSaving(false);
+    if (e2) { setErr(e2.message); return; }
+    onSave({ ...profile, ...updates });
+    onClose();
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.96)", zIndex:500, display:"flex", flexDirection:"column" }}>
+      <div style={{ background:`linear-gradient(135deg,${G.purple}44,rgba(0,0,0,0.8))`, borderBottom:`1px solid ${G.gold}33`, padding:"16px 18px", display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
+        <div style={{ width:42, height:42, borderRadius:10, background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, boxShadow:G.goldGlow, flexShrink:0 }}>👤</div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:G.gold, textTransform:"uppercase", textShadow:G.goldGlow2 }}>EDIT PROFILE</div>
+          <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>Update your info & photo</div>
+        </div>
+        <button onClick={onClose} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:8, color:G.textMid, cursor:"pointer", fontSize:16, padding:"6px 10px" }}>✕</button>
+      </div>
+
+      <div style={{ flex:1, overflowY:"auto", padding:"32px 24px 48px", maxWidth:480, width:"100%", margin:"0 auto", boxSizing:"border-box" }}>
+        {/* Avatar */}
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", marginBottom:32 }}>
+          <div style={{ position:"relative", cursor:"pointer" }} onClick={() => !uploading && fileRef.current?.click()}>
+            <AvatarBadge initials={profile?.avatar_initials||"ME"} url={avatarUrl} size={90} gold/>
+            <div style={{ position:"absolute", bottom:0, right:0, width:28, height:28, borderRadius:"50%", background:G.gold, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, boxShadow:G.goldGlow, border:`2px solid #06060E` }}>📷</div>
+          </div>
+          <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginTop:10 }}>
+            {uploading ? "UPLOADING..." : "TAP TO CHANGE PHOTO"}
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarChange}/>
+        </div>
+
+        {/* Username */}
+        <div style={{ marginBottom:24 }}>
+          <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:3, textTransform:"uppercase", marginBottom:8 }}>USERNAME</div>
+          <input
+            value={username}
+            onChange={e => setUsername(e.target.value.toUpperCase().slice(0, 20))}
+            placeholder="YOUR NAME"
+            maxLength={20}
+            style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", color:"#fff", fontFamily:FONT.display, fontSize:16, letterSpacing:3, boxSizing:"border-box", outline:"none" }}
+          />
+          <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1, marginTop:5 }}>{username.length}/20 characters</div>
+        </div>
+
+        {err && <div style={{ fontFamily:FONT.body, fontSize:11, color:G.red, letterSpacing:1, marginBottom:16, textAlign:"center" }}>{err}</div>}
+
+        <NeonBtn onClick={handleSave} full disabled={saving || uploading}>
+          {saving ? "SAVING..." : "SAVE CHANGES ◆"}
+        </NeonBtn>
+      </div>
+    </div>
+  );
+}
+
 function SocialFitClubInner() {
   const [tab, setTab] = useState("home");
   const [sessions, setSessions] = useState(_D ? _DS : []);
@@ -5091,7 +5186,7 @@ function SocialFitClubInner() {
   const toastTimer = useRef(null);
 
   const loadProfile = async (userId) => {
-    const { data, error } = await supabase.from("profiles").select("id, username, avatar_initials, points, streak, sessions_count").eq("id", userId).single();
+    const { data, error } = await supabase.from("profiles").select("id, username, avatar_initials, avatar_url, points, streak, sessions_count").eq("id", userId).single();
     if (data) { setProfile(data); return data; }
     // PGRST116 = row not found (new user, not a network issue)
     if (error && error.code !== "PGRST116") setDataLoadFailed(true);
@@ -5119,7 +5214,7 @@ function SocialFitClubInner() {
   const loadLeaderboard = async (currentUserId) => {
     const { data } = await supabase
       .from("profiles")
-      .select("id, username, avatar_initials, points, sessions_count, streak")
+      .select("id, username, avatar_initials, avatar_url, points, sessions_count, streak")
       .order("points", { ascending: false })
       .limit(20);
     if (data) {
@@ -5130,6 +5225,7 @@ function SocialFitClubInner() {
         sessions: p.sessions_count || 0,
         streak: p.streak || 0,
         av: p.avatar_initials || "?",
+        url: p.avatar_url || null,
         isMe: p.id === currentUserId,
       })));
     }
@@ -5334,7 +5430,7 @@ function SocialFitClubInner() {
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile}/>}
         {tab==="nutrition" && <NutritionScreen showToast={showToast}/>}
         {tab==="feed" && <FeedScreen showToast={showToast} profile={profile} sessions={sessions}/>}
-        {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut} sessions={sessions} muscleScores={calcMuscleScores(sessions)} isAdmin={user?.email?.toLowerCase()===ADMIN_EMAIL}/>}
+        {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut} onProfileUpdate={p => setProfile(p)} userId={user?.id} sessions={sessions} muscleScores={calcMuscleScores(sessions)} isAdmin={user?.email?.toLowerCase()===ADMIN_EMAIL}/>}
       </div>
 
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, zIndex:50 }}>
