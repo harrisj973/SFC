@@ -830,7 +830,7 @@ function StatPill({ label, value, color = G.gold, icon }) {
 }
 
 function AvatarBadge({ initials, size = 42, gold = false, url = null }) {
-  const [imgErr, setImgErr] = React.useState(false);
+  const [imgErr, setImgErr] = useState(false);
   if (url && !imgErr) return (
     <div style={{ width:size, height:size, borderRadius:"50%", flexShrink:0, overflow:"hidden", border:`1.5px solid ${gold ? G.gold+"88" : G.purple+"88"}`, boxShadow: gold ? G.goldGlow2 : `0 0 8px ${G.purple}88` }}>
       <img src={url} alt="" onError={()=>setImgErr(true)} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
@@ -940,6 +940,7 @@ function RestTimer({ sec, onDone }) {
   );
 }
 
+// eslint-disable-next-line no-unused-vars
 function SwipeWidget({ title, extra, onDismiss, onMoveUp, onMoveDown, canMoveUp, canMoveDown, children }) {
   const [dx, setDx] = useState(0);
   const [dismissing, setDismissing] = useState(false);
@@ -3691,7 +3692,6 @@ function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
     // Determine most and least trained muscles
     const sorted = Object.entries(muscleScores || {}).sort(([,a],[,b]) => b - a);
     const topMuscle = sorted[0]?.[0] || null;
-    const bottomMuscle = sorted[sorted.length - 1]?.[0] || null;
 
     // Figure out what was trained most recently
     const lastSession = recent[0];
@@ -4305,8 +4305,7 @@ function HealthConnectModal({ onClose }) {
   );
 }
 
-function AdminDashboardModal({ onClose }) {
-  useScrollLock();
+function useAdminData() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -4314,7 +4313,6 @@ function AdminDashboardModal({ onClose }) {
   const load = async () => {
     setLoading(true); setError(null);
     try {
-      // Try full query first; fall back if sessions_count column doesn't exist yet
       let profiles, e;
       ({ data: profiles, error: e } = await supabase
         .from("profiles")
@@ -4336,7 +4334,10 @@ function AdminDashboardModal({ onClose }) {
   };
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/set-state-in-effect
+  return { data, loading, error, load };
+}
 
+function AdminDashboardContent({ data, loading, error, load }) {
   const totalUsers    = data?.length || 0;
   const totalSessions = data?.reduce((a, p) => a + (p.sessions_count || 0), 0) || 0;
   const totalPoints   = data?.reduce((a, p) => a + (p.points || 0), 0) || 0;
@@ -4354,9 +4355,104 @@ function AdminDashboardModal({ onClose }) {
     { l:"ON STREAKS",    v: String(streakUsers),   ico:"🔥" },
   ];
 
+  if (loading) return (
+    <div style={{ textAlign:"center", padding:"60px 0" }}>
+      <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:3, color:G.gold, textTransform:"uppercase" }}>LOADING DATA...</div>
+    </div>
+  );
+  if (error) return (
+    <div style={{ textAlign:"center", padding:"40px 0" }}>
+      <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:G.red, textTransform:"uppercase", marginBottom:12 }}>FAILED TO LOAD</div>
+      <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, marginBottom:20 }}>{error}</div>
+      <NeonBtn onClick={load} full>RETRY</NeonBtn>
+    </div>
+  );
+  if (!data) return null;
+  return (
+    <>
+      <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:10 }}>PLATFORM OVERVIEW</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:18 }}>
+        {overviewStats.map(s => (
+          <ChromeCard key={s.l} style={{ padding:"12px 10px", textAlign:"center" }}>
+            <div style={{ fontSize:18, marginBottom:4 }}>{s.ico}</div>
+            <div style={{ fontFamily:FONT.display, fontSize:20, color:G.gold, letterSpacing:1 }}>{s.v}</div>
+            <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{s.l}</div>
+          </ChromeCard>
+        ))}
+      </div>
+
+      {totalUsers > 0 && (
+        <>
+          <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:10 }}>ENGAGEMENT</div>
+          <ChromeCard style={{ padding:"14px", marginBottom:18 }}>
+            {[
+              { l:"ACTIVATION RATE", pct: Math.round((activeUsers/totalUsers)*100), col:G.green, sub:`${activeUsers} of ${totalUsers} users have logged a session` },
+              { l:"STREAK RETENTION", pct: Math.round((streakUsers/totalUsers)*100), col:G.gold, sub:`${streakUsers} users currently on a streak` },
+              { l:"CHURN (0 SESSIONS)", pct: Math.round(((totalUsers-activeUsers)/totalUsers)*100), col:G.red, sub:`${totalUsers-activeUsers} users never logged a workout` },
+            ].map(row => (
+              <div key={row.l} style={{ marginBottom:12 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, color:"#fff", textTransform:"uppercase" }}>{row.l}</div>
+                  <div style={{ fontFamily:FONT.display, fontSize:13, color:row.col }}>{row.pct}%</div>
+                </div>
+                <div style={{ height:4, background:"rgba(255,255,255,0.07)", borderRadius:2, overflow:"hidden", marginBottom:3 }}>
+                  <div style={{ height:"100%", width:`${row.pct}%`, background:row.col, borderRadius:2, transition:"width 0.6s ease" }}/>
+                </div>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:0.5 }}>{row.sub}</div>
+              </div>
+            ))}
+          </ChromeCard>
+        </>
+      )}
+
+      {topUser && (
+        <>
+          <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:10 }}>TOP PERFORMER</div>
+          <ChromeCard gold glow style={{ padding:"14px 16px", marginBottom:18, display:"flex", gap:12, alignItems:"center" }}>
+            <AvatarBadge initials={topUser.avatar_initials || "?"} size={48} gold/>
+            <div style={{ flex:1 }}>
+              <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:2, color:G.gold, textTransform:"uppercase" }}>{topUser.username}</div>
+              <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:3 }}>
+                {topUser.points} pts · {topUser.sessions_count} sessions · {topUser.streak}d streak
+              </div>
+            </div>
+            <div style={{ fontSize:28 }}>🥇</div>
+          </ChromeCard>
+        </>
+      )}
+
+      <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:10 }}>ALL USERS ({totalUsers})</div>
+      <ChromeCard style={{ padding:0, overflow:"hidden", marginBottom:18 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 60px 54px 44px", gap:0, padding:"8px 12px", background:"rgba(0,0,0,0.4)", borderBottom:`1px solid ${G.borderB}` }}>
+          {["ATHLETE","PTS","SESS","STRK"].map(h => (
+            <div key={h} style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:2, textTransform:"uppercase", textAlign: h==="ATHLETE"?"left":"right" }}>{h}</div>
+          ))}
+        </div>
+        {data.map((p, i) => (
+          <div key={p.id} style={{ display:"grid", gridTemplateColumns:"1fr 60px 54px 44px", gap:0, padding:"9px 12px", borderBottom: i < data.length-1 ? `1px solid ${G.borderB}` : "none", background: i===0 ? `${G.gold}06` : "transparent", alignItems:"center" }}>
+            <div style={{ display:"flex", gap:8, alignItems:"center", minWidth:0 }}>
+              <div style={{ fontFamily:FONT.display, fontSize:10, color: i===0?G.gold:G.textDim, letterSpacing:1, flexShrink:0, width:16 }}>{i+1}</div>
+              <AvatarBadge initials={p.avatar_initials || "?"} size={28} gold={i===0}/>
+              <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, color: i===0?"#fff":G.textMid, textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.username || "—"}</div>
+            </div>
+            <div style={{ fontFamily:FONT.display, fontSize:12, color:G.gold, letterSpacing:1, textAlign:"right" }}>{(p.points||0).toLocaleString()}</div>
+            <div style={{ fontFamily:FONT.display, fontSize:12, color:"#fff", letterSpacing:1, textAlign:"right" }}>{p.sessions_count||0}</div>
+            <div style={{ fontFamily:FONT.display, fontSize:12, color: (p.streak||0)>0?G.green:G.textDim, letterSpacing:1, textAlign:"right" }}>{p.streak||0}d</div>
+          </div>
+        ))}
+        {data.length === 0 && (
+          <div style={{ padding:"24px", textAlign:"center", fontFamily:FONT.body, fontSize:12, color:G.textDim }}>No users found.</div>
+        )}
+      </ChromeCard>
+    </>
+  );
+}
+
+function AdminDashboardModal({ onClose }) {
+  useScrollLock();
+  const { data, loading, error, load } = useAdminData();
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.98)", zIndex:500, display:"flex", flexDirection:"column" }}>
-      {/* Header */}
       <div style={{ background:`linear-gradient(135deg,${G.purple}44,rgba(0,0,0,0.8))`, borderBottom:`1px solid ${G.gold}33`, padding:"16px 18px", display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
         <div style={{ width:42, height:42, borderRadius:10, background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, boxShadow:G.goldGlow, flexShrink:0 }}>👑</div>
         <div style={{ flex:1 }}>
@@ -4365,105 +4461,30 @@ function AdminDashboardModal({ onClose }) {
         </div>
         <button onClick={onClose} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:8, color:G.textMid, cursor:"pointer", fontSize:16, padding:"6px 10px" }}>✕</button>
       </div>
-
       <div style={{ flex:1, overflowY:"auto", padding:"18px 18px 0", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 48px)", maxWidth:480, width:"100%", margin:"0 auto", boxSizing:"border-box" }}>
-        {loading && (
-          <div style={{ textAlign:"center", padding:"60px 0" }}>
-            <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:3, color:G.gold, textTransform:"uppercase" }}>LOADING DATA...</div>
-          </div>
-        )}
-        {error && (
-          <div style={{ textAlign:"center", padding:"40px 0" }}>
-            <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:G.red, textTransform:"uppercase", marginBottom:12 }}>FAILED TO LOAD</div>
-            <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, marginBottom:20 }}>{error}</div>
-            <NeonBtn onClick={load} full>RETRY</NeonBtn>
-          </div>
-        )}
-
-        {data && (
-          <>
-            {/* Overview grid */}
-            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:10 }}>PLATFORM OVERVIEW</div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:18 }}>
-              {overviewStats.map(s => (
-                <ChromeCard key={s.l} style={{ padding:"12px 10px", textAlign:"center" }}>
-                  <div style={{ fontSize:18, marginBottom:4 }}>{s.ico}</div>
-                  <div style={{ fontFamily:FONT.display, fontSize:20, color:G.gold, letterSpacing:1 }}>{s.v}</div>
-                  <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{s.l}</div>
-                </ChromeCard>
-              ))}
-            </div>
-
-            {/* Engagement bar */}
-            {totalUsers > 0 && (
-              <>
-                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:10 }}>ENGAGEMENT</div>
-                <ChromeCard style={{ padding:"14px", marginBottom:18 }}>
-                  {[
-                    { l:"ACTIVATION RATE", pct: Math.round((activeUsers/totalUsers)*100), col:G.green, sub:`${activeUsers} of ${totalUsers} users have logged a session` },
-                    { l:"STREAK RETENTION", pct: Math.round((streakUsers/totalUsers)*100), col:G.gold, sub:`${streakUsers} users currently on a streak` },
-                    { l:"CHURN (0 SESSIONS)", pct: Math.round(((totalUsers-activeUsers)/totalUsers)*100), col:G.red, sub:`${totalUsers-activeUsers} users never logged a workout` },
-                  ].map(row => (
-                    <div key={row.l} style={{ marginBottom:12 }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                        <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, color:"#fff", textTransform:"uppercase" }}>{row.l}</div>
-                        <div style={{ fontFamily:FONT.display, fontSize:13, color:row.col }}>{row.pct}%</div>
-                      </div>
-                      <div style={{ height:4, background:"rgba(255,255,255,0.07)", borderRadius:2, overflow:"hidden", marginBottom:3 }}>
-                        <div style={{ height:"100%", width:`${row.pct}%`, background:row.col, borderRadius:2, transition:"width 0.6s ease" }}/>
-                      </div>
-                      <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:0.5 }}>{row.sub}</div>
-                    </div>
-                  ))}
-                </ChromeCard>
-              </>
-            )}
-
-            {/* Top performer */}
-            {topUser && (
-              <>
-                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:10 }}>TOP PERFORMER</div>
-                <ChromeCard gold glow style={{ padding:"14px 16px", marginBottom:18, display:"flex", gap:12, alignItems:"center" }}>
-                  <AvatarBadge initials={topUser.avatar_initials || "?"} size={48} gold/>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:2, color:G.gold, textTransform:"uppercase" }}>{topUser.username}</div>
-                    <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:3 }}>
-                      {topUser.points} pts · {topUser.sessions_count} sessions · {topUser.streak}d streak
-                    </div>
-                  </div>
-                  <div style={{ fontSize:28 }}>🥇</div>
-                </ChromeCard>
-              </>
-            )}
-
-            {/* Full user table */}
-            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:10 }}>ALL USERS ({totalUsers})</div>
-            <ChromeCard style={{ padding:0, overflow:"hidden", marginBottom:18 }}>
-              {/* Table header */}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 60px 54px 44px", gap:0, padding:"8px 12px", background:"rgba(0,0,0,0.4)", borderBottom:`1px solid ${G.borderB}` }}>
-                {["ATHLETE","PTS","SESS","STRK"].map(h => (
-                  <div key={h} style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:2, textTransform:"uppercase", textAlign: h==="ATHLETE"?"left":"right" }}>{h}</div>
-                ))}
-              </div>
-              {data.map((p, i) => (
-                <div key={p.id} style={{ display:"grid", gridTemplateColumns:"1fr 60px 54px 44px", gap:0, padding:"9px 12px", borderBottom: i < data.length-1 ? `1px solid ${G.borderB}` : "none", background: i===0 ? `${G.gold}06` : "transparent", alignItems:"center" }}>
-                  <div style={{ display:"flex", gap:8, alignItems:"center", minWidth:0 }}>
-                    <div style={{ fontFamily:FONT.display, fontSize:10, color: i===0?G.gold:G.textDim, letterSpacing:1, flexShrink:0, width:16 }}>{i+1}</div>
-                    <AvatarBadge initials={p.avatar_initials || "?"} size={28} gold={i===0}/>
-                    <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, color: i===0?"#fff":G.textMid, textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.username || "—"}</div>
-                  </div>
-                  <div style={{ fontFamily:FONT.display, fontSize:12, color:G.gold, letterSpacing:1, textAlign:"right" }}>{(p.points||0).toLocaleString()}</div>
-                  <div style={{ fontFamily:FONT.display, fontSize:12, color:"#fff", letterSpacing:1, textAlign:"right" }}>{p.sessions_count||0}</div>
-                  <div style={{ fontFamily:FONT.display, fontSize:12, color: (p.streak||0)>0?G.green:G.textDim, letterSpacing:1, textAlign:"right" }}>{p.streak||0}d</div>
-                </div>
-              ))}
-              {data.length === 0 && (
-                <div style={{ padding:"24px", textAlign:"center", fontFamily:FONT.body, fontSize:12, color:G.textDim }}>No users found.</div>
-              )}
-            </ChromeCard>
-          </>
-        )}
+        <AdminDashboardContent data={data} loading={loading} error={error} load={load}/>
       </div>
+    </div>
+  );
+}
+
+function AdminHomeScreen() {
+  const { data, loading, error, load } = useAdminData();
+  return (
+    <div style={{ padding:`calc(env(safe-area-inset-top, 0px) + 20px) 18px 0` }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+        <div>
+          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>
+            ADMIN <span style={{ color:G.gold, textShadow:`0 0 12px ${G.gold}` }}>DASHBOARD</span>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
+            <div style={{ width:7, height:7, borderRadius:"50%", background:G.gold }}/>
+            <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>Platform Analytics</div>
+          </div>
+        </div>
+        <button onClick={load} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:8, color:G.textMid, cursor:"pointer", fontSize:12, padding:"6px 10px", fontFamily:FONT.body, letterSpacing:1 }}>↺ REFRESH</button>
+      </div>
+      <AdminDashboardContent data={data} loading={loading} error={error} load={load}/>
     </div>
   );
 }
@@ -5615,7 +5636,7 @@ function SocialFitClubInner() {
       }}/>}
 
       <div style={{ paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 82px)", position:"relative", zIndex:2, minHeight:"100vh" }}>
-        {tab==="home" && <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile}/>}
+        {tab==="home" && (user?.email?.toLowerCase()===ADMIN_EMAIL ? <AdminHomeScreen/> : <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile}/>)}
         {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions}/>}
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile}/>}
         {tab==="nutrition" && <NutritionScreen showToast={showToast}/>}
