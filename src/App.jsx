@@ -1968,10 +1968,6 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
             </>
           )}
           <SectionLabel>Training Programs</SectionLabel>
-          <div style={{ background:`${G.purple}12`, border:`1px solid ${G.purple}33`, borderRadius:10, padding:"11px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:10 }}>
-            <span style={{ fontSize:16 }}>🚀</span>
-            <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1, lineHeight:1.5 }}>Guided programs are <span style={{ color:G.purpleLight }}>coming soon</span>. Preview them below and track your workouts free in the meantime.</div>
-          </div>
           {[
             { name:"GOLDEN ERA HYPERTROPHY", type:"BODYBUILDING", level:"INTERMEDIATE", weeks:12, desc:"Classic high-volume bodybuilding. The Arnold blueprint.", ico:"🏆" },
             { name:"RAW STRENGTH FOUNDATION", type:"POWERLIFTING", level:"BEGINNER", weeks:8, desc:"Linear progression for squat, bench, and deadlift.", ico:"🏋️" },
@@ -1979,19 +1975,15 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
             { name:"FAT LOSS ACCELERATOR", type:"WEIGHT LOSS", level:"BEGINNER", weeks:8, desc:"Metabolic training to maximize fat burn.", ico:"🔥" },
           ].map((p,i) => (
             <ChromeCard key={i} style={{ padding:"14px", marginBottom:11 }}>
-              <div style={{ display:"flex", gap:12, marginBottom:12 }}>
+              <div style={{ display:"flex", gap:12 }}>
                 <div style={{ fontSize:28, flexShrink:0 }}>{p.ico}</div>
                 <div style={{ flex:1 }}>
                   <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:"#fff", textTransform:"uppercase", marginBottom:5 }}>{p.name}</div>
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:5 }}>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:6 }}>
                     <Chip label={p.type} small/><Chip label={p.level} color={G.purpleLight} small/><Chip label={`${p.weeks}WK`} color={G.textMid} small/>
                   </div>
                   <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:0.5 }}>{p.desc}</div>
                 </div>
-              </div>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, background:`rgba(255,255,255,0.04)`, border:`1px solid ${G.borderB}`, borderRadius:8, padding:"10px 14px" }}>
-                <div style={{ width:6, height:6, borderRadius:"50%", background:G.purpleLight, boxShadow:`0 0 6px ${G.purpleLight}` }}/>
-                <span style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:3, color:G.textMid, textTransform:"uppercase" }}>Coming Soon</span>
               </div>
             </ChromeCard>
           ))}
