@@ -57,15 +57,16 @@ CREATE POLICY "Public avatar read" ON storage.objects FOR SELECT TO public
   USING (bucket_id = 'avatars');
 ```
 
-**Edge Functions** (all require `ANTHROPIC_API_KEY` set as a Supabase secret):
+**Edge Functions** (require `ANTHROPIC_API_KEY` set as a Supabase secret):
 
 | Function | Input | Output |
 |---|---|---|
 | `analyze-meal` | `{ image: base64jpeg }` | `{ name, cal, pro, carb, fat, confidence }` |
-| `ai-coach` | `{ sessions, profile, muscleScores }` | `{ greeting, todayFocus, recommendations[], motivational }` |
 | `form-check` | `{ frames: base64jpeg[], exercise: string }` | `{ score, summary, strengths[], corrections[], cues[], safety }` |
 
-Deploy a new function with `supabase functions deploy <name>`. All three use `supabase.functions.invoke(name, { body })` on the client side.
+Deploy with `supabase functions deploy <name>`. Both use `supabase.functions.invoke(name, { body })`.
+
+**AI Coach is local-only** — `AiCoachModal` does not call the `ai-coach` Edge Function. Instead `buildLocalCoaching()` generates personalized recommendations entirely client-side from `muscleScores`, `sessions`, and `profile` (streak, session count). The Edge Function source remains in `supabase/functions/ai-coach/` but is not called. Do not revert to the Edge Function call without verifying it is deployed and the API key is set.
 
 ### Auth flow
 
@@ -188,16 +189,18 @@ Three tabs via `activeTab` state:
 
 **Water tracker** — quick-add buttons (8, 12, 16, 20 oz) + custom input. Daily total shown in stats grid. State: `waterEntries` (array of oz values per entry, supports undo via pop), `waterGoal` (from `sfc_water_goal`).
 
-### HomeScreen — swipeable widgets
+### HomeScreen layout
 
-`SwipeWidget` is a module-level component wrapping each home card. Pointer events detect horizontal swipes: dragging left >90 px triggers a dismissing animation and calls `onDismiss`. Header has ↑/↓ reorder buttons and a ✕ HIDE button. Widget order and hidden IDs are persisted to `sfc_home_widgets`.
+The HomeScreen was redesigned with a purple-dominant theme. Layout (top to bottom):
 
-`HomeScreen` state:
-- `widgetOrder` — `string[]` of widget IDs (`"quickstart"`, `"leaderboard"`), initialized from `sfc_home_widgets`
-- `hiddenWidgets` — `string[]` of currently hidden IDs
-- Dismissed widgets appear in a HIDDEN WIDGETS restore section at the bottom of the screen
+1. **Header bar** — small SFC logo (46px circle) + "SOCIAL / FIT CLUB" text branding on the left; bell icon + avatar circle on the right.
+2. **Tagline** — purple dot + "Strength in Community".
+3. **Stats card** — avatar, "YOUR STATS", session count, points (purple); three mini stat tiles: RANK, DAY STREAK, THIS WEEK.
+4. **Weekly volume** — SVG line chart with dots (purple), day labels below. Today's dot is highlighted and larger.
+5. **Leaderboard row** — tappable, expands (`lbExpanded` state) to show top-5 ranked users inline.
+6. **Quick Start row** — tappable, expands (`qsExpanded` state, default open) to reveal a 2×2 grid of workout cards. Each card has a colored icon square (purple/blue/orange/green), name, subtitle, and chevron.
 
-`touchAction: "pan-y"` is set on `SwipeWidget` so vertical scroll is handled natively by the browser while horizontal swipes are captured by pointer events.
+`SwipeWidget` is still defined in the file (used by no screen currently) but `HomeScreen` no longer uses it. The `sfc_home_widgets` localStorage key is written by the old widget system; new HomeScreen ignores it.
 
 ### Daily Motivational Popup
 
@@ -238,6 +241,8 @@ The Merch and Privacy & Security tiles show a "COMING SOON" toast. The profile c
 ### Admin Dashboard
 
 `AdminDashboardModal` fetches all rows from `profiles` (read-all RLS) and displays: platform overview stats (total users, active users, total sessions, total points, avg sessions, users on streaks), engagement bars (activation/streak/churn rates), top performer card, and a full ranked user table. Visible only when `isAdmin` is true in `MoreScreen`.
+
+Uses a **cascading fallback query**: tries `sessions_count` first; if the column doesn't exist yet (Postgres error code `42703` or message contains `"sessions_count"`), retries without it. Stats that depend on `sessions_count` gracefully fall back to `|| 0`. This prevents the dashboard from getting stuck on "LOADING DATA..." when the DB migration hasn't been run.
 
 ### FeedScreen
 
@@ -340,8 +345,10 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 
 - **Stable callback refs**: `RestTimer` uses `useRef` + `useEffect(() => { ref.current = onDone; })` (no deps) to keep the `onDone` callback current without restarting the interval on every parent re-render. Do not replace with a direct dependency.
 - **Streak calculation in `handleSave`**: compares the most recent existing session's `createdAt` date against today/yesterday to decide whether to extend or reset the streak. This must remain before the optimistic state update.
-- **Sign-out cleanup**: `handleSignOut` clears 17 `sfc_*` localStorage keys (including `sfc_daily_motiv`). `sfc_home_widgets` is intentionally excluded (it's a device-level UI preference, not user data).
+- **Sign-out cleanup**: `handleSignOut` calls `supabase.auth.signOut()`, then immediately sets `setUser(null)` directly (in addition to the async `onAuthStateChange` callback) so the LoginScreen renders without waiting for the auth event. Clears 17 `sfc_*` localStorage keys including `sfc_daily_motiv`. `sfc_home_widgets` is intentionally excluded.
 - **Body scroll lock**: `useScrollLock()` is a module-level hook called at the top of every modal component. It sets `document.body.style.overflow = "hidden"` on mount and restores the previous value on unmount, preventing iOS Safari background scroll bleed-through.
-- **Bottom sheet safe area**: All bottom sheet containers use `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 48px)"` and `maxHeight: "88vh"` with `overflowY: "auto"` to clear the iOS home indicator and stay within viewport bounds.
+- **Screen top padding**: Every screen root div uses `padding: "calc(env(safe-area-inset-top, 0px) + Xpx) 18px 0"` to clear the iOS status bar. Never use a fixed pixel top padding on screen containers.
+- **Bottom sheet modals**: All bottom sheet containers use `maxHeight: "80vh"` and `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 72px)"` with `overflowY: "auto"`. The 80vh (not 93vh) is intentional — mobile Safari measures `vh` against the full screen including its own chrome, so 80vh gives enough clearance when running as a website (not a PWA).
+- **Main content bottom padding**: The main scrollable content wrapper uses `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 82px)"` to clear the fixed bottom nav bar plus iOS home indicator.
 - **Blob URL lifecycle in `FormCheckModal`**: uses `previewUrlRef` to revoke the previous object URL both when a new file is picked and on unmount, preventing memory leaks.
 - **Challenge auto-complete**: the `useEffect` in `FeedScreen` that watches `sessions` compares current progress against targets and only fires the completion logic once (checks `!ch.completed` before updating). Do not add `challenges` to the dependency array or it will loop.
