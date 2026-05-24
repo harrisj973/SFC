@@ -5177,7 +5177,7 @@ function LoginScreen() {
   const errMap = { "Email not confirmed": "Please confirm your email first, then sign in." };
 
   if (awaitingConfirm) return (
-    <div style={{ minHeight:"100vh", background:G.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"0 28px", textAlign:"center" }}>
+    <main style={{ minHeight:"100vh", background:G.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"0 28px", textAlign:"center" }}>
       <GridBg/>
       <div style={{ position:"relative", zIndex:1 }}>
         <div style={{ fontSize:52, marginBottom:16 }}>📧</div>
@@ -5190,11 +5190,11 @@ function LoginScreen() {
         <NeonBtn onClick={()=>{ setAwaitingConfirm(false); setMode("signin"); }} full style={{ marginBottom:10 }}>BACK TO SIGN IN</NeonBtn>
         <NeonBtn onClick={resendConfirm} full outline disabled={resendLoading}>{resendLoading ? "SENDING..." : "RESEND CONFIRMATION EMAIL"}</NeonBtn>
       </div>
-    </div>
+    </main>
   );
 
   if (forgotSent) return (
-    <div style={{ minHeight:"100vh", background:G.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"0 28px", textAlign:"center" }}>
+    <main style={{ minHeight:"100vh", background:G.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"0 28px", textAlign:"center" }}>
       <GridBg/>
       <div style={{ position:"relative", zIndex:1 }}>
         <div style={{ fontSize:52, marginBottom:16 }}>🔑</div>
@@ -5205,11 +5205,11 @@ function LoginScreen() {
         </div>
         <NeonBtn onClick={()=>setForgotSent(false)} full>BACK TO SIGN IN</NeonBtn>
       </div>
-    </div>
+    </main>
   );
 
   return (
-    <div style={{ minHeight:"100vh", background:G.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"0 24px" }}>
+    <main style={{ minHeight:"100vh", background:G.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"0 24px" }}>
       <GridBg/>
       <div style={{ position:"relative", zIndex:1, width:"100%", maxWidth:400 }}>
         <div style={{ display:"flex", justifyContent:"center", marginBottom:22 }}>
@@ -5254,7 +5254,7 @@ function LoginScreen() {
           )}
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 
