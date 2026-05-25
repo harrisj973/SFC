@@ -468,13 +468,21 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 
 `ChromeCard` accepts an optional `onClick` prop which is forwarded to the root div. Always pass `onClick` directly to `ChromeCard` — do not wrap it in another div to handle clicks, as `ChromeCard` now supports this natively.
 
-`ExercisePicker` is a bottom-sheet modal used in `TrainScreen`. It receives `{ onSelect, onClose }` and renders a search bar + category chips (from `EXERCISE_CATS`) + a filtered list of `EXERCISES` with primary muscle label and category badge. Opens via the ⊞ button next to each exercise name input.
+`ExercisePicker` is a bottom-sheet modal used in `TrainScreen`. It receives `{ onSelect, onClose }` and renders: a search bar, two chip rows (gold muscle-group chips from `EXERCISE_CATS` + purple equipment chips from `EQUIPMENT_CATS`), an optional FOCUS sub-row when LEGS is selected (QUADS / HAMSTRINGS from `EXERCISE_SUBCATS`), and a filtered exercise list with muscle label and category badge. Opens via the ⊞ button next to each exercise name input.
 
 `PlateCalculatorModal` is a standalone modal (not a MoreScreen tile). Opened from the TrainScreen header ⚖️ PLATES button. Accepts `{ onClose, initialWeight }`.
 
 ### Module-level constants
 
-`ADMIN_EMAIL`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `REST_OPTIONS`, `MACRO_COACH_KEY`, `DAILY_MESSAGES`, `PROGRAMS_DATA`.
+`ADMIN_EMAIL`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `EXERCISE_SUBCATS`, `EQUIPMENT_CATS`, `CARDIO_SET_CONFIG`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `REST_OPTIONS`, `MACRO_COACH_KEY`, `DAILY_MESSAGES`, `PROGRAMS_DATA`.
+
+`EXERCISE_CATS` is an object keyed by muscle group (`CHEST`, `BACK`, `ARMS`, `LEGS`, `SHOULDERS`, `CORE`, `CARDIO`, `KETTLEBELL`) with 145 exercises total. `EXERCISES = Object.values(EXERCISE_CATS).flat()`. `EX_CAT_LOOKUP` maps each exercise name → its muscle-group category (auto-built from `EXERCISE_CATS`). Adding a new exercise: put it in the right `EXERCISE_CATS` array — `EX_CAT_LOOKUP` and `EXERCISES` are derived automatically.
+
+`EXERCISE_SUBCATS` provides sub-filters within a category: `{ LEGS: { QUADS: [...], HAMSTRINGS: [...] } }`. Used by `ExercisePicker` to show a FOCUS chip row when LEGS is selected.
+
+`EQUIPMENT_CATS` is a parallel cross-category lookup for equipment filters: `{ CABLES: [...23 exercises...], DUMBBELLS: [...29 exercises...] }`. `ExercisePicker` checks `EQUIPMENT_CATS[cat]` first before falling back to `EX_CAT_LOOKUP` — this lets equipment chips filter across muscle groups without moving exercises out of their canonical category.
+
+`CARDIO_SET_CONFIG` maps 13 cardio exercise names to their two input field configs: `{ a: { label, unit, mode }, b: { label, unit, mode } }`. The `a` field maps to the set's `r` property (primary, e.g. TIME MIN), `b` maps to `w` (secondary, e.g. INCLINE %). When `CARDIO_SET_CONFIG[ex.name]` is truthy: column headers change from REPS/WEIGHT to the configured labels, inputs render purple, and `w` placeholder changes to `0` instead of a progressed weight. Cardio exercises are excluded from `totVol` and `pts`; a `totCardioMin` accumulates their minutes for display.
 
 `FOODS` has 250+ entries across categories: BREAKFAST, PROTEIN, CARBS, DAIRY, FRUIT, VEG, NUTS, FAT, SUPPLEMENT, FAST FOOD, RESTAURANT, SNACK, BRAND, BEVERAGE. `FOOD_CATS` lists all these including "ALL" at the start.
 
