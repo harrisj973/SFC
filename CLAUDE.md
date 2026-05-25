@@ -36,7 +36,7 @@ The client is initialised at the top of `App.jsx` with hardcoded public keys (an
 
 | Table | Key columns | Notes |
 |---|---|---|
-| `profiles` | `id`, `username`, `avatar_initials`, `avatar_url`, `points`, `streak`, `sessions_count` | Read-all, write-own RLS |
+| `profiles` | `id`, `username`, `avatar_initials`, `avatar_url`, `points`, `streak`, `sessions_count`, `age`, `sex`, `location` | Read-all, write-own RLS |
 | `sessions` | `user_id`, `name`, `exercises` (jsonb), `sets`, `volume`, `points`, `date`, `created_at` | Write/read-own RLS |
 
 Real-time is enabled on `profiles` for the live leaderboard. Required migrations:
@@ -44,6 +44,9 @@ Real-time is enabled on `profiles` for the live leaderboard. Required migrations
 ```sql
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS sessions_count integer NOT NULL DEFAULT 0;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS age integer;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS sex text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS location text;
 ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
 ```
 
@@ -57,30 +60,31 @@ CREATE POLICY "Public avatar read" ON storage.objects FOR SELECT TO public
   USING (bucket_id = 'avatars');
 ```
 
-**Edge Functions** (require `ANTHROPIC_API_KEY` set as a Supabase secret):
+**Edge Functions** (`analyze-meal` and `form-check` require `ANTHROPIC_API_KEY` set as a Supabase secret):
 
-| Function | Input | Output |
-|---|---|---|
-| `analyze-meal` | `{ image: base64jpeg }` | `{ name, cal, pro, carb, fat, confidence }` |
-| `form-check` | `{ frames: base64jpeg[], exercise: string }` | `{ score, summary, strengths[], corrections[], cues[], safety }` |
+| Function | Auth | Input | Output |
+|---|---|---|---|
+| `analyze-meal` | anon JWT | `{ image: base64jpeg }` | `{ name, cal, pro, carb, fat, confidence }` |
+| `form-check` | anon JWT | `{ frames: base64jpeg[], exercise: string }` | `{ score, summary, strengths[], corrections[], cues[], safety }` |
+| `delete-account` | user JWT | (none) | `{ success: true }` |
 
-Both functions are deployed. Deploy with `supabase functions deploy <name>` or paste the source into **Supabase → Edge Functions → New Function** in the dashboard. Both use `supabase.functions.invoke(name, { body })`.
+All three functions are deployed. Deploy with `supabase functions deploy <name>` or paste the source into **Supabase → Edge Functions → New Function** in the dashboard. `analyze-meal` and `form-check` use `supabase.functions.invoke(name, { body })`. `delete-account` uses the service role key internally to delete `sessions` rows, `profiles` row, avatar from `avatars` storage, and then `admin.auth.admin.deleteUser()`; the client only needs to pass the user JWT.
 
 **Transactional email** — configured via Resend SMTP (`smtp.resend.com:465`, username `resend`). Domain `socialfitclub26.com` is verified in Resend. Supabase sends auth emails (confirm signup, reset password) from `support@socialfitclub26.com` via custom SMTP in **Supabase → Project Settings → Authentication → SMTP**. Support contact in the app is `sfcsupport26@gmail.com`.
 
-**AI Coach is local-only** — `AiCoachModal` does not call the `ai-coach` Edge Function. Instead `buildLocalCoaching()` generates personalized recommendations entirely client-side from `muscleScores`, `sessions`, and `profile` (streak, session count). The Edge Function source remains in `supabase/functions/ai-coach/` but is not called. Do not revert to the Edge Function call without verifying it is deployed and the API key is set.
+**AI Coach is local-only** — `AiCoachModal` does not call the `ai-coach` Edge Function. Instead `buildLocalCoaching()` generates personalized recommendations entirely client-side from `muscleScores`, `sessions`, and `profile` (streak, session count, `age`, `sex`). Age 40+ gets age-specific recovery advice; female sex gets female-specific fueling advice; age 50+ gets protein/creatine advice. The Edge Function source remains in `supabase/functions/ai-coach/` but is not called. Do not revert to the Edge Function call without verifying it is deployed and the API key is set.
 
 ### Auth flow
 
-`LoginScreen` handles sign-in, sign-up (with `display_name` passed via `user_metadata`), forgot-password (`supabase.auth.resetPasswordForEmail`), and email confirmation with resend.
+`LoginScreen` handles sign-in, sign-up (with `display_name` passed via `user_metadata`), forgot-password (`supabase.auth.resetPasswordForEmail`), and email confirmation with resend. Sign-in has a **show/hide password toggle** (`showPw` state) and a **Remember Me checkbox** (`rememberMe` state) — when checked, the email is persisted to `sfc_remembered_email` in localStorage and pre-filled on next visit.
 
 `ensureProfile` fires on every `SIGNED_IN` event — reads `user.user_metadata.display_name` for the username, creates the `profiles` row if missing, then loads sessions and leaderboard.
 
 `ResetPasswordScreen` is shown when `onAuthStateChange` fires a `PASSWORD_RECOVERY` event (user clicked reset link in email). It calls `supabase.auth.updateUser({ password })` and returns to the main app on success.
 
-Render guards (in order): blank screen while `authReady` is false → `<ResetPasswordScreen/>` when `passwordRecovery` is true → `<LoginScreen/>` when no user → "CONNECTION ERROR" screen with Retry button when `!profile && dataLoadFailed` (network errors in `loadProfile`/`loadSessions` set this flag; a missing profile row — Postgres error `PGRST116` — does not) → blank while profile loads → main app + `<DailyMotivModal/>` overlay on first open of the day.
+Render guards (in order): blank screen while `authReady` is false → `<ResetPasswordScreen/>` when `passwordRecovery` is true → `<LoginScreen/>` when no user → "CONNECTION ERROR" screen with Retry button when `!profile && dataLoadFailed` (network errors in `loadProfile`/`loadSessions` set this flag; a missing profile row — Postgres error `PGRST116` — does not) → blank while profile loads → main app with overlay stack: `OnboardingModal` (zIndex 850) → `ProfileSetupModal` (zIndex 820) → `DailyMotivModal` (zIndex 800). `DailyMotivModal` is suppressed while onboarding or profile setup is active.
 
-`loadProfile` uses a **cascading fallback** SELECT: tries the full column set first (`avatar_url`, `sessions_count`, etc.), then retries with progressively simpler queries if a column doesn't exist yet. This prevents CONNECTION ERROR when the database schema is behind the code. Only sets `dataLoadFailed` if the minimal baseline query also fails.
+`loadProfile` uses a **cascading fallback** SELECT: tries the full column set first (`avatar_url`, `sessions_count`, `age`, `sex`, `location`, etc.), then retries with progressively simpler queries if a column doesn't exist yet. This prevents CONNECTION ERROR when the database schema is behind the code. Only sets `dataLoadFailed` if the minimal baseline query also fails.
 
 **Demo mode** — appending `?demo=1` to the URL bypasses Supabase auth entirely and seeds the app with hardcoded sessions, profile, and leaderboard. Controlled by the module-level `_D` constant. The auth useEffect and real-time leaderboard subscription both guard with `if (_D) return`. Used by `test-bugcheck.mjs` to run headless tests without a live backend.
 
@@ -154,6 +158,8 @@ Root state passed as props:
 | `sfc_meal_templates` | `[{ id, name, items: [{ name, cal, pro, carb, fat, brand? }] }]` | Never |
 | `sfc_daily_motiv` | `"YYYY-MM-DD"` — date the daily motivational popup was last shown | Auto-cleared on sign-out |
 | `sfc_onboarded` | `"1"` — set after user completes or skips the onboarding flow | Never (persists across sign-outs) |
+| `sfc_profile_setup_done` | `"1"` — set after user completes or skips the profile setup modal | Never (persists across sign-outs) |
+| `sfc_remembered_email` | email string — pre-fills sign-in when Remember Me was checked | Cleared on delete-account; persists across sign-outs |
 
 ### Module-level helpers
 
@@ -174,6 +180,8 @@ Root state passed as props:
 ### TrainScreen sub-tabs and set types
 
 Four sub-tabs: `TRACK`, `HISTORY`, `PRs`, `PROGRAMS`.
+
+**Programs** — `PROGRAMS_DATA` is a module-level constant with 4 complete workout programs (each has `id`, `name`, `goal`, `days`, `duration`, `level`, `color`, and `schedule: [{ day, name, exercises: [{ name, sets, reps }] }]`). Tapping a program card opens `ProgramDetailModal` (full-screen, not a bottom sheet): shows goal, a 3-stat grid (days/duration/level), a weekly schedule strip with day selector, an exercise list for the selected day, and a "LOG DAY X WORKOUT" button. That button pre-loads exercise names into `exs`, sets `sessName`, and switches the `subTab` to `"track"` via `onStartDay` prop. `TrainScreen` owns `selectedProgram` state.
 
 **Recovery alert** — inside the TRACK sub-tab, `overloadedMuscles` is derived each render: for each exercise in the current session, look up `EXERCISE_MUSCLE_MAP[ex.name]` and collect muscles with `factor >= 0.6`; filter those where `calcMuscleScores(sessions)[muscle] > 80`. If any are found and `restWarnDismissed` is false, an orange banner is shown above the exercise list. Dismissed per-session via local `restWarnDismissed` state.
 
@@ -217,7 +225,11 @@ The HomeScreen was redesigned with a purple-dominant theme. Layout (top to botto
 
 Slides: (1) Welcome + brand identity, (2) 2×2 feature grid (Train, Nutrition, Progress, Squad), (3) Points/leaderboard pitch with gold CTA. Dot indicators show progress; active dot expands to a pill. Navigation: SKIP top-right, ← BACK / NEXT → bottom, final slide shows gold "LET'S GET STARTED ◆" button.
 
-`OnboardingModal` renders before `DailyMotivModal` in the overlay stack. `DailyMotivModal` is suppressed while onboarding is active (`{!showOnboarding && showDailyMotiv && <DailyMotivModal .../>}`), so new users see onboarding first, then the daily quote on their next visit.
+### Profile Setup Modal
+
+`ProfileSetupModal` (zIndex 820) fires after onboarding for users who haven't completed it yet. Controlled by `showProfileSetup` state; `profileSetupChecked` ref prevents re-triggering on subsequent profile updates. Prompts for sex (4-option grid: Male/Female/Non-binary/Prefer not to say), age (number input), and location (text input). Saves to `profiles` table and writes `sfc_profile_setup_done = "1"` to localStorage on save or skip. Suppressed while onboarding is active.
+
+`DailyMotivModal` is suppressed while onboarding or profile setup is active, so new users see onboarding → profile setup → daily quote on their first visits.
 
 ### Daily Motivational Popup
 
@@ -241,15 +253,18 @@ The `motivFadeIn` CSS animation (`opacity 0 → 1`, `scale 0.96 → 1`) is decla
 | `NotificationsModal` | NOTIFICATIONS | `sfc_notif_prefs` | `sessions`, `onClose` |
 | `FormCheckModal` | FORM CHECK | — | `onClose` |
 | `ProfileModal` | EDIT PROFILE (via profile card) | — | `profile`, `userId`, `onClose`, `onSave`, `showToast` |
+| `DeleteAccountModal` | DELETE ACCOUNT (below Sign Out) | — | `userId`, `onDeleted`, `onClose` |
 | `HelpSupportModal` | HELP & SUPPORT | — | `onClose` |
 
 `MacroCoachModal` has a multi-step setup wizard (sex, age, height, weight, activity, goal) that calculates TDEE and macro splits, stores results in `sfc_macro_coach`, and runs a weekly check-in adjustment algorithm. Uses `const [nowMs] = useState(() => Date.now())` to avoid the `react-hooks/purity` ESLint error — do not replace with inline `Date.now()`.
 
 `FormCheckModal` — video file picker (`accept="video/*" capture="environment"`, max 100 MB), calls `extractFrames()` to get 3 frames, shows a thumbnail strip, then calls the `form-check` Edge Function. Results view: colour-coded score ring (green ≥8, gold ≥6, red <6), optional safety warning, strengths list, correction cards (`{ issue, fix }`), and purple coaching-cue chips.
 
-The SFC MERCH tile shows a "COMING SOON" toast. The profile card at the top of MoreScreen is tappable and opens `ProfileModal` directly (bypassing the tile grid).
+`HelpSupportModal` — includes a LEGAL section (`ChromeCard`) with links to `/privacy.html` (Privacy Policy) and `/terms.html` (Terms of Service).
 
-**Profile editing** — `ProfileModal` allows username change and profile photo upload. Photo is compressed via `compressImage()`, uploaded to `storage.avatars/{userId}.jpg` (upserted), and the public URL is stored in `profiles.avatar_url`. After save, `onProfileUpdate(updatedProfile)` is called to sync the parent state in `SocialFitClubInner`.
+The SFC MERCH tile shows a "COMING SOON" toast. The profile card at the top of MoreScreen is tappable and opens `ProfileModal` directly (bypassing the tile grid). A **DELETE ACCOUNT** button lives below the Sign Out button in MoreScreen; it opens `DeleteAccountModal` which requires the user to type "DELETE" to confirm, then calls the `delete-account` Edge Function and clears all `sfc_*` localStorage keys (including `sfc_remembered_email`).
+
+**Profile editing** — `ProfileModal` allows username change, profile photo upload, and updating age, sex, and location fields. Photo is compressed via `compressImage()`, uploaded to `storage.avatars/{userId}.jpg` (upserted), and the public URL is stored in `profiles.avatar_url`. After save, `onProfileUpdate(updatedProfile)` is called to sync the parent state in `SocialFitClubInner`.
 
 `handleSave` uses `.update(updates).eq("id", userId).select("id")` — the `.select("id")` is intentional to detect silent RLS failures. Supabase returns HTTP 200 with 0 rows (not an error) when an UPDATE is blocked by RLS; checking `rows.length === 0` catches this and shows an informative error. Do not remove the `.select("id")` or revert to a bare `.update()` with no return check. The `avatars` storage bucket must be set to **Public** in the Supabase dashboard or photo URLs will fail to load.
 
@@ -259,9 +274,9 @@ The SFC MERCH tile shows a "COMING SOON" toast. The profile card at the top of M
 
 ### Admin Dashboard
 
-`AdminDashboardModal` fetches all rows from `profiles` (read-all RLS) and displays: platform overview stats (total users, active users, total sessions, total points, avg sessions, users on streaks), engagement bars (activation/streak/churn rates), top performer card, and a full ranked user table. Visible only when `isAdmin` is true in `MoreScreen`.
+`AdminDashboardModal` fetches all rows from `profiles` (read-all RLS) and displays: platform overview stats (total users, active users, total sessions, total points, avg sessions, users on streaks), engagement bars (activation/streak/churn rates), top performer card, a full ranked user table, and a **MEMBER DEMOGRAPHICS** panel (sex breakdown pills, age bracket bars, top locations). The demographics panel is only shown when at least one user has `sex` or `age` set. Visible only when `isAdmin` is true in `MoreScreen`.
 
-Uses a **cascading fallback query**: tries `sessions_count` first; if the column doesn't exist yet (Postgres error code `42703` or message contains `"sessions_count"`), retries without it. Stats that depend on `sessions_count` gracefully fall back to `|| 0`. This prevents the dashboard from getting stuck on "LOADING DATA..." when the DB migration hasn't been run.
+Uses a **cascading fallback query**: tries `sessions_count, age, sex, location` first; if a column doesn't exist yet (Postgres error code `42703`), retries with simpler queries. Stats gracefully fall back to `|| 0`. This prevents the dashboard from getting stuck on "LOADING DATA..." when the DB migration hasn't been run.
 
 ### FeedScreen
 
@@ -383,7 +398,7 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 
 ### Module-level constants
 
-`ADMIN_EMAIL`, `REACTIONS`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `REST_OPTIONS`, `MACRO_COACH_KEY`, `DAILY_MESSAGES`.
+`ADMIN_EMAIL`, `REACTIONS`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `REST_OPTIONS`, `MACRO_COACH_KEY`, `DAILY_MESSAGES`, `PROGRAMS_DATA`.
 
 `SESSION_TYPES` is `[{ id, label, color }]` — 9 workout categories each with a hex color used for chip backgrounds and history badges.
 
@@ -400,7 +415,7 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 
 - **Stable callback refs**: `RestTimer` uses `useRef` + `useEffect(() => { ref.current = onDone; })` (no deps) to keep the `onDone` callback current without restarting the interval on every parent re-render. Do not replace with a direct dependency.
 - **Streak calculation in `handleSave`**: compares the most recent existing session's `createdAt` date against today/yesterday to decide whether to extend or reset the streak. This must remain before the optimistic state update.
-- **Sign-out cleanup**: `handleSignOut` calls `supabase.auth.signOut()`, then immediately sets `setUser(null)` directly (in addition to the async `onAuthStateChange` callback) so the LoginScreen renders without waiting for the auth event. Clears 17 `sfc_*` localStorage keys including `sfc_daily_motiv`. `sfc_home_widgets` is intentionally excluded.
+- **Sign-out cleanup**: `handleSignOut` calls `supabase.auth.signOut()`, then immediately sets `setUser(null)` directly (in addition to the async `onAuthStateChange` callback) so the LoginScreen renders without waiting for the auth event. Clears `sfc_*` localStorage keys including `sfc_daily_motiv`. `sfc_home_widgets` and `sfc_onboarded` and `sfc_profile_setup_done` are intentionally excluded (device-level state). `sfc_remembered_email` is excluded from sign-out (persists by design) but is cleared by `DeleteAccountModal`.
 - **Body scroll lock**: `useScrollLock()` is a module-level hook called at the top of every modal component. It sets `document.body.style.overflow = "hidden"` on mount and restores the previous value on unmount, preventing iOS Safari background scroll bleed-through.
 - **Screen top padding**: Every screen root div uses `padding: "calc(env(safe-area-inset-top, 0px) + Xpx) 18px 0"` to clear the iOS status bar. Never use a fixed pixel top padding on screen containers.
 - **Bottom sheet modals**: All bottom sheet containers use `maxHeight: "80vh"` and `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 72px)"` with `overflowY: "auto"`. The 80vh (not 93vh) is intentional — mobile Safari measures `vh` against the full screen including its own chrome, so 80vh gives enough clearance when running as a website (not a PWA).
