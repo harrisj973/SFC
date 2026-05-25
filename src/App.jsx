@@ -1320,7 +1320,7 @@ function PlateCalculatorModal({ onClose, initialWeight = "" }) {
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.92)", zIndex:500, display:"flex", alignItems:"flex-end" }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"16px 16px 0 0", border:`1px solid ${G.border}`, borderBottom:"none", maxHeight:"88vh", display:"flex", flexDirection:"column" }}>
+      <div onClick={e => e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"16px 16px 0 0", border:`1px solid ${G.border}`, borderBottom:"none", maxHeight:"calc(100vh - 60px)", display:"flex", flexDirection:"column" }}>
         <div style={{ padding:"22px 18px 0", flexShrink:0 }}>
         <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"0 auto 18px" }}/>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
@@ -1329,7 +1329,7 @@ function PlateCalculatorModal({ onClose, initialWeight = "" }) {
         </div>
         </div>
 
-        <div style={{ overflowY:"auto", flex:1, padding:"0 18px", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 28px)" }}>
+        <div style={{ overflowY:"auto", flex:1, padding:"0 18px", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 40px)" }}>
 
         <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:7 }}>BAR WEIGHT</div>
         <div style={{ display:"flex", gap:6, marginBottom:16 }}>
@@ -1341,7 +1341,7 @@ function PlateCalculatorModal({ onClose, initialWeight = "" }) {
         </div>
 
         <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:7 }}>TARGET WEIGHT (LBS)</div>
-        <input type="number" inputMode="decimal" value={target} onChange={e => setTarget(e.target.value)} placeholder="E.G. 225" autoFocus
+        <input type="number" inputMode="decimal" value={target} onChange={e => setTarget(e.target.value)} placeholder="E.G. 225"
           style={{ background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:7, padding:"12px 14px", color:"#fff", fontSize:22, outline:"none", width:"100%", boxSizing:"border-box", fontFamily:FONT.display, letterSpacing:3, marginBottom:6, textAlign:"center" }}/>
 
         {impossible && (
