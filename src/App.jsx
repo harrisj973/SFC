@@ -1044,13 +1044,19 @@ function UserProfileModal({ user, currentUserId, onClose }) {
   const [err, setErr] = useState(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [followersCount, setFollowersCount] = useState(null);
+  const [followingCount, setFollowingCount] = useState(null);
+  const [followListMode, setFollowListMode] = useState(null);
+  const [subUser, setSubUser] = useState(null);
 
   useEffect(() => {
     async function load() {
-      const [profRes, sessRes, followRes] = await Promise.all([
+      const [profRes, sessRes, followRes, follCountRes, follwCountRes] = await Promise.all([
         supabase.from("profiles").select("username, avatar_initials, avatar_url, points, streak, sessions_count, location").eq("id", user.id).single(),
         supabase.from("sessions").select("id, name, exercises, sets, volume, points, date, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(200),
         currentUserId ? supabase.from("follows").select("following_id").eq("follower_id", currentUserId).eq("following_id", user.id) : Promise.resolve({ data: [] }),
+        supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", user.id),
+        supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", user.id),
       ]);
       if (profRes.data) setProf(profRes.data);
       if (sessRes.data) {
@@ -1060,6 +1066,8 @@ function UserProfileModal({ user, currentUserId, onClose }) {
         setUserSessions([]);
       }
       if (followRes.data?.length > 0) setIsFollowing(true);
+      setFollowersCount(follCountRes.count ?? 0);
+      setFollowingCount(follwCountRes.count ?? 0);
     }
     load();
   }, [user.id, currentUserId]);
@@ -1083,6 +1091,7 @@ function UserProfileModal({ user, currentUserId, onClose }) {
   const P = G.purple;
 
   return (
+    <>
     <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.97)", zIndex:780, overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 32px)" }}>
       <div style={{ maxWidth:480, margin:"0 auto", padding:"calc(env(safe-area-inset-top,0px) + 16px) 18px 0" }}>
         <div style={{ display:"flex", alignItems:"center", marginBottom:24 }}>
@@ -1112,7 +1121,7 @@ function UserProfileModal({ user, currentUserId, onClose }) {
             </div>
 
             {/* Stats grid */}
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:28 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:10 }}>
               {[
                 { label:"POINTS", val:(prof?.points ?? user.pts ?? 0).toLocaleString() },
                 { label:"STREAK", val:`${prof?.streak ?? user.streak ?? 0}d` },
@@ -1122,6 +1131,19 @@ function UserProfileModal({ user, currentUserId, onClose }) {
                   <div style={{ fontFamily:FONT.display, fontSize:18, color:"#fff", letterSpacing:1 }}>{val}</div>
                   <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginTop:3 }}>{label}</div>
                 </div>
+              ))}
+            </div>
+
+            {/* Followers / Following pills */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:24 }}>
+              {[
+                { label:"FOLLOWERS", count:followersCount, mode:"followers" },
+                { label:"FOLLOWING", count:followingCount, mode:"following" },
+              ].map(({ label, count, mode }) => (
+                <button key={mode} onClick={() => setFollowListMode(mode)} style={{ background:"rgba(20,18,40,0.95)", border:`1px solid ${P}22`, borderRadius:10, padding:"11px 8px", textAlign:"center", cursor:"pointer" }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:20, color:P, letterSpacing:1 }}>{count ?? "—"}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginTop:3 }}>{label}</div>
+                </button>
               ))}
             </div>
 
@@ -1158,6 +1180,24 @@ function UserProfileModal({ user, currentUserId, onClose }) {
         )}
       </div>
     </div>
+
+    {followListMode && (
+      <FollowListModal
+        userId={user.id}
+        mode={followListMode}
+        onClose={() => setFollowListMode(null)}
+        onViewProfile={u => { setFollowListMode(null); setSubUser({ id: u.id, av: u.avatar_initials || "?", url: u.avatar_url || null, name: u.username || "ATHLETE", rank: null }); }}
+      />
+    )}
+
+    {subUser && (
+      <UserProfileModal
+        user={subUser}
+        currentUserId={currentUserId}
+        onClose={() => setSubUser(null)}
+      />
+    )}
+    </>
   );
 }
 function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile, onViewProfile }) {
@@ -3808,6 +3848,71 @@ function timeAgo(ts) {
   return new Date(ts).toLocaleDateString("en-US", { month:"short", day:"numeric" }).toUpperCase();
 }
 
+function FollowListModal({ userId, mode, onClose, onViewProfile }) {
+  useScrollLock();
+  const [users, setUsers] = useState(null);
+
+  useEffect(() => {
+    async function load() {
+      const col = mode === "following" ? "following_id" : "follower_id";
+      const filter = mode === "following" ? "follower_id" : "following_id";
+      const { data: rows } = await supabase.from("follows").select(col).eq(filter, userId);
+      if (!rows?.length) { setUsers([]); return; }
+      const ids = rows.map(r => r[col]);
+      const { data: profs } = await supabase.from("profiles")
+        .select("id, username, avatar_initials, avatar_url, points, sessions_count, streak")
+        .in("id", ids);
+      setUsers(profs || []);
+    }
+    load();
+  }, [userId, mode]);
+
+  const P = G.purple;
+  const title = mode === "following" ? "FOLLOWING" : "FOLLOWERS";
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.98)", zIndex:800, overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 32px)" }}>
+      <div style={{ maxWidth:480, margin:"0 auto", padding:"calc(env(safe-area-inset-top,0px) + 16px) 18px 0" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:24 }}>
+          <button onClick={onClose} aria-label="Go back" style={{ background:"none", border:"none", color:G.textMid, fontSize:22, cursor:"pointer", padding:"8px 8px 8px 0", lineHeight:1, flexShrink:0, minHeight:44, display:"flex", alignItems:"center" }}>←</button>
+          <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>
+            {title} {users !== null && <span style={{ color:P }}>({users.length})</span>}
+          </div>
+        </div>
+
+        {users === null && <div style={{ textAlign:"center", padding:"48px 0", fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2 }}>LOADING...</div>}
+
+        {users?.length === 0 && (
+          <div style={{ textAlign:"center", padding:"48px 0" }}>
+            <div style={{ fontSize:44, marginBottom:14 }}>{mode === "following" ? "👥" : "📣"}</div>
+            <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:8 }}>
+              {mode === "following" ? "NOT FOLLOWING ANYONE" : "NO FOLLOWERS YET"}
+            </div>
+            <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textDim, letterSpacing:1, lineHeight:1.6 }}>
+              {mode === "following" ? "Search for athletes to follow on the Squad tab." : "Share your fitness journey to gain followers."}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {users?.map(u => (
+            <div key={u.id} onClick={() => onViewProfile(u)} style={{ display:"flex", alignItems:"center", gap:12, background:"rgba(20,18,40,0.95)", border:`1px solid ${G.borderB}`, borderRadius:12, padding:"12px 14px", cursor:"pointer" }}>
+              <AvatarBadge initials={u.avatar_initials || "?"} url={u.avatar_url} size={46}/>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{u.username || "ANONYMOUS"}</div>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1, marginTop:2 }}>
+                  {(u.points || 0).toLocaleString()} pts · {u.sessions_count || 0} sessions · {u.streak || 0}d streak
+                </div>
+              </div>
+              <span style={{ color:G.textDim, fontSize:16 }}>›</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function UserSearchModal({ userId, followingIds, onFollowChange, onViewProfile, onClose }) {
   useScrollLock();
   const [query, setQuery] = useState("");
@@ -5695,6 +5800,23 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
   const [profileOpen, setProfileOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [followOpen, setFollowOpen] = useState(null);
+  const [moreViewingUser, setMoreViewingUser] = useState(null);
+  const [followerCount, setFollowerCount] = useState(null);
+  const [followingCount, setFollowingCount] = useState(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    Promise.all([
+      supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", userId),
+      supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", userId),
+    ]).then(([fersRes, fingRes]) => {
+      setTimeout(() => {
+        setFollowerCount(fersRes.count ?? 0);
+        setFollowingCount(fingRes.count ?? 0);
+      }, 0);
+    });
+  }, [userId]);
   const FEATURES = [
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
     {id:"reports", l:"WEEKLY REPORTS", ico:"📋", desc:"Personalized coaching notes", col:G.purpleLight, hot:true},
@@ -5767,7 +5889,7 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
       </div>
       <SectionLabel>Account</SectionLabel>
       {/* Logged-in user card */}
-      <ChromeCard gold style={{ padding:"13px 14px", marginBottom:10, display:"flex", alignItems:"center", gap:12, cursor:"pointer" }} onClick={handleEditProfile}>
+      <ChromeCard gold style={{ padding:"13px 14px", marginBottom:8, display:"flex", alignItems:"center", gap:12, cursor:"pointer" }} onClick={handleEditProfile}>
         <AvatarBadge initials={profile?.avatar_initials||"ME"} url={profile?.avatar_url||null} size={44} gold/>
         <div style={{ flex:1 }}>
           <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>{profile?.username||"ATHLETE"}</div>
@@ -5775,6 +5897,19 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
         </div>
         <div style={{ fontFamily:FONT.body, fontSize:9, color:G.gold, letterSpacing:2, textTransform:"uppercase", border:`1px solid ${G.gold}44`, borderRadius:6, padding:"4px 8px" }}>EDIT ✎</div>
       </ChromeCard>
+
+      {/* Follower / Following counts */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:14 }}>
+        {[
+          { label:"FOLLOWERS", count:followerCount, mode:"followers" },
+          { label:"FOLLOWING", count:followingCount, mode:"following" },
+        ].map(({ label, count, mode }) => (
+          <button key={mode} onClick={() => setFollowOpen(mode)} style={{ background:"rgba(20,18,40,0.95)", border:`1px solid ${G.purple}22`, borderRadius:10, padding:"10px 8px", textAlign:"center", cursor:"pointer" }}>
+            <div style={{ fontFamily:FONT.display, fontSize:20, color:G.purple, letterSpacing:1 }}>{count ?? "—"}</div>
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginTop:3 }}>{label}</div>
+          </button>
+        ))}
+      </div>
       {isAdmin && (
         <div onClick={()=>setAdminOpen(true)} style={{ background:`linear-gradient(135deg,${G.gold}10,${G.purple}08)`, border:`1px solid ${G.gold}44`, borderRadius:10, padding:"12px 14px", marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer", boxShadow:G.goldGlow2 }}>
           <span style={{ fontSize:18, flexShrink:0 }}>👑</span>
@@ -5798,6 +5933,23 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
         <span style={{ color:G.textDim, fontSize:13, opacity:0.6 }}>›</span>
       </div>
       {deleteOpen && <DeleteAccountModal onClose={()=>setDeleteOpen(false)} onDeleted={onSignOut}/>}
+
+      {followOpen && userId && (
+        <FollowListModal
+          userId={userId}
+          mode={followOpen}
+          onClose={() => setFollowOpen(null)}
+          onViewProfile={u => { setFollowOpen(null); setMoreViewingUser({ id: u.id, av: u.avatar_initials || "?", url: u.avatar_url || null, name: u.username || "ATHLETE", rank: null }); }}
+        />
+      )}
+
+      {moreViewingUser && (
+        <UserProfileModal
+          user={moreViewingUser}
+          currentUserId={userId}
+          onClose={() => setMoreViewingUser(null)}
+        />
+      )}
     </div>
   );
 }
