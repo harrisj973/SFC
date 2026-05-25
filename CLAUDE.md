@@ -18,13 +18,15 @@ npm run dev          # start dev server first
 node test-bugcheck.mjs   # 53-check headless browser sweep (uses ?demo=1 mode)
 ```
 
+`test-bugcheck.mjs` pre-sets `sfc_onboarded`, `sfc_profile_setup_done`, and `sfc_daily_motiv` in localStorage via `ctx.addInitScript()` before navigation. Without `sfc_onboarded`/`sfc_profile_setup_done`, `OnboardingModal` and `ProfileSetupModal` block all interaction in a fresh headless session (they suppress `DailyMotivModal`, which the test expects to appear first). Sub-tab clicks in `ProgressScreen` must use `page.locator("button", { hasText: /^LABEL$/i })` — `page.click("text=LABEL")` hits the screen tagline div first because CSS `text-transform: uppercase` makes it match before the actual button. Exercise picker item clicks require `page.evaluate()` JS dispatch — the picker's scroll-container backdrop intercepts pointer events and causes Playwright's `locator.click()` to time out: `await page.evaluate(() => { const el = [...document.querySelectorAll("div")].find(d => d.textContent.trim() === "Exercise Name"); el?.click(); })`.
+
 **Primary deployment target is Vercel** — production branch is `main`; Vite is auto-detected (`npm run build` → `dist/`). `vercel.json` sets `Service-Worker-Allowed: /` and `Cache-Control: no-cache` on `/sw.js`. The custom domain is `socialfitclub26.com` (purchased on Vercel, auto-configured DNS). After any new Vercel domain is added, update **Supabase → Authentication → URL Configuration** (Site URL + Redirect URLs) or auth email links will redirect to the wrong origin.
 
 A legacy GitHub Actions workflow (`/.github/workflows/deploy.yml`) also exists — it uses `peaceiris/actions-gh-pages@v4` to push `dist/` to the `gh-pages` branch with the custom domain `socialfitclub26.com`. Both can coexist.
 
 ## Architecture
 
-The entire app lives in a **single file**: `src/App.jsx` (~6900 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+The entire app lives in a **single file**: `src/App.jsx` (~7200 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
 
 `SocialFitClubInner` contains all app logic and is wrapped by an `ErrorBoundary` class component (exported as `SocialFitClub`). Unhandled render errors show a styled "SOMETHING WENT WRONG" screen with a reload button.
 
@@ -198,14 +200,14 @@ Root state passed as props:
 
 | Key | Content | Expires |
 |---|---|---|
-| `sfc_nutrition_log` | `{ date: "YYYY-MM-DD", items: [] }` | Auto-cleared when date changes |
+| `sfc_nutrition_log` | `[{ date: "YYYY-MM-DD", items: [] }, ...]` — rolling 30-day history array, newest first. Migrates old single-day object format automatically on load. | Never (30-day rolling) |
 | `sfc_wip_session` | `{ name, exs, tag }` in-progress workout | Cleared on save |
 | `sfc_streak_freezes` | string-encoded integer | Never |
 | `sfc_goals` | `{ weekly, volume, streak }` — user-set numeric targets | Never |
 | `sfc_pledge` | string-encoded integer 1–7, weekly session commitment | Never |
 | `sfc_body_log` | `[{ date, weight, bf, photo? }]` body check-in history, newest first | Never |
 | `sfc_ble_device` | last paired Bluetooth device name | Never |
-| `sfc_supplement_log` | `{ date: "YYYY-MM-DD", items: [] }` supplement log | Auto-cleared when date changes |
+| `sfc_supplement_log` | `[{ date: "YYYY-MM-DD", items: [] }, ...]` — same rolling 30-day format as `sfc_nutrition_log`. | Never (30-day rolling) |
 | `sfc_notif_prefs` | `{ enabled, reminderTime, streakAlert }` notification settings | Never |
 | `sfc_session_tags` | `{ [supabaseSessionId]: typeId }` workout type tag map | Never (pruned on loadSessions) |
 | `sfc_water_log` | `{ date: "YYYY-MM-DD", entries: [oz, ...] }` | Auto-cleared when date changes |
@@ -377,10 +379,13 @@ The feed is fully **Supabase-backed** — posts, likes, and comments are all sto
 
 - **Barcode scan**: `BarcodeDetector` API (Chrome/Edge only; falls back to manual entry) → Open Food Facts API → UPC Item DB secondary API → `BARCODE_DB` (26-product local fallback). If still not found, `barcode_not_found` state renders a manual macro entry form. `scanTarget` (`"food"` | `"supplement"`) controls which log receives the result.
 - **Meal scan**: captures live video to `<canvas>` → JPEG base64 → `analyze-meal` Edge Function → Claude Haiku vision.
+- **Online food search**: when the SEARCH tab returns 0 local results, a "🌐 SEARCH ONLINE DATABASE" button triggers `searchOnline()` which queries `https://world.openfoodfacts.org/cgi/search.pl?...` (no API key needed, 10s timeout via `AbortSignal.timeout`). Returns up to 12 per-100g results. If online search also finds nothing, a "LOG MANUALLY" form lets the user enter name + macros directly.
 
 ### NutritionScreen tabs
 
 Four tabs: `📋 LOG` (food by meal), `📷 SCAN` (camera AI + barcode), `🔍 SEARCH` (food DB with category filter), `💊 SUPPS` (supplement tracker).
+
+The LOG tab shows today's meals and a **PAST DAYS** collapsible section below them. Each past day row displays date, item count, and daily kcal; tapping expands it to show per-item rows and a macro breakdown footer. `pastFoodDays` is derived from the `nutritionHistory` IIFE on mount (last 7 days excluding today). `expandedFoodDay` state tracks which day is open.
 
 The `scanTarget` state (`"food"` | `"supplement"`) controls where scan results are routed. When `"supplement"`, only the barcode button is shown (no meal photo scan), and results go to `suppLog` / `sfc_supplement_log`. `SUPPLEMENTS_DB` has 25 entries.
 
@@ -463,13 +468,23 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 
 `ChromeCard` accepts an optional `onClick` prop which is forwarded to the root div. Always pass `onClick` directly to `ChromeCard` — do not wrap it in another div to handle clicks, as `ChromeCard` now supports this natively.
 
-`ExercisePicker` is a bottom-sheet modal used in `TrainScreen`. It receives `{ onSelect, onClose }` and renders a search bar + category chips (from `EXERCISE_CATS`) + a filtered list of `EXERCISES` with primary muscle label and category badge. Opens via the ⊞ button next to each exercise name input.
+`ExercisePicker` is a bottom-sheet modal used in `TrainScreen`. It receives `{ onSelect, onClose }` and renders: a search bar, two chip rows (gold muscle-group chips from `EXERCISE_CATS` + purple equipment chips from `EQUIPMENT_CATS`), an optional FOCUS sub-row when LEGS is selected (QUADS / HAMSTRINGS from `EXERCISE_SUBCATS`), and a filtered exercise list with muscle label and category badge. Opens via the ⊞ button next to each exercise name input.
 
 `PlateCalculatorModal` is a standalone modal (not a MoreScreen tile). Opened from the TrainScreen header ⚖️ PLATES button. Accepts `{ onClose, initialWeight }`.
 
 ### Module-level constants
 
-`ADMIN_EMAIL`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `REST_OPTIONS`, `MACRO_COACH_KEY`, `DAILY_MESSAGES`, `PROGRAMS_DATA`.
+`ADMIN_EMAIL`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `EXERCISE_SUBCATS`, `EQUIPMENT_CATS`, `CARDIO_SET_CONFIG`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `REST_OPTIONS`, `MACRO_COACH_KEY`, `DAILY_MESSAGES`, `PROGRAMS_DATA`.
+
+`EXERCISE_CATS` is an object keyed by muscle group (`CHEST`, `BACK`, `ARMS`, `LEGS`, `SHOULDERS`, `CORE`, `CARDIO`, `KETTLEBELL`) with 145 exercises total. `EXERCISES = Object.values(EXERCISE_CATS).flat()`. `EX_CAT_LOOKUP` maps each exercise name → its muscle-group category (auto-built from `EXERCISE_CATS`). Adding a new exercise: put it in the right `EXERCISE_CATS` array — `EX_CAT_LOOKUP` and `EXERCISES` are derived automatically.
+
+`EXERCISE_SUBCATS` provides sub-filters within a category: `{ LEGS: { QUADS: [...], HAMSTRINGS: [...] } }`. Used by `ExercisePicker` to show a FOCUS chip row when LEGS is selected.
+
+`EQUIPMENT_CATS` is a parallel cross-category lookup for equipment filters: `{ CABLES: [...23 exercises...], DUMBBELLS: [...29 exercises...] }`. `ExercisePicker` checks `EQUIPMENT_CATS[cat]` first before falling back to `EX_CAT_LOOKUP` — this lets equipment chips filter across muscle groups without moving exercises out of their canonical category.
+
+`CARDIO_SET_CONFIG` maps 13 cardio exercise names to their two input field configs: `{ a: { label, unit, mode }, b: { label, unit, mode } }`. The `a` field maps to the set's `r` property (primary, e.g. TIME MIN), `b` maps to `w` (secondary, e.g. INCLINE %). When `CARDIO_SET_CONFIG[ex.name]` is truthy: column headers change from REPS/WEIGHT to the configured labels, inputs render purple, and `w` placeholder changes to `0` instead of a progressed weight. Cardio exercises are excluded from `totVol` and `pts`; a `totCardioMin` accumulates their minutes for display.
+
+`FOODS` has 250+ entries across categories: BREAKFAST, PROTEIN, CARBS, DAIRY, FRUIT, VEG, NUTS, FAT, SUPPLEMENT, FAST FOOD, RESTAURANT, SNACK, BRAND, BEVERAGE. `FOOD_CATS` lists all these including "ALL" at the start.
 
 `SESSION_TYPES` is `[{ id, label, color }]` — 9 workout categories each with a hex color used for chip backgrounds and history badges.
 
@@ -486,12 +501,14 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 
 - **Stable callback refs**: `RestTimer` uses `useRef` + `useEffect(() => { ref.current = onDone; })` (no deps) to keep the `onDone` callback current without restarting the interval on every parent re-render. Do not replace with a direct dependency.
 - **Streak calculation in `handleSave`**: compares the most recent existing session's `createdAt` date against today/yesterday to decide whether to extend or reset the streak. This must remain before the optimistic state update.
-- **Sign-out cleanup**: `handleSignOut` calls `supabase.auth.signOut()`, then immediately sets `setUser(null)` directly (in addition to the async `onAuthStateChange` callback) so the LoginScreen renders without waiting for the auth event. Clears `sfc_*` localStorage keys including `sfc_daily_motiv`. `sfc_home_widgets` and `sfc_onboarded` and `sfc_profile_setup_done` are intentionally excluded (device-level state). `sfc_remembered_email` is excluded from sign-out (persists by design) but is cleared by `DeleteAccountModal`.
+- **Sign-out cleanup**: `handleSignOut` calls `supabase.auth.signOut()`, then immediately sets `setUser(null)` directly (in addition to the async `onAuthStateChange` callback) so the LoginScreen renders without waiting for the auth event. Only four session-ephemeral keys are cleared: `sfc_daily_motiv`, `sfc_wip_session`, `sfc_session_tags`, `sfc_feed`. All personal data keys (`sfc_nutrition_log`, `sfc_supplement_log`, `sfc_macro_coach`, `sfc_body_log`, `sfc_water_log`, `sfc_water_goal`, `sfc_goals`, `sfc_meal_templates`, `sfc_challenges`, `sfc_notif_prefs`, `sfc_streak_freezes`, `sfc_pledge`) are intentionally preserved across sign-out so users don't lose history when logging back in. `sfc_onboarded`, `sfc_profile_setup_done`, `sfc_home_widgets` are also preserved (device-level state). `sfc_remembered_email` persists by design but is cleared by `DeleteAccountModal`. `DeleteAccountModal` clears everything (all `sfc_*` keys) since the account is being permanently deleted.
 - **Body scroll lock**: `useScrollLock()` is a module-level hook called at the top of every modal component. It sets `document.body.style.overflow = "hidden"` on mount and restores the previous value on unmount, preventing iOS Safari background scroll bleed-through.
 - **Screen top padding**: Every screen root div uses `padding: "calc(env(safe-area-inset-top, 0px) + Xpx) 18px 0"` to clear the iOS status bar. Never use a fixed pixel top padding on screen containers.
 - **Bottom sheet modals**: All bottom sheet containers use `maxHeight: "80vh"` and `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 72px)"` with `overflowY: "auto"`. The 80vh (not 93vh) is intentional — mobile Safari measures `vh` against the full screen including its own chrome, so 80vh gives enough clearance when running as a website (not a PWA).
 - **Main content bottom padding**: The main scrollable content wrapper (a `<main>` element) uses `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 82px)"` to clear the fixed bottom nav bar plus iOS home indicator. `LoginScreen` and all its conditional render paths (`awaitingConfirm`, `forgotSent`) also use `<main>` as their root element for accessibility landmark compliance.
 - **Blob URL lifecycle in `FormCheckModal`**: uses `previewUrlRef` to revoke the previous object URL both when a new file is picked and on unmount, preventing memory leaks.
-- **Blob URL lifecycle in FeedScreen compose**: `postImgUrlRef` tracks the current post image object URL. `clearImage()` revokes it. The backdrop `onClick` calls `clearImage()` before closing the compose sheet. The URL is also revoked when a new file replaces the previous one in `handleImagePick`.
+- **Blob URL lifecycle in FeedScreen compose**: `postImgUrlRef` tracks the current post image object URL. `clearImage()` revokes it. The backdrop `onClick` calls `clearImage()` before closing the compose sheet. The URL is also revoked when a new file replaces the previous one in `handleImagePick`, and a `useEffect` cleanup revokes it when `FeedScreen` unmounts (prevents leak when user navigates away mid-compose).
 - **Challenge auto-complete**: the `useEffect` in `FeedScreen` that watches `sessions` compares current progress against targets and only fires the completion logic once (checks `!ch.completed` before updating). Do not add `challenges` to the dependency array or it will loop.
 - **UserProfileModal fragment wrapper**: the component's `return` wraps everything in `<>...</>` because it renders the main modal div, `FollowListModal`, and a nested `UserProfileModal` for `subUser` as siblings. Do not remove the fragment.
+- **Optimistic follower count in `UserProfileModal`**: `toggleFollow` updates `followersCount` state immediately (`+1` on follow, `-1` on unfollow, floored at 0) without waiting for the DB round-trip. Do not remove this — without it the count stays stale until the modal is reopened.
+- **MoreScreen follow count refresh**: when the `moreViewingUser` `UserProfileModal` closes (via `onClose`), the `followerCount`/`followingCount` state is re-fetched from Supabase. This is intentional — the current user may have followed/unfollowed someone inside that modal, making the displayed pills stale.

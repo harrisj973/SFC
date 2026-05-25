@@ -4,6 +4,14 @@ const BASE = "http://localhost:5173?demo=1";
 
 const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: ["--no-sandbox"] });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+
+// Inject localStorage flags so onboarding/profile-setup modals are pre-dismissed,
+// allowing the daily-motiv popup (and rest of the test) to work in a fresh session.
+await ctx.addInitScript(() => {
+  localStorage.setItem("sfc_onboarded", "1");
+  localStorage.setItem("sfc_profile_setup_done", "1");
+});
+
 const page = await ctx.newPage();
 
 const errors = [];
@@ -59,7 +67,9 @@ await check("Quick Start card visible", async () => {
 await check("Leaderboard card visible", async () => {
   await page.waitForSelector("text=LEADERBOARD", { timeout: 3000 });
 });
-await check("User name visible", async () => {
+await check("User name visible in leaderboard", async () => {
+  // Leaderboard starts collapsed — expand it first, then check for demo username
+  await page.click("text=LEADERBOARD");
   await page.waitForSelector("text=DEMOUSER", { timeout: 3000 });
 });
 
@@ -117,14 +127,15 @@ await check("Stats content visible (SESSIONS stat)", async () => {
 await page.screenshot({ path: "/tmp/ss-stats.png" });
 
 await check("Streak tab", async () => {
-  await page.click("text=STREAK");
-  await page.waitForSelector("text=DAY STREAK", { timeout: 3000 });
+  // Use button selector to avoid matching the tagline div (CSS text-transform makes it uppercase too)
+  await page.locator("button", { hasText: /^STREAK$/i }).click();
+  await page.waitForSelector("text=CURRENT STREAK", { timeout: 3000 });
 });
 await page.screenshot({ path: "/tmp/ss-streak.png" });
 
 await check("Heatmap tab", async () => {
-  await page.click("text=HEAT MAP");
-  await page.waitForSelector("text=MUSCLE", { timeout: 3000 });
+  await page.locator("button", { hasText: /^HEAT MAP$/i }).click();
+  await page.waitForSelector("text=AI Recovery Intel", { timeout: 3000 });
 });
 await page.screenshot({ path: "/tmp/ss-heatmap.png" });
 
