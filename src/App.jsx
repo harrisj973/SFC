@@ -4982,6 +4982,7 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
   const [formCheckOpen, setFormCheckOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const FEATURES = [
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
     {id:"reports", l:"WEEKLY REPORTS", ico:"📋", desc:"Personalized coaching notes", col:G.purpleLight, hot:true},
@@ -5079,6 +5080,12 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
         <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.red, textTransform:"uppercase" }}>SIGN OUT</div>
         <span style={{ color:G.red, fontSize:13, opacity:0.6 }}>›</span>
       </div>
+      <div onClick={()=>setDeleteOpen(true)} style={{ borderRadius:10, padding:"13px 14px", marginTop:4, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
+        <span style={{ fontSize:18, flexShrink:0 }}>🗑️</span>
+        <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.textDim, textTransform:"uppercase" }}>DELETE ACCOUNT</div>
+        <span style={{ color:G.textDim, fontSize:13, opacity:0.6 }}>›</span>
+      </div>
+      {deleteOpen && <DeleteAccountModal onClose={()=>setDeleteOpen(false)} onDeleted={onSignOut}/>}
     </div>
   );
 }
@@ -5132,7 +5139,7 @@ function ResetPasswordScreen({ onDone }) {
 
 function LoginScreen() {
   const [mode, setMode] = useState("signin");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => { try { return localStorage.getItem("sfc_remembered_email") || ""; } catch { return ""; } });
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -5140,6 +5147,8 @@ function LoginScreen() {
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => { try { return !!localStorage.getItem("sfc_remembered_email"); } catch { return true; } });
 
   const inp = { background:"rgba(0,0,0,0.45)", border:`1px solid ${G.borderB}`, borderRadius:8, padding:"13px 14px", color:"#fff", fontSize:14, outline:"none", width:"100%", boxSizing:"border-box", fontFamily:FONT.body, letterSpacing:1.5 };
 
@@ -5173,6 +5182,10 @@ function LoginScreen() {
       } else {
         const { error: e } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (e) throw e;
+        try {
+          if (rememberMe) localStorage.setItem("sfc_remembered_email", email.trim());
+          else localStorage.removeItem("sfc_remembered_email");
+        } catch { /* ignore */ }
       }
     } catch (e) {
       setError(e.message === "Invalid login credentials" ? "Incorrect email or password." : e.message);
@@ -5232,13 +5245,28 @@ function LoginScreen() {
             <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="DISPLAY NAME" style={inp}/>
           )}
           <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="EMAIL" type="email" autoCapitalize="none" style={inp}/>
-          <input value={password} onChange={e=>setPassword(e.target.value)} placeholder="PASSWORD" type="password" style={inp}
-            onKeyDown={e=>e.key==="Enter"&&submit()}/>
+          <div style={{ position:"relative" }}>
+            <input value={password} onChange={e=>setPassword(e.target.value)} placeholder="PASSWORD" type={showPw ? "text" : "password"}
+              style={{ ...inp, paddingRight:52 }} onKeyDown={e=>e.key==="Enter"&&submit()}/>
+            <button type="button" onClick={()=>setShowPw(v=>!v)}
+              style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:G.textMid, cursor:"pointer", fontFamily:FONT.body, fontSize:10, letterSpacing:1.5, textTransform:"uppercase", padding:4 }}>
+              {showPw ? "HIDE" : "SHOW"}
+            </button>
+          </div>
         </div>
 
         {error && (
           <div style={{ marginTop:10, padding:"10px 14px", background:"rgba(255,61,90,0.1)", border:`1px solid ${G.red}44`, borderRadius:7, fontFamily:FONT.body, fontSize:12, color:G.red, letterSpacing:1 }}>
             {errMap[error]||error}
+          </div>
+        )}
+
+        {mode==="signin" && (
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginTop:14, cursor:"pointer" }} onClick={()=>setRememberMe(v=>!v)}>
+            <div style={{ width:18, height:18, borderRadius:4, border:`1.5px solid ${rememberMe ? G.purple : G.borderB}`, background:rememberMe ? G.purple : "transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.15s" }}>
+              {rememberMe && <div style={{ color:"#fff", fontSize:11, lineHeight:1 }}>✓</div>}
+            </div>
+            <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>Remember me</div>
           </div>
         )}
 
@@ -5285,6 +5313,53 @@ const _D = new URLSearchParams(typeof window !== "undefined" ? window.location.s
 const _DS = [{id:"d1",name:"PUSH DAY",exs:[{id:1,name:"Barbell Bench Press",sets:[{r:"5",w:"185",type:"working"},{r:"5",w:"185",type:"working"},{r:"5",w:"185",type:"working"}],rest:90}],sets:3,vol:2775,pts:80,date:"May 17",createdAt:new Date(Date.now()-86400000).toISOString(),tag:"push"},{id:"d2",name:"PULL DAY",exs:[{id:1,name:"Barbell Deadlift",sets:[{r:"3",w:"315",type:"working"},{r:"3",w:"315",type:"working"}],rest:120}],sets:2,vol:1890,pts:60,date:"May 15",createdAt:new Date(Date.now()-3*86400000).toISOString()},{id:"d3",name:"LEG DAY",exs:[{id:1,name:"Barbell Squat",sets:[{r:"5",w:"225",type:"working"},{r:"5",w:"225",type:"working"},{r:"5",w:"225",type:"working"}],rest:120}],sets:3,vol:3375,pts:90,date:"May 13",createdAt:new Date(Date.now()-5*86400000).toISOString()},{id:"d4",name:"PUSH DAY 2",exs:[{id:1,name:"Barbell Bench Press",sets:[{r:"5",w:"190",type:"working"},{r:"5",w:"190",type:"working"},{r:"5",w:"190",type:"working"}],rest:90},{id:2,name:"Incline Dumbbell Press",sets:[{r:"10",w:"60",type:"working"},{r:"10",w:"60",type:"working"}],rest:60}],sets:5,vol:3900,pts:100,date:"May 11",createdAt:new Date(Date.now()-7*86400000).toISOString(),tag:"push"},{id:"d5",name:"LEG DAY 2",exs:[{id:1,name:"Barbell Squat",sets:[{r:"5",w:"230",type:"working"},{r:"5",w:"230",type:"working"},{r:"5",w:"230",type:"working"}],rest:120},{id:2,name:"Leg Press",sets:[{r:"12",w:"270",type:"working"},{r:"12",w:"270",type:"working"}],rest:90}],sets:5,vol:9990,pts:110,date:"May 9",createdAt:new Date(Date.now()-9*86400000).toISOString(),tag:"legs"}];
 const _DP = {id:"demo",username:"DEMOUSER",avatar_initials:"DU",points:1650,streak:7,sessions_count:5};
 const _DL = [{rank:1,name:"DEMOUSER",pts:1650,sessions:5,streak:7,av:"DU",isMe:true},{rank:2,name:"MARCUS J",pts:1200,sessions:9,streak:3,av:"MJ",isMe:false},{rank:3,name:"SARAH K",pts:980,sessions:7,streak:5,av:"SK",isMe:false},{rank:4,name:"ALEX T",pts:750,sessions:5,streak:2,av:"AT",isMe:false}];
+
+function DeleteAccountModal({ onClose, onDeleted }) {
+  useScrollLock();
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleDelete = async () => {
+    if (confirm.toUpperCase() !== "DELETE") { setError('Type DELETE to confirm.'); return; }
+    setLoading(true); setError(null);
+    try {
+      const { error: e } = await supabase.functions.invoke("delete-account");
+      if (e) throw e;
+      // Clear all local data
+      const keys = ["sfc_nutrition_log","sfc_wip_session","sfc_feed","sfc_streak_freezes","sfc_goals","sfc_pledge","sfc_body_log","sfc_ble_device","sfc_supplement_log","sfc_notif_prefs","sfc_session_tags","sfc_water_log","sfc_water_goal","sfc_macro_coach","sfc_challenges","sfc_meal_templates","sfc_daily_motiv","sfc_remembered_email"];
+      keys.forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
+      onDeleted();
+    } catch {
+      setError("Deletion failed. Please contact sfcsupport26@gmail.com to request manual deletion.");
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.97)", zIndex:600, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 24px" }}>
+      <div style={{ width:"100%", maxWidth:380, background:G.bg2, borderRadius:16, padding:"28px 22px", border:`1px solid ${G.red}44` }}>
+        <div style={{ fontSize:40, textAlign:"center", marginBottom:14 }}>⚠️</div>
+        <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:G.red, textAlign:"center", textTransform:"uppercase", marginBottom:10 }}>DELETE ACCOUNT</div>
+        <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:0.5, lineHeight:1.7, textAlign:"center", marginBottom:22 }}>
+          This permanently deletes your account, all workout history, and profile data. <span style={{ color:"#fff" }}>This cannot be undone.</span>
+        </div>
+        <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase", marginBottom:7 }}>Type DELETE to confirm</div>
+        <input
+          value={confirm} onChange={e=>setConfirm(e.target.value)}
+          placeholder="DELETE"
+          style={{ background:"rgba(0,0,0,0.5)", border:`1px solid ${G.red}55`, borderRadius:8, padding:"12px 14px", color:G.red, fontSize:16, outline:"none", width:"100%", boxSizing:"border-box", fontFamily:FONT.display, letterSpacing:4, textAlign:"center", textTransform:"uppercase", marginBottom:8 }}
+        />
+        {error && <div style={{ fontFamily:FONT.body, fontSize:11, color:G.red, letterSpacing:1, textAlign:"center", marginBottom:10 }}>{error}</div>}
+        <button onClick={handleDelete} disabled={loading} style={{ width:"100%", padding:"13px", background:loading ? "rgba(255,61,90,0.2)" : "rgba(255,61,90,0.15)", border:`1px solid ${G.red}66`, borderRadius:9, color:G.red, fontFamily:FONT.display, fontSize:14, letterSpacing:3, textTransform:"uppercase", cursor:"pointer", marginBottom:10 }}>
+          {loading ? "DELETING..." : "PERMANENTLY DELETE ◆"}
+        </button>
+        <button onClick={onClose} style={{ width:"100%", padding:"12px", background:"transparent", border:`1px solid ${G.borderB}`, borderRadius:9, color:G.textMid, fontFamily:FONT.display, fontSize:13, letterSpacing:3, textTransform:"uppercase", cursor:"pointer" }}>
+          CANCEL
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function HelpSupportModal({ onClose }) {
   useScrollLock();
