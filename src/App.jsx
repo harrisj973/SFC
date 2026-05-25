@@ -7035,11 +7035,9 @@ function SocialFitClubInner() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    // Clear all user-specific localStorage so the next user on this device starts clean
-    ["sfc_feed","sfc_body_log","sfc_goals","sfc_macro_coach","sfc_pledge","sfc_streak_freezes",
-     "sfc_notif_prefs","sfc_session_tags","sfc_templates","sfc_wip_session",
-     "sfc_nutrition_log","sfc_supplement_log","sfc_water_log","sfc_water_goal",
-     "sfc_challenges","sfc_meal_templates","sfc_daily_motiv"].forEach(k => localStorage.removeItem(k));
+    // Only clear session-ephemeral keys — nutrition logs, macro coach, body log, goals,
+    // templates, water, challenges etc. are device-level personal data and must survive sign-out.
+    ["sfc_daily_motiv","sfc_wip_session","sfc_session_tags","sfc_feed"].forEach(k => localStorage.removeItem(k));
     setTab("home");
     setSessions([]);
     setProfile(null);
