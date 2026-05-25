@@ -3845,21 +3845,48 @@ function UserSearchModal({ userId, followingIds, onFollowChange, onViewProfile, 
   };
 
   const P = G.purple;
+  const hasQuery = query.trim().length > 0;
+
+  let statusMsg = "";
+  if (hasQuery && !searching) {
+    statusMsg = results.length === 0 ? "No athletes found" : `${results.length} athlete${results.length === 1 ? "" : "s"} found`;
+  }
+
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.98)", zIndex:790, overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 32px)" }}>
+    <div role="dialog" aria-modal="true" aria-label="Search athletes" style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.98)", zIndex:790, overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 32px)" }}>
       <div style={{ maxWidth:480, margin:"0 auto", padding:"calc(env(safe-area-inset-top,0px) + 16px) 18px 0" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
-          <button onClick={onClose} style={{ background:"none", border:"none", color:G.textMid, fontSize:22, cursor:"pointer", padding:"4px 8px 4px 0", lineHeight:1, flexShrink:0 }}>←</button>
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search athletes..."
-            autoFocus
-            style={{ flex:1, background:"rgba(255,255,255,0.06)", border:`1px solid ${G.borderB}`, borderRadius:10, padding:"11px 16px", color:"#fff", fontSize:15, outline:"none", fontFamily:FONT.body, letterSpacing:1 }}
-          />
+
+        {/* Search bar */}
+        <div role="search" style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+          <button onClick={onClose} aria-label="Go back" style={{ background:"none", border:"none", color:G.textMid, fontSize:22, cursor:"pointer", padding:"8px 8px 8px 0", lineHeight:1, flexShrink:0, minWidth:36, minHeight:44, display:"flex", alignItems:"center", justifyContent:"flex-start" }}>←</button>
+          <div style={{ flex:1, position:"relative", display:"flex", alignItems:"center" }}>
+            <span aria-hidden="true" style={{ position:"absolute", left:13, fontSize:16, color:G.textDim, pointerEvents:"none", lineHeight:1 }}>🔍</span>
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search athletes..."
+              autoFocus
+              inputMode="search"
+              aria-label="Search athletes by username"
+              aria-controls="search-results"
+              style={{ width:"100%", background:"rgba(255,255,255,0.06)", border:`1px solid ${hasQuery ? P : G.borderB}`, borderRadius:10, padding:"11px 40px 11px 40px", color:"#fff", fontSize:15, outline:"none", fontFamily:FONT.body, letterSpacing:1, boxSizing:"border-box", transition:"border-color 0.2s" }}
+            />
+            {hasQuery && (
+              <button
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                style={{ position:"absolute", right:10, background:"none", border:"none", color:G.textMid, fontSize:18, cursor:"pointer", padding:"6px", lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center", minWidth:32, minHeight:32 }}
+              >✕</button>
+            )}
+          </div>
         </div>
 
-        {!query && (
+        {/* Screen-reader live region */}
+        <div aria-live="polite" aria-atomic="true" style={{ position:"absolute", width:1, height:1, overflow:"hidden", clip:"rect(0,0,0,0)", whiteSpace:"nowrap" }}>
+          {statusMsg}
+        </div>
+
+        {!hasQuery && (
           <div style={{ textAlign:"center", padding:"48px 0" }}>
             <div style={{ fontSize:42, marginBottom:14 }}>🔍</div>
             <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:8 }}>FIND YOUR <span style={{ color:P }}>SQUAD</span></div>
@@ -3867,14 +3894,22 @@ function UserSearchModal({ userId, followingIds, onFollowChange, onViewProfile, 
           </div>
         )}
 
-        {searching && <div style={{ textAlign:"center", padding:"32px 0", fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2 }}>SEARCHING...</div>}
-        {!searching && query && results.length === 0 && <div style={{ textAlign:"center", padding:"32px 0", fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2 }}>NO ATHLETES FOUND</div>}
+        {searching && <div role="status" aria-label="Searching" style={{ textAlign:"center", padding:"32px 0", fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2 }}>SEARCHING...</div>}
+        {!searching && hasQuery && results.length === 0 && <div style={{ textAlign:"center", padding:"32px 0", fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2 }}>NO ATHLETES FOUND</div>}
 
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+        <div id="search-results" role="list" style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {results.map(u => {
             const isF = localFollowing.has(u.id);
             return (
-              <div key={u.id} onClick={() => onViewProfile(u)} style={{ display:"flex", alignItems:"center", gap:12, background:"rgba(20,18,40,0.95)", border:`1px solid ${G.borderB}`, borderRadius:12, padding:"12px 14px", cursor:"pointer" }}>
+              <div
+                key={u.id}
+                role="listitem"
+                onClick={() => onViewProfile(u)}
+                onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onViewProfile(u); } }}
+                tabIndex={0}
+                aria-label={`View profile of ${u.username || "Anonymous"}`}
+                style={{ display:"flex", alignItems:"center", gap:12, background:"rgba(20,18,40,0.95)", border:`1px solid ${G.borderB}`, borderRadius:12, padding:"12px 14px", cursor:"pointer", outline:"none" }}
+              >
                 <AvatarBadge initials={u.avatar_initials || "?"} url={u.avatar_url} size={46}/>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{u.username || "ANONYMOUS"}</div>
@@ -3884,7 +3919,9 @@ function UserSearchModal({ userId, followingIds, onFollowChange, onViewProfile, 
                 </div>
                 <button
                   onClick={e => toggleFollow(u, e)}
-                  style={{ flexShrink:0, padding:"7px 14px", borderRadius:20, border:`1px solid ${isF ? G.borderB : P}`, background: isF ? "transparent" : `${P}22`, color: isF ? G.textMid : P, fontFamily:FONT.display, fontSize:10, letterSpacing:2, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}
+                  aria-label={isF ? `Unfollow ${u.username}` : `Follow ${u.username}`}
+                  aria-pressed={isF}
+                  style={{ flexShrink:0, padding:"9px 16px", borderRadius:20, border:`1px solid ${isF ? G.borderB : P}`, background: isF ? "transparent" : `${P}22`, color: isF ? G.textMid : P, fontFamily:FONT.display, fontSize:10, letterSpacing:2, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap", minHeight:40 }}
                 >{isF ? "✓ FOLLOWING" : "FOLLOW +"}</button>
               </div>
             );
