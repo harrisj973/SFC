@@ -304,6 +304,8 @@ The `scanTarget` state (`"food"` | `"supplement"`) controls where scan results a
 
 Icons live in `public/`: `favicon.svg` (vector badge logo, also the browser tab icon), `icon-192.png` (home screen), `icon-512.png` (splash / maskable). `index.html` wires them up via `<link rel="manifest">`, `<link rel="apple-touch-icon">`, and the iOS-specific meta tags (`apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`, `apple-mobile-web-app-title`).
 
+**SEO** — `index.html` has a `<meta name="description">` tag and `public/robots.txt` (`Allow: /`) is present. Lighthouse production scores: Performance 97, Accessibility 100, Best Practices 96, SEO 100.
+
 **Regenerating PNG icons** — the source logo is `public/sfcc.jpg`. To regenerate at 192×192 and 512×512, run a one-off Node script using Playwright:
 ```js
 import { chromium } from "playwright";
@@ -402,6 +404,6 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 - **Body scroll lock**: `useScrollLock()` is a module-level hook called at the top of every modal component. It sets `document.body.style.overflow = "hidden"` on mount and restores the previous value on unmount, preventing iOS Safari background scroll bleed-through.
 - **Screen top padding**: Every screen root div uses `padding: "calc(env(safe-area-inset-top, 0px) + Xpx) 18px 0"` to clear the iOS status bar. Never use a fixed pixel top padding on screen containers.
 - **Bottom sheet modals**: All bottom sheet containers use `maxHeight: "80vh"` and `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 72px)"` with `overflowY: "auto"`. The 80vh (not 93vh) is intentional — mobile Safari measures `vh` against the full screen including its own chrome, so 80vh gives enough clearance when running as a website (not a PWA).
-- **Main content bottom padding**: The main scrollable content wrapper uses `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 82px)"` to clear the fixed bottom nav bar plus iOS home indicator.
+- **Main content bottom padding**: The main scrollable content wrapper (a `<main>` element) uses `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 82px)"` to clear the fixed bottom nav bar plus iOS home indicator. `LoginScreen` and all its conditional render paths (`awaitingConfirm`, `forgotSent`) also use `<main>` as their root element for accessibility landmark compliance.
 - **Blob URL lifecycle in `FormCheckModal`**: uses `previewUrlRef` to revoke the previous object URL both when a new file is picked and on unmount, preventing memory leaks.
 - **Challenge auto-complete**: the `useEffect` in `FeedScreen` that watches `sessions` compares current progress against targets and only fires the completion logic once (checks `!ch.completed` before updating). Do not add `challenges` to the dependency array or it will loop.
