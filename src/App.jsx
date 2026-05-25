@@ -1078,9 +1078,11 @@ function UserProfileModal({ user, currentUserId, onClose }) {
     if (isFollowing) {
       await supabase.from("follows").delete().eq("follower_id", currentUserId).eq("following_id", user.id);
       setIsFollowing(false);
+      setFollowersCount(c => Math.max(0, (c || 0) - 1));
     } else {
       await supabase.from("follows").insert({ follower_id: currentUserId, following_id: user.id });
       setIsFollowing(true);
+      setFollowersCount(c => (c || 0) + 1);
     }
     setFollowLoading(false);
   };
@@ -4065,6 +4067,8 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
   const postImgUrlRef = useRef(null);
   const postFileInputRef = useRef(null);
 
+  useEffect(() => { return () => { if (postImgUrlRef.current) URL.revokeObjectURL(postImgUrlRef.current); }; }, []);
+
   useEffect(() => { localStorage.setItem("sfc_challenges", JSON.stringify(challenges)); }, [challenges]);
 
   const loadPosts = async (tab, followSet) => {
@@ -5947,7 +5951,17 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
         <UserProfileModal
           user={moreViewingUser}
           currentUserId={userId}
-          onClose={() => setMoreViewingUser(null)}
+          onClose={() => {
+            setMoreViewingUser(null);
+            if (!userId) return;
+            Promise.all([
+              supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", userId),
+              supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", userId),
+            ]).then(([fersRes, fingRes]) => {
+              setFollowerCount(fersRes.count ?? 0);
+              setFollowingCount(fingRes.count ?? 0);
+            });
+          }}
         />
       )}
     </div>
