@@ -1,7 +1,8 @@
 {
+  "id": "/",
   "name": "Social Fit Club",
   "short_name": "SFC",
-  "description": "Track workouts, compete on the leaderboard, and stay accountable with your squad.",
+  "description": "Track workouts, hit PRs, log nutrition, and compete with your squad. Your all-in-one fitness community.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -18,7 +19,13 @@
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/favicon.svg",
@@ -27,6 +34,51 @@
       "purpose": "any"
     }
   ],
+  "screenshots": [
+    {
+      "src": "/screenshots/home.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Home — stats, leaderboard & quick start"
+    },
+    {
+      "src": "/screenshots/train.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Train — track sessions & exercises"
+    },
+    {
+      "src": "/screenshots/stats.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Stats — progress, streaks & muscle heatmap"
+    },
+    {
+      "src": "/screenshots/fuel.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Fuel — nutrition log & macro tracking"
+    },
+    {
+      "src": "/screenshots/squad.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Squad — social feed & challenges"
+    },
+    {
+      "src": "/screenshots/more.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "More — AI Coach, Goals & tools"
+    }
+  ],
   "categories": ["fitness", "health", "sports"],
-  "screenshots": []
+  "lang": "en",
+  "dir": "ltr"
 }
