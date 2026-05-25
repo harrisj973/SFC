@@ -64,7 +64,6 @@ const EXERCISE_CATS = {
 const EX_CAT_LOOKUP = {};
 Object.entries(EXERCISE_CATS).forEach(([cat, arr]) => arr.forEach(n => { EX_CAT_LOOKUP[n] = cat; }));
 
-const REACTIONS = ["🔥","💪","👊","⚡","🙌"];
 
 
 const MACROS_GOAL = { cal:2200, pro:180, carb:220, fat:65 };
@@ -1038,17 +1037,20 @@ function RestTimer({ sec, onDone }) {
 }
 
 
-function UserProfileModal({ user, onClose }) {
+function UserProfileModal({ user, currentUserId, onClose }) {
   useScrollLock();
   const [prof, setProf] = useState(null);
   const [userSessions, setUserSessions] = useState(null);
   const [err, setErr] = useState(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
-      const [profRes, sessRes] = await Promise.all([
+      const [profRes, sessRes, followRes] = await Promise.all([
         supabase.from("profiles").select("username, avatar_initials, avatar_url, points, streak, sessions_count, location").eq("id", user.id).single(),
         supabase.from("sessions").select("id, name, exercises, sets, volume, points, date, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(200),
+        currentUserId ? supabase.from("follows").select("following_id").eq("follower_id", currentUserId).eq("following_id", user.id) : Promise.resolve({ data: [] }),
       ]);
       if (profRes.data) setProf(profRes.data);
       if (sessRes.data) {
@@ -1057,9 +1059,23 @@ function UserProfileModal({ user, onClose }) {
         setErr("Workouts are private");
         setUserSessions([]);
       }
+      if (followRes.data?.length > 0) setIsFollowing(true);
     }
     load();
-  }, [user.id]);
+  }, [user.id, currentUserId]);
+
+  const toggleFollow = async () => {
+    if (!currentUserId || followLoading) return;
+    setFollowLoading(true);
+    if (isFollowing) {
+      await supabase.from("follows").delete().eq("follower_id", currentUserId).eq("following_id", user.id);
+      setIsFollowing(false);
+    } else {
+      await supabase.from("follows").insert({ follower_id: currentUserId, following_id: user.id });
+      setIsFollowing(true);
+    }
+    setFollowLoading(false);
+  };
 
   const prs = userSessions ? calcPRs(userSessions) : {};
   const topPrs = Object.entries(prs).sort(([, a], [, b]) => b.est1rm - a.est1rm).slice(0, 10);
@@ -1081,19 +1097,26 @@ function UserProfileModal({ user, onClose }) {
             {/* Avatar + name */}
             <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:12, marginBottom:28 }}>
               <AvatarBadge initials={prof?.avatar_initials || user.av} url={prof?.avatar_url || user.url} size={90} gold/>
-              <div>
-                <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase", textAlign:"center" }}>{prof?.username || user.name}</div>
-                {prof?.location && <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2, textAlign:"center", marginTop:4, textTransform:"uppercase" }}>📍 {prof.location}</div>}
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>{prof?.username || user.name}</div>
+                {prof?.location && <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2, marginTop:4, textTransform:"uppercase" }}>📍 {prof.location}</div>}
               </div>
-              <div style={{ background:`${P}22`, border:`1px solid ${P}44`, borderRadius:20, padding:"4px 14px", fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:P }}>#{user.rank} RANKED</div>
+              <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", justifyContent:"center" }}>
+                {user.rank && <div style={{ background:`${P}22`, border:`1px solid ${P}44`, borderRadius:20, padding:"4px 14px", fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:P }}>#{user.rank} RANKED</div>}
+                {currentUserId && !user.isMe && (
+                  <button onClick={toggleFollow} disabled={followLoading} style={{ padding:"6px 18px", borderRadius:20, border:`1px solid ${isFollowing ? G.borderB : P}`, background: isFollowing ? "transparent" : `${P}22`, color: isFollowing ? G.textMid : P, fontFamily:FONT.display, fontSize:11, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>
+                    {followLoading ? "..." : isFollowing ? "✓ FOLLOWING" : "FOLLOW +"}
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Stats grid */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:28 }}>
               {[
-                { label:"POINTS", val:(prof?.points ?? user.pts).toLocaleString() },
-                { label:"STREAK", val:`${prof?.streak ?? user.streak}d` },
-                { label:"SESSIONS", val:prof?.sessions_count ?? user.sessions },
+                { label:"POINTS", val:(prof?.points ?? user.pts ?? 0).toLocaleString() },
+                { label:"STREAK", val:`${prof?.streak ?? user.streak ?? 0}d` },
+                { label:"SESSIONS", val:prof?.sessions_count ?? user.sessions ?? 0 },
               ].map(({ label, val }) => (
                 <div key={label} style={{ background:"rgba(20,18,40,0.95)", border:`1px solid ${P}22`, borderRadius:10, padding:"12px 8px", textAlign:"center" }}>
                   <div style={{ fontFamily:FONT.display, fontSize:18, color:"#fff", letterSpacing:1 }}>{val}</div>
@@ -1137,7 +1160,6 @@ function UserProfileModal({ user, onClose }) {
     </div>
   );
 }
-
 function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile, onViewProfile }) {
   const weeklyVol = calcWeeklyVolume(sessions);
   const maxVol = Math.max(...weeklyVol, 1);
@@ -3773,21 +3795,123 @@ function getChallengeProgress(ch, sessions) {
   return { current, pct: Math.min(100, ch.target ? (current / ch.target) * 100 : 0), unit: "SESSIONS" };
 }
 
-function FeedScreen({ showToast, profile, sessions = [] }) {
-  const [feed, setFeed] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("sfc_feed") || "null");
-      // Purge old seeded placeholder posts (ids f1, f2, f3)
-      if (Array.isArray(saved)) return saved.filter(p => !["f1","f2","f3"].includes(p.id));
-      return [];
-    } catch { return []; }
-  });
-  const [activeComment, setActiveComment] = useState(null);
-  const [cTxt, setCTxt] = useState("");
-  const [showPost, setShowPost] = useState(false);
+function timeAgo(ts) {
+  if (!ts) return "";
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "JUST NOW";
+  if (mins < 60) return `${mins}M AGO`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}H AGO`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}D AGO`;
+  return new Date(ts).toLocaleDateString("en-US", { month:"short", day:"numeric" }).toUpperCase();
+}
+
+function UserSearchModal({ userId, followingIds, onFollowChange, onViewProfile, onClose }) {
+  useScrollLock();
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [localFollowing, setLocalFollowing] = useState(new Set(followingIds));
+
+  useEffect(() => { setTimeout(() => { setLocalFollowing(new Set(followingIds)); }, 0); }, [followingIds]);
+
+  useEffect(() => {
+    if (!query.trim()) { setTimeout(() => setResults([]), 0); return; }
+    const t = setTimeout(async () => {
+      setSearching(true);
+      const { data } = await supabase.from("profiles")
+        .select("id, username, avatar_initials, avatar_url, location, points, sessions_count, streak")
+        .ilike("username", `%${query.trim()}%`)
+        .neq("id", userId)
+        .limit(20);
+      setResults(data || []);
+      setSearching(false);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query, userId]);
+
+  const toggleFollow = async (u, e) => {
+    e.stopPropagation();
+    const isF = localFollowing.has(u.id);
+    setLocalFollowing(p => { const n = new Set(p); isF ? n.delete(u.id) : n.add(u.id); return n; });
+    if (isF) {
+      await supabase.from("follows").delete().eq("follower_id", userId).eq("following_id", u.id);
+    } else {
+      await supabase.from("follows").insert({ follower_id: userId, following_id: u.id });
+    }
+    onFollowChange();
+  };
+
+  const P = G.purple;
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.98)", zIndex:790, overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 32px)" }}>
+      <div style={{ maxWidth:480, margin:"0 auto", padding:"calc(env(safe-area-inset-top,0px) + 16px) 18px 0" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:G.textMid, fontSize:22, cursor:"pointer", padding:"4px 8px 4px 0", lineHeight:1, flexShrink:0 }}>←</button>
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search athletes..."
+            autoFocus
+            style={{ flex:1, background:"rgba(255,255,255,0.06)", border:`1px solid ${G.borderB}`, borderRadius:10, padding:"11px 16px", color:"#fff", fontSize:15, outline:"none", fontFamily:FONT.body, letterSpacing:1 }}
+          />
+        </div>
+
+        {!query && (
+          <div style={{ textAlign:"center", padding:"48px 0" }}>
+            <div style={{ fontSize:42, marginBottom:14 }}>🔍</div>
+            <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:8 }}>FIND YOUR <span style={{ color:P }}>SQUAD</span></div>
+            <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textDim, letterSpacing:1, lineHeight:1.6 }}>Search by username to find and follow athletes</div>
+          </div>
+        )}
+
+        {searching && <div style={{ textAlign:"center", padding:"32px 0", fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2 }}>SEARCHING...</div>}
+        {!searching && query && results.length === 0 && <div style={{ textAlign:"center", padding:"32px 0", fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2 }}>NO ATHLETES FOUND</div>}
+
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {results.map(u => {
+            const isF = localFollowing.has(u.id);
+            return (
+              <div key={u.id} onClick={() => onViewProfile(u)} style={{ display:"flex", alignItems:"center", gap:12, background:"rgba(20,18,40,0.95)", border:`1px solid ${G.borderB}`, borderRadius:12, padding:"12px 14px", cursor:"pointer" }}>
+                <AvatarBadge initials={u.avatar_initials || "?"} url={u.avatar_url} size={46}/>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{u.username || "ANONYMOUS"}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1, marginTop:2 }}>
+                    {u.location ? `📍 ${u.location}  ·  ` : ""}{(u.points || 0).toLocaleString()} pts  ·  {u.sessions_count || 0} sessions
+                  </div>
+                </div>
+                <button
+                  onClick={e => toggleFollow(u, e)}
+                  style={{ flexShrink:0, padding:"7px 14px", borderRadius:20, border:`1px solid ${isF ? G.borderB : P}`, background: isF ? "transparent" : `${P}22`, color: isF ? G.textMid : P, fontFamily:FONT.display, fontSize:10, letterSpacing:2, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}
+                >{isF ? "✓ FOLLOWING" : "FOLLOW +"}</button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeedScreen({ showToast, profile, sessions = [], userId }) {
+  const [feedTab, setFeedTab] = useState("following");
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [likedIds, setLikedIds] = useState(new Set());
+  const [followingIds, setFollowingIds] = useState(new Set());
+  const [showCompose, setShowCompose] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [openComments, setOpenComments] = useState(null);
+  const [commentTexts, setCommentTexts] = useState({});
+  const [postComments, setPostComments] = useState({});
+  const [loadingComments, setLoadingComments] = useState({});
+  const [viewingProfile, setViewingProfile] = useState(null);
   const [newTxt, setNewTxt] = useState("");
   const [newType, setNewType] = useState("post");
   const [newTag, setNewTag] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [challenges, setChallenges] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sfc_challenges") || "[]"); } catch { return []; }
   });
@@ -3795,17 +3919,48 @@ function FeedScreen({ showToast, profile, sessions = [] }) {
   const [newChalExercise, setNewChalExercise] = useState("");
   const [newChalTarget, setNewChalTarget] = useState("");
 
-  useEffect(() => {
-    localStorage.setItem("sfc_feed", JSON.stringify(feed));
-  }, [feed]);
+  useEffect(() => { localStorage.setItem("sfc_challenges", JSON.stringify(challenges)); }, [challenges]);
+
+  const loadPosts = async (tab, followSet) => {
+    setLoading(true);
+    const fSet = followSet !== undefined ? followSet : followingIds;
+    let query = supabase.from("posts")
+      .select("*, profiles!posts_user_id_fkey(username, avatar_initials, avatar_url)")
+      .order("created_at", { ascending: false })
+      .limit(60);
+    if (tab === "following") {
+      const ids = [...fSet, userId].filter(Boolean);
+      if (ids.length > 0) query = query.in("user_id", ids);
+    }
+    const { data } = await query;
+    setPosts(data || []);
+    if (userId) {
+      const { data: likes } = await supabase.from("post_likes").select("post_id").eq("user_id", userId);
+      setLikedIds(new Set(likes?.map(l => l.post_id) || []));
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    localStorage.setItem("sfc_challenges", JSON.stringify(challenges));
-  }, [challenges]);
+    async function init() {
+      let ids = new Set();
+      if (userId) {
+        const { data } = await supabase.from("follows").select("following_id").eq("follower_id", userId);
+        ids = new Set(data?.map(f => f.following_id) || []);
+        setFollowingIds(ids);
+      }
+      await loadPosts("following", ids);
+    }
+    init();
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setTimeout(() => loadPosts(feedTab), 0);
+  }, [feedTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const incomplete = challenges.filter(ch => !ch.completed);
-    if (!incomplete.length) return;
+    if (!incomplete.length || !userId) return;
     const nowMs = Date.now();
     const completions = [];
     const updated = challenges.map(ch => {
@@ -3816,83 +3971,85 @@ function FeedScreen({ showToast, profile, sessions = [] }) {
       return { ...ch, completed: true, completedAt: new Date(nowMs).toISOString() };
     });
     if (!completions.length) return;
-    // Deferred to avoid setState-in-effect cascading renders
-    setTimeout(() => {
+    setTimeout(async () => {
       setChallenges(updated);
-      setFeed(p => [
-        ...completions.map(ch => ({
-          id: `ch_done_${ch.id}`,
-          user: profile?.username || "YOU",
-          av: profile?.avatar_initials || "ME",
-          time: "JUST NOW",
-          txt: ch.type === "pr"
-            ? `Challenge complete! Hit a ${ch.target}lb ${ch.exercise} 1RM. 🏆`
-            : ch.type === "vol"
-            ? `Challenge complete! Moved ${Number(ch.target).toLocaleString()}lbs of volume in 7 days. 💪`
-            : `Challenge complete! Logged ${ch.target} sessions in 7 days. 🔥`,
-          likes: 0, liked: false, commentList: [],
-          type: "milestone", tag: "CHALLENGE COMPLETE",
-          reactions: { "🔥":0, "💪":0, "👊":0, "⚡":0, "🙌":0 }, myReactions: [],
-        })),
-        ...p,
-      ]);
+      for (const ch of completions) {
+        const txt = ch.type === "pr"
+          ? `Challenge complete! Hit a ${ch.target}lb ${ch.exercise} 1RM. 🏆`
+          : ch.type === "vol"
+          ? `Challenge complete! Moved ${Number(ch.target).toLocaleString()}lbs of volume in 7 days. 💪`
+          : `Challenge complete! Logged ${ch.target} sessions in 7 days. 🔥`;
+        await supabase.from("posts").insert({ user_id: userId, type: "milestone", txt, tag: "CHALLENGE COMPLETE", likes: 0, comment_count: 0 });
+      }
+      await loadPosts(feedTab);
       completions.forEach(() => showToast("🏆 CHALLENGE COMPLETE!"));
     }, 0);
   }, [sessions]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toggleLike = id => setFeed(p => p.map(post =>
-    post.id === id ? { ...post, liked: !post.liked, likes: post.liked ? post.likes - 1 : post.likes + 1 } : post
-  ));
-
-  const submitComment = (postId) => {
-    if (!cTxt.trim()) return;
-    const comment = { user: profile?.username || "YOU", av: profile?.avatar_initials || "ME", txt: cTxt.trim(), time: "JUST NOW" };
-    setFeed(p => p.map(x => x.id === postId
-      ? { ...x, commentList: [...(x.commentList || []), comment] }
-      : x
-    ));
-    setCTxt("");
-  };
-
-  const toggleReaction = (id, emoji) => setFeed(p => p.map(post => {
-    if (post.id !== id) return post;
-    const reactions = { ...(post.reactions || {}) };
-    const myReactions = [...(post.myReactions || [])];
-    const hasIt = myReactions.includes(emoji);
-    if (hasIt) {
-      myReactions.splice(myReactions.indexOf(emoji), 1);
-      reactions[emoji] = Math.max(0, (reactions[emoji] || 0) - 1);
+  const toggleLike = async (post) => {
+    if (!userId) return;
+    const liked = likedIds.has(post.id);
+    setLikedIds(p => { const n = new Set(p); liked ? n.delete(post.id) : n.add(post.id); return n; });
+    setPosts(p => p.map(x => x.id === post.id ? { ...x, likes: (x.likes || 0) + (liked ? -1 : 1) } : x));
+    if (liked) {
+      await supabase.from("post_likes").delete().eq("post_id", post.id).eq("user_id", userId);
+      await supabase.from("posts").update({ likes: Math.max(0, (post.likes || 0) - 1) }).eq("id", post.id);
     } else {
-      myReactions.push(emoji);
-      reactions[emoji] = (reactions[emoji] || 0) + 1;
+      await supabase.from("post_likes").upsert({ post_id: post.id, user_id: userId });
+      await supabase.from("posts").update({ likes: (post.likes || 0) + 1 }).eq("id", post.id);
     }
-    return { ...post, reactions, myReactions };
-  }));
-
-  const submitPost = () => {
-    if (!newTxt.trim()) return;
-    const tag = (newType !== "post" && newTag.trim()) ? newTag.trim().toUpperCase() : null;
-    setFeed(p => [{
-      id: Date.now().toString(),
-      user: profile?.username || "YOU",
-      av: profile?.avatar_initials || "ME",
-      time: "JUST NOW",
-      txt: newTxt.trim(),
-      likes: 0, liked: false,
-      commentList: [],
-      type: newType,
-      tag,
-      reactions: { "🔥":0, "💪":0, "👊":0, "⚡":0, "🙌":0 },
-      myReactions: [],
-    }, ...p]);
-    setNewTxt(""); setNewTag(""); setNewType("post"); setShowPost(false);
-    showToast("🔥 POST SHARED WITH THE SQUAD!");
   };
 
-  const submitChallenge = () => {
+  const loadComments = async (postId) => {
+    setLoadingComments(p => ({ ...p, [postId]: true }));
+    const { data } = await supabase.from("post_comments")
+      .select("*, profiles!post_comments_user_id_fkey(username, avatar_initials, avatar_url)")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true });
+    setPostComments(p => ({ ...p, [postId]: data || [] }));
+    setLoadingComments(p => ({ ...p, [postId]: false }));
+  };
+
+  const toggleComments = async (postId) => {
+    if (openComments === postId) { setOpenComments(null); return; }
+    setOpenComments(postId);
+    if (!postComments[postId]) await loadComments(postId);
+  };
+
+  const submitComment = async (postId) => {
+    const txt = (commentTexts[postId] || "").trim();
+    if (!txt || !userId) return;
+    setCommentTexts(p => ({ ...p, [postId]: "" }));
+    const currentCount = posts.find(p => p.id === postId)?.comment_count || 0;
+    const { data } = await supabase.from("post_comments")
+      .insert({ post_id: postId, user_id: userId, txt })
+      .select("*, profiles!post_comments_user_id_fkey(username, avatar_initials, avatar_url)")
+      .single();
+    if (data) {
+      setPostComments(p => ({ ...p, [postId]: [...(p[postId] || []), data] }));
+      setPosts(p => p.map(x => x.id === postId ? { ...x, comment_count: (x.comment_count || 0) + 1 } : x));
+      await supabase.from("posts").update({ comment_count: currentCount + 1 }).eq("id", postId);
+    }
+  };
+
+  const submitPost = async () => {
+    if (!newTxt.trim() || !userId || submitting) return;
+    setSubmitting(true);
+    const tag = (newType !== "post" && newTag.trim()) ? newTag.trim().toUpperCase() : null;
+    const { data } = await supabase.from("posts")
+      .insert({ user_id: userId, type: newType, txt: newTxt.trim(), tag, likes: 0, comment_count: 0 })
+      .select("*, profiles!posts_user_id_fkey(username, avatar_initials, avatar_url)")
+      .single();
+    if (data) setPosts(p => [data, ...p]);
+    showToast("🔥 POST SHARED WITH THE SQUAD!");
+    setNewTxt(""); setNewTag(""); setNewType("post"); setShowCompose(false); setSubmitting(false);
+  };
+
+  const submitChallenge = async () => {
     const target = parseFloat(newChalTarget);
     if (!target || target <= 0) return showToast("Enter a valid target");
     if (newChalType === "pr" && !newChalExercise.trim()) return showToast("Enter an exercise name");
+    if (!userId) return;
     const id = `ch_${Date.now()}`;
     const created = new Date().toISOString();
     const deadline = new Date(Date.now() + 7 * 86400000).toISOString();
@@ -3903,179 +4060,185 @@ function FeedScreen({ showToast, profile, sessions = [] }) {
       : newChalType === "vol"
       ? `Can I move ${Number(target).toLocaleString()}lbs of total volume in 7 days? Let's find out. ⚡`
       : `Can I log ${target} sessions in 7 days? Holding myself accountable. 🔥`;
-    setFeed(p => [{
-      id: `ch_post_${id}`,
-      user: profile?.username || "YOU",
-      av: profile?.avatar_initials || "ME",
-      time: "JUST NOW",
-      txt,
-      likes: 0, liked: false, commentList: [],
-      type: "challenge",
-      tag: newChalType === "pr" ? `${newChalExercise.trim().toUpperCase()} PR CHALLENGE` : newChalType === "vol" ? "VOLUME CHALLENGE" : "SESSION CHALLENGE",
-      challengeId: id,
-      reactions: { "🔥":0, "💪":0, "👊":0, "⚡":0, "🙌":0 }, myReactions: [],
-    }, ...p]);
-    setNewChalExercise(""); setNewChalTarget(""); setNewChalType("pr"); setShowPost(false);
+    const tag = newChalType === "pr" ? `${newChalExercise.trim().toUpperCase()} PR CHALLENGE` : newChalType === "vol" ? "VOLUME CHALLENGE" : "SESSION CHALLENGE";
+    const { data } = await supabase.from("posts")
+      .insert({ user_id: userId, type: "challenge", txt, tag, likes: 0, comment_count: 0 })
+      .select("*, profiles!posts_user_id_fkey(username, avatar_initials, avatar_url)")
+      .single();
+    if (data) setPosts(p => [data, ...p]);
+    setNewChalExercise(""); setNewChalTarget(""); setNewChalType("pr"); setShowCompose(false);
     showToast("⚔️ CHALLENGE LAUNCHED!");
   };
 
-  const typeConfig = {
-    pr: { color: G.gold, ico: "🏆", label: "PR ALERT" },
-    milestone: { color: G.purpleLight, ico: "⭐", label: "MILESTONE" },
-    post: { color: G.textMid, ico: "📢", label: "POST" },
-    challenge: { color: "#00D4FF", ico: "⚔️", label: "CHALLENGE" },
+  const onFollowChange = async () => {
+    if (!userId) return;
+    const { data } = await supabase.from("follows").select("following_id").eq("follower_id", userId);
+    const newIds = new Set(data?.map(f => f.following_id) || []);
+    setFollowingIds(newIds);
+    await loadPosts(feedTab, newIds);
   };
 
-  const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"9px 12px", color:"#fff", fontSize:13, outline:"none", fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" };
+  const typeConfig = {
+    pr:        { color: G.gold,      ico: "🏆", label: "PR ALERT" },
+    milestone: { color: G.purpleLight, ico: "⭐", label: "MILESTONE" },
+    post:      { color: G.textMid,   ico: null, label: null },
+    challenge: { color: "#00D4FF",   ico: "⚔️", label: "CHALLENGE" },
+    workout:   { color: G.purple,    ico: "💪", label: "WORKOUT" },
+  };
+
+  const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:8, padding:"11px 14px", color:"#fff", fontSize:14, outline:"none", fontFamily:FONT.body, letterSpacing:0.5, width:"100%", boxSizing:"border-box" };
+  const P = G.purple;
 
   return (
-    <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18 }}>
+    <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 0 0" }}>
+
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"0 18px", marginBottom:4 }}>
         <div>
           <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase", lineHeight:1 }}>
-            SQUAD <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>FEED</span>
+            SQUAD <span style={{ color:P, textShadow:`0 0 12px ${P}` }}>FEED</span>
           </div>
-          <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginTop:3 }}>STRENGTH IN COMMUNITY</div>
+          <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
+            <div style={{ width:7, height:7, borderRadius:"50%", background:P }}/>
+            <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>Strength in Community</div>
+          </div>
         </div>
-        <NeonBtn onClick={()=>setShowPost(true)} small>+ POST</NeonBtn>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <button onClick={() => setShowSearch(true)} style={{ width:36, height:36, borderRadius:"50%", background:"rgba(255,255,255,0.06)", border:`1px solid ${G.borderB}`, color:G.textMid, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>🔍</button>
+          <button onClick={() => setShowCompose(true)} style={{ padding:"8px 16px", borderRadius:20, background:`linear-gradient(135deg,${P},${G.purpleBright})`, border:"none", color:"#fff", fontFamily:FONT.display, fontSize:11, letterSpacing:2, cursor:"pointer", boxShadow:G.purpleGlow, whiteSpace:"nowrap" }}>+ POST</button>
+        </div>
       </div>
 
+      {/* Tabs */}
+      <div style={{ display:"flex", gap:6, padding:"12px 18px", borderBottom:`1px solid ${G.borderB}` }}>
+        {[{id:"following",l:"FOLLOWING"},{id:"discover",l:"DISCOVER"}].map(t => (
+          <button key={t.id} onClick={() => setFeedTab(t.id)} style={{ flex:1, padding:"9px 4px", borderRadius:20, border:`1px solid ${feedTab===t.id ? P : G.borderB}`, background: feedTab===t.id ? `linear-gradient(135deg,${P},${G.purpleBright})` : "transparent", color: feedTab===t.id ? "#fff" : G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:2, cursor:"pointer", textTransform:"uppercase", boxShadow: feedTab===t.id ? G.purpleGlow : "none" }}>{t.l}</button>
+        ))}
+      </div>
 
-      {feed.length === 0 && (
-        <div style={{ padding:"32px 4px 16px" }}>
-          <div style={{ textAlign:"center", marginBottom:24 }}>
-            <div style={{ fontSize:44, marginBottom:12 }}>🤝</div>
-            <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:6 }}>START THE <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>SQUAD FEED</span></div>
-            <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:1, lineHeight:1.6 }}>Be the first to post. Share a win and get the community moving.</div>
+      {/* Feed */}
+      <div>
+        {loading && <div style={{ textAlign:"center", padding:"48px 0", fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2 }}>LOADING FEED...</div>}
+
+        {!loading && feedTab === "following" && posts.length === 0 && (
+          <div style={{ padding:"40px 24px", textAlign:"center" }}>
+            <div style={{ fontSize:48, marginBottom:16 }}>👥</div>
+            <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:10 }}>FIND YOUR <span style={{ color:P }}>SQUAD</span></div>
+            <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:0.5, lineHeight:1.7, marginBottom:24 }}>Follow other athletes to see their posts, PRs, and milestones right here.</div>
+            <button onClick={() => setShowSearch(true)} style={{ padding:"13px 28px", borderRadius:24, background:`linear-gradient(135deg,${P},${G.purpleBright})`, border:"none", color:"#fff", fontFamily:FONT.display, fontSize:12, letterSpacing:2, cursor:"pointer", boxShadow:G.purpleGlow }}>🔍 SEARCH ATHLETES</button>
           </div>
-          {[
-            { type:"pr",        ico:"🏆", label:"LOG A PR",       ex:"Just hit 315 lbs on deadlift — new personal best!" },
-            { type:"post",      ico:"📢", label:"SHARE A WIN",    ex:"Crushed leg day. Squats felt strong today." },
-            { type:"milestone", ico:"⭐", label:"HIT A MILESTONE", ex:"10 sessions logged this month. Let's go!" },
-            { type:"challenge", ico:"⚔️", label:"START A CHALLENGE", ex:"Challenge the squad — who can hit 225 bench first?" },
-          ].map(item => (
-            <div key={item.type} onClick={()=>{ setNewType(item.type); setShowPost(true); }} style={{ background:`linear-gradient(160deg,rgba(255,255,255,0.04),rgba(10,8,24,0.6))`, border:`1px solid ${G.borderB}`, borderRadius:12, padding:"14px 16px", marginBottom:9, display:"flex", alignItems:"center", gap:14, cursor:"pointer" }}>
-              <div style={{ width:42, height:42, borderRadius:10, background:`${G.purple}22`, border:`1px solid ${G.purple}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>{item.ico}</div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:"#fff", textTransform:"uppercase", marginBottom:3 }}>{item.label}</div>
-                <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:0.5, lineHeight:1.4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>"{item.ex}"</div>
-              </div>
-              <span style={{ color:G.purple, fontSize:16, flexShrink:0 }}>›</span>
-            </div>
-          ))}
-        </div>
-      )}
+        )}
 
-      {feed.map(post => {
-        const tc = typeConfig[post.type] || typeConfig.post;
-        const comments = post.commentList || [];
-        return (
-          <ChromeCard key={post.id} style={{ marginBottom:13, overflow:"hidden" }}>
-            <div style={{ height:2, background:`linear-gradient(90deg,${tc.color},transparent)`, boxShadow:`0 0 8px ${tc.color}66` }}/>
-            <div style={{ padding:"12px 13px 0", display:"flex", alignItems:"center", gap:10 }}>
-              <AvatarBadge initials={post.av} size={38}/>
-              <div style={{ flex:1 }}>
-                <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>{post.user}</div>
-                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>{post.time}</div>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
-                <span style={{ fontFamily:FONT.body, fontSize:16 }}>{tc.ico}</span>
-                <Chip label={tc.label} color={tc.color} small/>
-              </div>
-            </div>
+        {!loading && feedTab === "discover" && posts.length === 0 && (
+          <div style={{ padding:"48px 24px", textAlign:"center" }}>
+            <div style={{ fontSize:48, marginBottom:16 }}>📢</div>
+            <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:10 }}>NO POSTS YET</div>
+            <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:0.5, lineHeight:1.7 }}>Be the first to share a win with the community.</div>
+          </div>
+        )}
 
-            {post.tag && (
-              <div style={{ margin:"10px 13px 0", background:`${G.gold}12`, border:`1px solid ${G.gold}33`, borderRadius:5, padding:"6px 10px", display:"flex", alignItems:"center", gap:7 }}>
-                <div style={{ width:3, height:14, background:G.gold, boxShadow:G.goldGlow2, borderRadius:1 }}/>
-                <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.gold, textTransform:"uppercase" }}>{post.tag}</div>
-              </div>
-            )}
+        {!loading && posts.map(post => {
+          const tc = typeConfig[post.type] || typeConfig.post;
+          const isLiked = likedIds.has(post.id);
+          const isOwn = post.user_id === userId;
+          const comments = postComments[post.id] || [];
+          const isCommentsOpen = openComments === post.id;
+          const authorName = post.profiles?.username || "ATHLETE";
+          const authorAv = post.profiles?.avatar_initials || "?";
+          const authorUrl = post.profiles?.avatar_url || null;
 
-            <div style={{ padding:"10px 13px 0", fontFamily:FONT.body, fontSize:14, color:G.text, lineHeight:1.55, letterSpacing:0.3 }}>{post.txt}</div>
+          return (
+            <div key={post.id} style={{ background:"rgba(14,12,28,0.9)", borderBottom:`1px solid rgba(255,255,255,0.06)` }}>
 
-            {post.type === "challenge" && post.challengeId && (() => {
-              const ch = challenges.find(c => c.id === post.challengeId);
-              if (!ch) return null;
-              const { current, pct, unit } = getChallengeProgress(ch, sessions);
-              const daysLeft = Math.max(0, Math.ceil((new Date(ch.deadline) - Date.now()) / 86400000));
-              const done = ch.completed || pct >= 100;
-              return (
-                <div style={{ margin:"10px 13px 0", background:"rgba(0,212,255,0.06)", border:"1px solid rgba(0,212,255,0.2)", borderRadius:8, padding:"10px 12px" }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:7 }}>
-                    <div style={{ fontFamily:FONT.body, fontSize:10, color:"#00D4FF", letterSpacing:1.5, textTransform:"uppercase" }}>MY CHALLENGE</div>
-                    {done
-                      ? <span style={{ fontFamily:FONT.display, fontSize:10, letterSpacing:1.5, color:G.gold, background:`${G.gold}18`, border:`1px solid ${G.gold}44`, borderRadius:10, padding:"2px 8px" }}>✓ COMPLETE</span>
-                      : <span style={{ fontFamily:FONT.display, fontSize:10, letterSpacing:1.5, color: daysLeft <= 2 ? "#FF6B00" : G.textMid, background:"rgba(0,0,0,0.3)", border:`1px solid ${G.borderB}`, borderRadius:10, padding:"2px 8px" }}>{daysLeft}D LEFT</span>
-                    }
-                  </div>
-                  <div style={{ height:6, background:"rgba(255,255,255,0.08)", borderRadius:3, overflow:"hidden", marginBottom:6 }}>
-                    <div style={{ height:"100%", width:`${pct}%`, background: done ? `linear-gradient(90deg,${G.gold},${G.goldDark})` : "linear-gradient(90deg,#00D4FF,#0088FF)", borderRadius:3, transition:"width 0.5s ease", boxShadow: done ? G.goldGlow2 : "0 0 6px #00D4FF66" }}/>
-                  </div>
-                  <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:1, textTransform:"uppercase" }}>
-                    {current.toLocaleString()} / {Number(ch.target).toLocaleString()} {unit}
-                  </div>
+              {/* Post header */}
+              <div style={{ display:"flex", alignItems:"center", gap:10, padding:"13px 16px 10px" }}>
+                <div onClick={() => !isOwn && setViewingProfile({ id: post.user_id, av: authorAv, url: authorUrl, name: authorName, rank: null })} style={{ cursor: isOwn ? "default" : "pointer", flexShrink:0 }}>
+                  <AvatarBadge initials={authorAv} url={authorUrl} size={40} gold={isOwn}/>
                 </div>
-              );
-            })()}
-
-            <div style={{ padding:"8px 13px 0", display:"flex", gap:5, flexWrap:"wrap" }}>
-              {REACTIONS.map(emoji => {
-                const count = (post.reactions || {})[emoji] || 0;
-                const mine = (post.myReactions || []).includes(emoji);
-                return (
-                  <button key={emoji} onClick={() => toggleReaction(post.id, emoji)} style={{ display:"flex", alignItems:"center", gap:3, background: mine ? `${G.gold}1A` : "rgba(255,255,255,0.04)", border:`1px solid ${mine ? G.gold+"55" : G.borderB}`, borderRadius:16, padding:"4px 9px", cursor:"pointer", transition:"all 0.15s", boxShadow: mine ? `0 0 6px ${G.gold}44` : "none" }}>
-                    <span style={{ fontSize:14, lineHeight:1 }}>{emoji}</span>
-                    {count > 0 && <span style={{ fontFamily:FONT.display, fontSize:11, color: mine ? G.gold : G.textMid, letterSpacing:0.5 }}>{count}</span>}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div style={{ padding:"10px 13px 12px", display:"flex", gap:6, alignItems:"center" }}>
-              <button onClick={()=>toggleLike(post.id)} style={{ display:"flex", alignItems:"center", gap:5, background:post.liked?`${G.gold}15`:"transparent", border:`1px solid ${post.liked?G.gold+"55":G.borderB}`, borderRadius:20, padding:"5px 11px", color:post.liked?G.gold:G.textMid, fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, cursor:"pointer", transition:"all 0.2s" }}>
-                {post.liked ? "❤️" : "🤍"} {post.likes}
-              </button>
-              <button onClick={()=>{ setActiveComment(activeComment===post.id?null:post.id); setCTxt(""); }} style={{ display:"flex", alignItems:"center", gap:5, background:activeComment===post.id?`${G.purpleLight}15`:"transparent", border:`1px solid ${activeComment===post.id?G.purpleLight+"55":G.borderB}`, borderRadius:20, padding:"5px 11px", color:activeComment===post.id?G.purpleLight:G.textMid, fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, cursor:"pointer" }}>
-                💬 {comments.length}
-              </button>
-              <button onClick={()=>showToast("💬 DM feature coming soon")} style={{ marginLeft:"auto", background:"transparent", border:`1px solid ${G.borderB}`, borderRadius:20, padding:"5px 11px", color:G.textMid, fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, cursor:"pointer" }}>✉️ DM</button>
-            </div>
-
-            {activeComment === post.id && (
-              <div style={{ borderTop:`1px solid ${G.borderB}`, padding:"11px 13px" }}>
-                {comments.length > 0 && (
-                  <div style={{ marginBottom:10 }}>
-                    {comments.map((c, i) => (
-                      <div key={i} style={{ display:"flex", gap:8, marginBottom:8, alignItems:"flex-start" }}>
-                        <AvatarBadge initials={c.av} size={26}/>
-                        <div style={{ flex:1, background:"rgba(0,0,0,0.3)", borderRadius:8, padding:"6px 10px" }}>
-                          <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, color:G.gold, textTransform:"uppercase", marginBottom:2 }}>{c.user} · <span style={{ color:G.textDim, fontSize:9 }}>{c.time}</span></div>
-                          <div style={{ fontFamily:FONT.body, fontSize:12, color:G.text, letterSpacing:0.3 }}>{c.txt}</div>
-                        </div>
-                      </div>
-                    ))}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:1.5, color: isOwn ? P : "#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{authorName}{isOwn ? " (YOU)" : ""}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:0.5, marginTop:1 }}>{timeAgo(post.created_at)}</div>
+                </div>
+                {tc.label && (
+                  <div style={{ display:"flex", alignItems:"center", gap:4, background:`${tc.color}18`, border:`1px solid ${tc.color}44`, borderRadius:14, padding:"3px 10px", flexShrink:0 }}>
+                    {tc.ico && <span style={{ fontSize:11 }}>{tc.ico}</span>}
+                    <span style={{ fontFamily:FONT.display, fontSize:10, letterSpacing:1.5, color:tc.color }}>{tc.label}</span>
                   </div>
                 )}
-                <div style={{ display:"flex", gap:8 }}>
-                  <input value={cTxt} onChange={e=>setCTxt(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") submitComment(post.id); }} placeholder="ADD A COMMENT..." style={{ flex:1, background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:20, padding:"8px 13px", color:"#fff", fontSize:12, outline:"none", fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" }}/>
-                  <button onClick={()=>submitComment(post.id)} style={{ width:38, height:38, borderRadius:"50%", background:cTxt.trim()?`linear-gradient(135deg,${G.gold},${G.goldDark})`:"rgba(255,255,255,0.06)", border:"none", color:cTxt.trim()?"#0A0810":G.textDim, cursor:cTxt.trim()?"pointer":"default", fontSize:16, flexShrink:0 }}>↑</button>
-                </div>
               </div>
-            )}
-          </ChromeCard>
-        );
-      })}
 
-      {showPost && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.95)", zIndex:300, display:"flex", alignItems:"flex-end" }} onClick={()=>setShowPost(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"16px 16px 0 0", padding:"22px 18px 0", border:`1px solid ${G.border}`, borderBottom:"none", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 48px)", overflowY:"auto", maxHeight:"85vh" }}>
+              {/* Tag */}
+              {post.tag && (
+                <div style={{ margin:"0 16px 10px", background:`${G.gold}12`, border:`1px solid ${G.gold}33`, borderRadius:6, padding:"6px 11px", display:"flex", alignItems:"center", gap:7 }}>
+                  <div style={{ width:3, height:14, background:G.gold, boxShadow:G.goldGlow2, borderRadius:1, flexShrink:0 }}/>
+                  <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:G.gold, textTransform:"uppercase" }}>{post.tag}</div>
+                </div>
+              )}
+
+              {/* Text */}
+              {post.txt && <div style={{ padding:"0 16px 14px", fontFamily:FONT.body, fontSize:14, color:G.text, lineHeight:1.65, letterSpacing:0.3 }}>{post.txt}</div>}
+
+              {/* Divider */}
+              <div style={{ height:1, background:"rgba(255,255,255,0.05)", margin:"0 16px" }}/>
+
+              {/* Actions */}
+              <div style={{ display:"flex", padding:"4px 6px" }}>
+                <button onClick={() => toggleLike(post)} style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 13px", background:"none", border:"none", cursor:"pointer", borderRadius:8 }}>
+                  <span style={{ fontSize:20 }}>{isLiked ? "❤️" : "🤍"}</span>
+                  <span style={{ fontFamily:FONT.body, fontSize:13, color: isLiked ? "#E0245E" : G.textMid, letterSpacing:0.5 }}>{post.likes || 0}</span>
+                </button>
+                <button onClick={() => toggleComments(post.id)} style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 13px", background:"none", border:"none", cursor:"pointer", borderRadius:8 }}>
+                  <span style={{ fontSize:20 }}>💬</span>
+                  <span style={{ fontFamily:FONT.body, fontSize:13, color: isCommentsOpen ? P : G.textMid, letterSpacing:0.5 }}>{post.comment_count || 0}</span>
+                </button>
+              </div>
+
+              {/* Comments */}
+              {isCommentsOpen && (
+                <div style={{ borderTop:`1px solid ${G.borderB}`, padding:"13px 16px 14px", background:"rgba(0,0,0,0.2)" }}>
+                  {loadingComments[post.id] && <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1.5, marginBottom:10 }}>LOADING...</div>}
+                  {comments.map((c, i) => (
+                    <div key={c.id || i} style={{ display:"flex", gap:9, marginBottom:10, alignItems:"flex-start" }}>
+                      <AvatarBadge initials={c.profiles?.avatar_initials || "?"} url={c.profiles?.avatar_url} size={28}/>
+                      <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:"7px 12px" }}>
+                        <div style={{ fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, color:G.gold, marginBottom:2 }}>
+                          {c.profiles?.username || "ATHLETE"} <span style={{ color:G.textDim, fontSize:9, fontFamily:FONT.body, letterSpacing:0.5 }}>· {timeAgo(c.created_at)}</span>
+                        </div>
+                        <div style={{ fontFamily:FONT.body, fontSize:13, color:G.text, letterSpacing:0.3, lineHeight:1.5 }}>{c.txt}</div>
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{ display:"flex", gap:8, alignItems:"center", marginTop:6 }}>
+                    <AvatarBadge initials={profile?.avatar_initials || "ME"} url={profile?.avatar_url} size={28}/>
+                    <input
+                      value={commentTexts[post.id] || ""}
+                      onChange={e => setCommentTexts(p => ({ ...p, [post.id]: e.target.value }))}
+                      onKeyDown={e => { if (e.key === "Enter") submitComment(post.id); }}
+                      placeholder="Add a comment..."
+                      style={{ flex:1, background:"rgba(255,255,255,0.06)", border:`1px solid ${G.borderB}`, borderRadius:20, padding:"8px 14px", color:"#fff", fontSize:13, outline:"none", fontFamily:FONT.body, letterSpacing:0.3 }}
+                    />
+                    <button
+                      onClick={() => submitComment(post.id)}
+                      style={{ width:34, height:34, borderRadius:"50%", background:(commentTexts[post.id]||"").trim() ? `linear-gradient(135deg,${P},${G.purpleBright})` : "rgba(255,255,255,0.06)", border:"none", color:(commentTexts[post.id]||"").trim() ? "#fff" : G.textDim, cursor:(commentTexts[post.id]||"").trim() ? "pointer" : "default", fontSize:15, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}
+                    >↑</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Compose sheet */}
+      {showCompose && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.95)", zIndex:300, display:"flex", alignItems:"flex-end" }} onClick={() => setShowCompose(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"16px 16px 0 0", padding:"20px 18px 0", border:`1px solid ${G.border}`, borderBottom:"none", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 32px)", overflowY:"auto", maxHeight:"80vh" }}>
             <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"0 auto 18px" }}/>
-            <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:14 }}>SHARE WITH THE SQUAD</div>
+            <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:16 }}>SHARE WITH THE SQUAD</div>
 
-            {/* Post type selector */}
-            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:14 }}>
               {[{id:"post",l:"📢 POST"},{id:"pr",l:"🏆 PR"},{id:"milestone",l:"⭐ MILESTONE"},{id:"challenge",l:"⚔️ CHALLENGE"}].map(t => (
-                <button key={t.id} onClick={()=>setNewType(t.id)} style={{ flex:"1 1 calc(50% - 3px)", padding:"8px 4px", borderRadius:6, border:`1px solid ${newType===t.id?G.gold:G.borderB}`, background:newType===t.id?`${G.gold}18`:"transparent", color:newType===t.id?G.gold:G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
+                <button key={t.id} onClick={() => setNewType(t.id)} style={{ flex:"1 1 calc(50% - 3px)", padding:"9px 4px", borderRadius:8, border:`1px solid ${newType===t.id ? P : G.borderB}`, background: newType===t.id ? `${P}22` : "transparent", color: newType===t.id ? P : G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
               ))}
             </div>
 
@@ -4084,30 +4247,55 @@ function FeedScreen({ showToast, profile, sessions = [] }) {
                 <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:8 }}>CHALLENGE TYPE</div>
                 <div style={{ display:"flex", gap:6, marginBottom:12 }}>
                   {[{id:"pr",l:"🏋️ PR"},{id:"vol",l:"📦 VOLUME"},{id:"sessions",l:"📅 SESSIONS"}].map(t => (
-                    <button key={t.id} onClick={()=>setNewChalType(t.id)} style={{ flex:1, padding:"8px 4px", borderRadius:6, border:`1px solid ${newChalType===t.id?"#00D4FF":G.borderB}`, background:newChalType===t.id?"rgba(0,212,255,0.12)":"transparent", color:newChalType===t.id?"#00D4FF":G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
+                    <button key={t.id} onClick={() => setNewChalType(t.id)} style={{ flex:1, padding:"8px 4px", borderRadius:8, border:`1px solid ${newChalType===t.id?"#00D4FF":G.borderB}`, background:newChalType===t.id?"rgba(0,212,255,0.12)":"transparent", color:newChalType===t.id?"#00D4FF":G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
                   ))}
                 </div>
                 {newChalType === "pr" && (
-                  <input value={newChalExercise} onChange={e=>setNewChalExercise(e.target.value)} placeholder="EXERCISE (E.G. BARBELL BENCH PRESS)" style={{ ...inp, width:"100%", boxSizing:"border-box", marginBottom:10 }}/>
+                  <input value={newChalExercise} onChange={e => setNewChalExercise(e.target.value)} placeholder="Exercise (e.g. Barbell Bench Press)" style={{ ...inp, marginBottom:10 }}/>
                 )}
-                <input type="number" inputMode="decimal" value={newChalTarget} onChange={e=>setNewChalTarget(e.target.value)} placeholder={newChalType==="pr" ? "TARGET 1RM (LBS)" : newChalType==="vol" ? "TARGET VOLUME (LBS)" : "TARGET SESSIONS"} style={{ ...inp, width:"100%", boxSizing:"border-box", marginBottom:13 }}/>
+                <input type="number" inputMode="decimal" value={newChalTarget} onChange={e => setNewChalTarget(e.target.value)} placeholder={newChalType==="pr" ? "Target 1RM (lbs)" : newChalType==="vol" ? "Target volume (lbs)" : "Target sessions"} style={{ ...inp, marginBottom:14 }}/>
                 <NeonBtn onClick={submitChallenge} full>LAUNCH CHALLENGE ◆</NeonBtn>
               </div>
             ) : (
               <>
                 {newType !== "post" && (
-                  <input value={newTag} onChange={e=>setNewTag(e.target.value)} placeholder={newType==="pr" ? "E.G. 315LBS DEADLIFT" : "E.G. 100 SESSIONS"} style={{ ...inp, width:"100%", boxSizing:"border-box", marginBottom:10 }}/>
+                  <input value={newTag} onChange={e => setNewTag(e.target.value)} placeholder={newType==="pr" ? "e.g. 315lb Deadlift PR" : "e.g. 100 Sessions"} style={{ ...inp, marginBottom:10 }}/>
                 )}
-                <textarea value={newTxt} onChange={e=>setNewTxt(e.target.value)} placeholder={newType==="pr" ? "DESCRIBE YOUR PR — HOW DID IT FEEL?" : newType==="milestone" ? "WHAT MILESTONE DID YOU HIT? HOW LONG DID IT TAKE?" : "WHAT DID YOU CRUSH TODAY?"} style={{ width:"100%", padding:"12px 13px", borderRadius:7, background:"rgba(0,0,0,0.5)", border:`1px solid ${G.borderB}`, color:"#fff", fontSize:13, outline:"none", resize:"none", height:90, boxSizing:"border-box", lineHeight:1.5, marginBottom:13, fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" }}/>
-                <NeonBtn onClick={submitPost} full>POST TO SQUAD ◆</NeonBtn>
+                <textarea
+                  value={newTxt}
+                  onChange={e => setNewTxt(e.target.value)}
+                  placeholder={newType==="pr" ? "What's the PR? How did it feel?" : newType==="milestone" ? "Share your milestone..." : "What's on your mind?"}
+                  rows={4}
+                  style={{ ...inp, resize:"none", lineHeight:1.6, marginBottom:14 }}
+                />
+                <NeonBtn onClick={submitPost} full disabled={submitting || !newTxt.trim()}>{submitting ? "POSTING..." : "SHARE WITH SQUAD ◆"}</NeonBtn>
               </>
             )}
           </div>
         </div>
       )}
+
+      {showSearch && (
+        <UserSearchModal
+          userId={userId}
+          followingIds={followingIds}
+          onFollowChange={onFollowChange}
+          onViewProfile={u => { setShowSearch(false); setViewingProfile({ id: u.id, av: u.avatar_initials || "?", url: u.avatar_url || null, name: u.username || "ATHLETE", rank: null }); }}
+          onClose={() => setShowSearch(false)}
+        />
+      )}
+
+      {viewingProfile && (
+        <UserProfileModal
+          user={viewingProfile}
+          currentUserId={userId}
+          onClose={() => setViewingProfile(null)}
+        />
+      )}
     </div>
   );
 }
+
 
 function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
   useScrollLock();
@@ -6352,14 +6540,14 @@ function SocialFitClubInner() {
         setShowDailyMotiv(false);
       }}/>}
 
-      {viewingUser && <UserProfileModal user={viewingUser} onClose={() => setViewingUser(null)}/>}
+      {viewingUser && <UserProfileModal user={viewingUser} currentUserId={user?.id} onClose={() => setViewingUser(null)}/>}
 
       <main style={{ paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 82px)", position:"relative", zIndex:2, minHeight:"100vh" }}>
-        {tab==="home" && (user?.email?.toLowerCase()===ADMIN_EMAIL ? <AdminHomeScreen/> : <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile} onViewProfile={u => setViewingUser(u)}/>)}
+        {tab==="home" && (user?.email?.toLowerCase()===ADMIN_EMAIL ? <AdminHomeScreen/> : <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile} onViewProfile={u => setViewingUser({ ...u, isMe: false })}/>)}
         {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions}/>}
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile}/>}
         {tab==="nutrition" && <NutritionScreen showToast={showToast}/>}
-        {tab==="feed" && <FeedScreen showToast={showToast} profile={profile} sessions={sessions}/>}
+        {tab==="feed" && <FeedScreen showToast={showToast} profile={profile} sessions={sessions} userId={user?.id}/>}
         {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut} onProfileUpdate={p => setProfile(p)} userId={user?.id} sessions={sessions} muscleScores={calcMuscleScores(sessions)} isAdmin={user?.email?.toLowerCase()===ADMIN_EMAIL}/>}
       </main>
 
