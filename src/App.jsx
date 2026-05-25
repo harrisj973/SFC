@@ -2124,18 +2124,18 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
     showToast("✓ Last session loaded");
   };
 
-  const doSave = () => {
+  const doSave = async () => {
     const valid = exs.filter(e => e.name && e.sets.some(s=>s.r||s.w));
     if (!valid.length) { showToast("Add at least one exercise."); return; }
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      onSave({ name:sessName||"CUSTOM SESSION", exs:valid, sets:totSets, vol:totVol, pts, tag: sessTag, date: new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}) });
-      setExs([{id:1,name:"",sets:[{r:"",w:""}],rest:60,q:"",sugg:false}]);
+    const ok = await onSave({ name:sessName||"CUSTOM SESSION", exs:valid, sets:totSets, vol:totVol, pts, tag: sessTag, date: new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}) });
+    setSaving(false);
+    if (ok !== false) {
+      setExs([{id:1,name:"",sets:[{r:"",w:"",type:"working"}],rest:60,q:"",sugg:false}]);
       setSessName(""); setSessTag(null);
       localStorage.removeItem("sfc_wip_session");
       setSubTab("log");
-    }, 900);
+    }
   };
 
   const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:5, padding:"9px 11px", color:"#fff", fontSize:14, outline:"none", boxSizing:"border-box", width:"100%", fontFamily:FONT.body, letterSpacing:1, textTransform:"uppercase" };
@@ -7347,8 +7347,10 @@ function SocialFitClubInner() {
       newStreak = 1; // first session or gap > 1 day
     }
 
-    // Optimistic local update
-    setSessions(p => [{ ...sess, createdAt: new Date().toISOString() }, ...p]);
+    // Optimistic local update (tag with timestamp so rollback can find it)
+    const optimisticAt = new Date().toISOString();
+    sess._optimisticAt = optimisticAt;
+    setSessions(p => [{ ...sess, createdAt: optimisticAt }, ...p]);
     const newPts = (profile?.points || 0) + sess.pts;
     const newSessionsCount = (profile?.sessions_count || 0) + 1;
     setProfile(p => ({ ...p, points: newPts, sessions_count: newSessionsCount, streak: newStreak }));
@@ -7357,8 +7359,6 @@ function SocialFitClubInner() {
        .sort((a,b) => b.pts - a.pts)
        .map((u,i) => ({ ...u, rank: i+1 }))
     );
-    showToast(`🏆 SESSION SAVED · +${sess.pts} POINTS`);
-
     // Persist to Supabase
     const [{ data: sData, error: sErr }, { error: pErr }] = await Promise.all([
       supabase.from("sessions").insert({
@@ -7372,7 +7372,13 @@ function SocialFitClubInner() {
       }).select("id").single(),
       supabase.from("profiles").update({ points: newPts, sessions_count: newSessionsCount, streak: newStreak }).eq("id", user.id),
     ]);
-    if (sErr || pErr) showToast("⚠️ SYNC ERROR — DATA MAY NOT BE SAVED");
+    if (sErr || pErr) {
+      // Roll back optimistic update so nothing is lost on reload
+      setSessions(p => p.filter(s => s.createdAt !== sess._optimisticAt));
+      setProfile(p => ({ ...p, points: profile?.points || 0, sessions_count: profile?.sessions_count || 0, streak: profile?.streak || 0 }));
+      showToast("❌ SAVE FAILED — CHECK YOUR CONNECTION AND TRY AGAIN");
+      return false;
+    }
     if (sData?.id && sess.tag) {
       try {
         const tagMap = JSON.parse(localStorage.getItem("sfc_session_tags") || "{}");
@@ -7380,6 +7386,10 @@ function SocialFitClubInner() {
         localStorage.setItem("sfc_session_tags", JSON.stringify(tagMap));
       } catch { /* ignore */ }
     }
+    // Replace the optimistic placeholder with the real Supabase id
+    setSessions(p => p.map(s => s.createdAt === sess._optimisticAt ? { ...s, id: sData.id } : s));
+    showToast(`🏆 SESSION SAVED · +${sess.pts} POINTS`);
+    return true;
   };
 
   const handleDeleteSession = async (sessId) => {
