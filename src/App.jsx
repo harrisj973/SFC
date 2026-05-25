@@ -1038,7 +1038,107 @@ function RestTimer({ sec, onDone }) {
 }
 
 
-function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile }) {
+function UserProfileModal({ user, onClose }) {
+  useScrollLock();
+  const [prof, setProf] = useState(null);
+  const [userSessions, setUserSessions] = useState(null);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    async function load() {
+      const [profRes, sessRes] = await Promise.all([
+        supabase.from("profiles").select("username, avatar_initials, avatar_url, points, streak, sessions_count, location").eq("id", user.id).single(),
+        supabase.from("sessions").select("id, name, exercises, sets, volume, points, date, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(200),
+      ]);
+      if (profRes.data) setProf(profRes.data);
+      if (sessRes.data) {
+        setUserSessions(sessRes.data.map(s => ({ id: s.id, name: s.name, exs: s.exercises, sets: s.sets, vol: s.volume, pts: s.points, date: s.date, createdAt: s.created_at })));
+      } else if (sessRes.error) {
+        setErr("Workouts are private");
+        setUserSessions([]);
+      }
+    }
+    load();
+  }, [user.id]);
+
+  const prs = userSessions ? calcPRs(userSessions) : {};
+  const topPrs = Object.entries(prs).sort(([, a], [, b]) => b.est1rm - a.est1rm).slice(0, 10);
+  const loading = prof === null;
+  const P = G.purple;
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.97)", zIndex:780, overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 32px)" }}>
+      <div style={{ maxWidth:480, margin:"0 auto", padding:"calc(env(safe-area-inset-top,0px) + 16px) 18px 0" }}>
+        <div style={{ display:"flex", alignItems:"center", marginBottom:24 }}>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:G.textMid, fontSize:22, cursor:"pointer", padding:"4px 8px 4px 0", lineHeight:1 }}>←</button>
+          <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>ATHLETE <span style={{ color:P, textShadow:`0 0 12px ${P}` }}>PROFILE</span></div>
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign:"center", padding:"60px 0", fontFamily:FONT.body, fontSize:12, color:G.textDim, letterSpacing:2 }}>LOADING...</div>
+        ) : (
+          <>
+            {/* Avatar + name */}
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:12, marginBottom:28 }}>
+              <AvatarBadge initials={prof?.avatar_initials || user.av} url={prof?.avatar_url || user.url} size={90} gold/>
+              <div>
+                <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase", textAlign:"center" }}>{prof?.username || user.name}</div>
+                {prof?.location && <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2, textAlign:"center", marginTop:4, textTransform:"uppercase" }}>📍 {prof.location}</div>}
+              </div>
+              <div style={{ background:`${P}22`, border:`1px solid ${P}44`, borderRadius:20, padding:"4px 14px", fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:P }}>#{user.rank} RANKED</div>
+            </div>
+
+            {/* Stats grid */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:28 }}>
+              {[
+                { label:"POINTS", val:(prof?.points ?? user.pts).toLocaleString() },
+                { label:"STREAK", val:`${prof?.streak ?? user.streak}d` },
+                { label:"SESSIONS", val:prof?.sessions_count ?? user.sessions },
+              ].map(({ label, val }) => (
+                <div key={label} style={{ background:"rgba(20,18,40,0.95)", border:`1px solid ${P}22`, borderRadius:10, padding:"12px 8px", textAlign:"center" }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:18, color:"#fff", letterSpacing:1 }}>{val}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginTop:3 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* PRs */}
+            <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:3, color:G.gold, textTransform:"uppercase", marginBottom:12 }}>◆ TOP PRs</div>
+            {err && userSessions?.length === 0 ? (
+              <div style={{ background:"rgba(20,18,40,0.8)", border:`1px solid ${G.borderB}`, borderRadius:10, padding:20, textAlign:"center", fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:1.5 }}>
+                WORKOUTS ARE PRIVATE
+              </div>
+            ) : userSessions === null ? (
+              <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:1.5, textAlign:"center", padding:20 }}>LOADING...</div>
+            ) : topPrs.length === 0 ? (
+              <div style={{ background:"rgba(20,18,40,0.8)", border:`1px solid ${G.borderB}`, borderRadius:10, padding:20, textAlign:"center", fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:1.5 }}>
+                NO PRs YET
+              </div>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {topPrs.map(([exName, pr], i) => (
+                  <div key={exName} style={{ display:"flex", alignItems:"center", gap:12, background:"rgba(20,18,40,0.95)", border:`1px solid ${i === 0 ? G.gold + "44" : G.borderB}`, borderRadius:10, padding:"11px 14px" }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:13, color: i === 0 ? G.gold : G.textDim, width:20 }}>#{i+1}</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:FONT.display, fontSize:13, color:"#fff", letterSpacing:1, textTransform:"uppercase" }}>{exName}</div>
+                      <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1, marginTop:2 }}>{pr.weight} lbs × {pr.reps} reps · {pr.date}</div>
+                    </div>
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end" }}>
+                      <div style={{ fontFamily:FONT.display, fontSize:20, color: i === 0 ? G.gold : "#fff", textShadow: i === 0 ? G.goldGlow2 : "none", letterSpacing:1 }}>{pr.est1rm}</div>
+                      <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>EST 1RM</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile, onViewProfile }) {
   const weeklyVol = calcWeeklyVolume(sessions);
   const maxVol = Math.max(...weeklyVol, 1);
   const myRank = leaderboard.find(u => u.isMe)?.rank ?? "—";
@@ -1180,14 +1280,17 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile })
           <div style={{ background:"rgba(16,14,34,0.98)", border:`1px solid ${P}22`, borderTop:"none", borderRadius:"0 0 14px 14px", padding:"8px 12px 12px" }}>
             {leaderboard.length === 0 && <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:1, textAlign:"center", padding:"16px 0" }}>No users yet</div>}
             {leaderboard.slice(0, 5).map(u => (
-              <div key={u.rank} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 4px", borderBottom:`1px solid ${P}11` }}>
+              <div key={u.rank} onClick={() => !u.isMe && onViewProfile && onViewProfile(u)} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 4px", borderBottom:`1px solid ${P}11`, cursor: u.isMe ? "default" : "pointer" }}>
                 <div style={{ fontFamily:FONT.mono, fontSize:11, color:G.textDim, width:20 }}>#{u.rank}</div>
                 <AvatarBadge initials={u.av} url={u.url} size={32} gold={u.isMe}/>
                 <div style={{ flex:1 }}>
                   <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:1.5, color:u.isMe?P:"#fff", textTransform:"uppercase" }}>{u.name}</div>
                   <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>{u.sessions} sessions · {u.streak}d streak</div>
                 </div>
-                <div style={{ fontFamily:FONT.display, fontSize:14, color:u.isMe?P:G.textMid }}>{u.pts.toLocaleString()}</div>
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:14, color:u.isMe?P:G.textMid }}>{u.pts.toLocaleString()}</div>
+                  {!u.isMe && <div style={{ fontSize:10, color:G.textDim }}>›</div>}
+                </div>
               </div>
             ))}
           </div>
@@ -5972,6 +6075,7 @@ function SocialFitClubInner() {
     try { return localStorage.getItem("sfc_daily_motiv") !== today; } catch { return true; }
   });
   const [showProfileSetup, setShowProfileSetup] = useState(false);
+  const [viewingUser, setViewingUser] = useState(null);
   const profileSetupChecked = useRef(false);
   const toastTimer = useRef(null);
 
@@ -6022,6 +6126,7 @@ function SocialFitClubInner() {
     if (data) {
       setLeaderboard(data.map((p, i) => ({
         rank: i + 1,
+        id: p.id,
         name: p.username || "ANONYMOUS",
         pts: p.points || 0,
         sessions: p.sessions_count || 0,
@@ -6247,8 +6352,10 @@ function SocialFitClubInner() {
         setShowDailyMotiv(false);
       }}/>}
 
+      {viewingUser && <UserProfileModal user={viewingUser} onClose={() => setViewingUser(null)}/>}
+
       <main style={{ paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 82px)", position:"relative", zIndex:2, minHeight:"100vh" }}>
-        {tab==="home" && (user?.email?.toLowerCase()===ADMIN_EMAIL ? <AdminHomeScreen/> : <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile}/>)}
+        {tab==="home" && (user?.email?.toLowerCase()===ADMIN_EMAIL ? <AdminHomeScreen/> : <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile} onViewProfile={u => setViewingUser(u)}/>)}
         {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions}/>}
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile}/>}
         {tab==="nutrition" && <NutritionScreen showToast={showToast}/>}
