@@ -47,7 +47,7 @@ const EXERCISE_CATS = {
     "Barbell Bench Press","Incline Barbell Press","Decline Bench Press","Dumbbell Bench Press",
     "Incline Dumbbell Press","Decline Dumbbell Press","Cable Flyes","Dumbbell Flyes",
     "Incline Cable Flyes","Pec Deck Machine","Push-Ups","Chest Dip",
-    "Machine Chest Press","Low Cable Crossover",
+    "Machine Chest Press","Low Cable Crossover","Cable Chest Press","Dumbbell Pullover",
   ],
   "BACK": [
     "Barbell Deadlift","Romanian Deadlift","Trap Bar Deadlift","Rack Pull",
@@ -55,14 +55,16 @@ const EXERCISE_CATS = {
     "Seated Cable Row","Single-Arm Cable Row","Wide-Grip Seated Cable Row",
     "Lat Pulldown","Close-Grip Lat Pulldown","Pull-Ups","Chin-Ups",
     "Straight-Arm Pulldown","Hyperextensions",
+    "Renegade Row","Dumbbell Deadlift","Dumbbell Good Mornings",
   ],
   "LEGS": [
     "Barbell Squat","Front Squat","Hack Squat","Goblet Squat","Box Squat",
     "Leg Press","Single Leg Press","Bulgarian Split Squat",
     "Walking Lunges","Reverse Lunges","Dumbbell Lunge","Step-Ups",
     "Leg Extension","Leg Curl","Seated Leg Curl","Nordic Hamstring Curl",
-    "Hip Thrust","Glute Bridge","Kettlebell Swing",
-    "Calf Raise","Seated Calf Raise",
+    "Hip Thrust","Glute Bridge","Calf Raise","Seated Calf Raise",
+    "Cable Pull-Through","Cable Glute Kickback","Cable Hip Abduction","Cable Romanian Deadlift",
+    "Dumbbell Romanian Deadlift","Dumbbell Hip Thrust","Dumbbell Sumo Squat","Dumbbell Calf Raise",
   ],
   "SHOULDERS": [
     "Barbell Overhead Press","Seated Dumbbell Press","Machine Shoulder Press",
@@ -70,6 +72,7 @@ const EXERCISE_CATS = {
     "Lateral Raises","Cable Lateral Raises","Front Raises",
     "Rear Delt Flyes","Machine Rear Delt Flyes","Cable Face Pulls",
     "Upright Row","Barbell Shrugs","Dumbbell Shrugs",
+    "Cable Upright Row","Dumbbell Upright Row",
   ],
   "ARMS": [
     "Barbell Curl","Dumbbell Curl","Hammer Curl","Preacher Curl",
@@ -78,17 +81,24 @@ const EXERCISE_CATS = {
     "Tricep Pushdown","Rope Pushdown","Skull Crushers","Close-Grip Bench Press",
     "Tricep Overhead Extension","Cable Overhead Tricep Extension",
     "Tricep Kickback","Dips",
+    "Dumbbell Skull Crushers","Dumbbell Overhead Tricep Extension",
   ],
   "CORE": [
     "Plank","Side Plank","Ab Wheel","Hanging Leg Raises","Leg Raises",
     "Russian Twists","Bicycle Crunches","Crunch","Decline Crunches","Sit-Ups",
     "Cable Crunch","V-Ups","Dragon Flag","Dead Bug","Pallof Press",
-    "Flutter Kicks","Mountain Climbers",
+    "Flutter Kicks","Mountain Climbers","Cable Woodchop",
   ],
   "CARDIO": [
     "Jump Rope","Assault Bike","Box Jumps","Burpees","Battle Ropes",
     "Sled Push","Rowing Machine","Treadmill Run","Stair Climber",
     "Jump Squats","High Knees","Bear Crawl","Farmer's Walk",
+  ],
+  "KETTLEBELL": [
+    "Kettlebell Swing","Kettlebell Clean","Kettlebell Press","Kettlebell Snatch",
+    "Kettlebell Turkish Get-Up","Kettlebell Goblet Squat","Kettlebell Deadlift",
+    "Kettlebell Row","Kettlebell Windmill","Kettlebell Halo",
+    "Kettlebell Clean and Press","Kettlebell Front Squat","Kettlebell Lunge",
   ],
 };
 const EXERCISES = Object.values(EXERCISE_CATS).flat();
@@ -102,12 +112,54 @@ const EXERCISE_SUBCATS = {
       "Leg Press","Single Leg Press","Bulgarian Split Squat",
       "Walking Lunges","Reverse Lunges","Dumbbell Lunge","Step-Ups",
       "Leg Extension","Calf Raise","Seated Calf Raise",
+      "Dumbbell Sumo Squat","Kettlebell Goblet Squat","Kettlebell Front Squat",
     ],
     "HAMSTRINGS": [
       "Romanian Deadlift","Leg Curl","Seated Leg Curl","Nordic Hamstring Curl",
-      "Kettlebell Swing","Hip Thrust","Glute Bridge",
+      "Hip Thrust","Glute Bridge",
+      "Cable Pull-Through","Cable Glute Kickback","Cable Romanian Deadlift",
+      "Dumbbell Romanian Deadlift","Dumbbell Hip Thrust",
+      "Kettlebell Swing",
     ],
   },
+};
+
+// Cross-category equipment filters. CABLES and DUMBBELLS span multiple
+// muscle-group categories; filtering by equipment uses this lookup instead
+// of EX_CAT_LOOKUP so exercises keep their muscle-group badge.
+const EQUIPMENT_CATS = {
+  "CABLES": [
+    // CHEST
+    "Cable Flyes","Incline Cable Flyes","Low Cable Crossover","Cable Chest Press",
+    // BACK
+    "Seated Cable Row","Single-Arm Cable Row","Wide-Grip Seated Cable Row",
+    "Lat Pulldown","Close-Grip Lat Pulldown","Straight-Arm Pulldown",
+    // LEGS
+    "Cable Pull-Through","Cable Glute Kickback","Cable Hip Abduction","Cable Romanian Deadlift",
+    // SHOULDERS
+    "Cable Lateral Raises","Cable Face Pulls","Cable Upright Row",
+    // ARMS
+    "Cable Curl","Rope Pushdown","Tricep Pushdown","Cable Overhead Tricep Extension",
+    // CORE
+    "Cable Crunch","Pallof Press","Cable Woodchop",
+  ],
+  "DUMBBELLS": [
+    // CHEST
+    "Dumbbell Bench Press","Incline Dumbbell Press","Decline Dumbbell Press",
+    "Dumbbell Flyes","Dumbbell Pullover",
+    // BACK
+    "Dumbbell Row","Renegade Row","Dumbbell Deadlift","Dumbbell Good Mornings",
+    // LEGS
+    "Goblet Squat","Dumbbell Lunge","Dumbbell Romanian Deadlift",
+    "Dumbbell Hip Thrust","Dumbbell Sumo Squat","Dumbbell Calf Raise",
+    // SHOULDERS
+    "Seated Dumbbell Press","Arnold Press","Lateral Raises","Rear Delt Flyes",
+    "Front Raises","Dumbbell Shrugs","Dumbbell Upright Row",
+    // ARMS
+    "Dumbbell Curl","Hammer Curl","Concentration Curl","Incline Dumbbell Curl",
+    "Zottman Curl","Reverse Curl","Tricep Kickback",
+    "Dumbbell Skull Crushers","Dumbbell Overhead Tricep Extension",
+  ],
 };
 
 // Maps cardio exercise names to their two input fields.
@@ -782,6 +834,43 @@ const EXERCISE_MUSCLE_MAP = {
   "High Knees":                    { hip_flexor:0.85, quad:0.65, calf:0.6 },
   "Bear Crawl":                    { chest:0.55, front_delt:0.5, tricep:0.4, upper_abs:0.6, lower_abs:0.4 },
   "Farmer's Walk":                 { trap:0.9, forearm:0.85, lower_back:0.6, glute:0.4 },
+  // CHEST additions
+  "Cable Chest Press":             { chest:0.95, front_delt:0.4, tricep:0.35 },
+  "Dumbbell Pullover":             { chest:0.7, lat:0.8, tricep:0.3 },
+  // BACK additions
+  "Renegade Row":                  { lat:0.8, mid_back:0.7, bicep:0.45, upper_abs:0.5 },
+  "Dumbbell Deadlift":             { lower_back:0.75, glute:0.7, hamstring:0.6, quad:0.5 },
+  "Dumbbell Good Mornings":        { lower_back:0.9, hamstring:0.7, glute:0.5 },
+  // LEGS additions
+  "Cable Pull-Through":            { glute:0.9, hamstring:0.65, lower_back:0.5 },
+  "Cable Glute Kickback":          { glute:1.0, hamstring:0.3 },
+  "Cable Hip Abduction":           { glute:0.85, hip_flexor:0.4 },
+  "Cable Romanian Deadlift":       { hamstring:0.95, glute:0.8, lower_back:0.65 },
+  "Dumbbell Romanian Deadlift":    { hamstring:1.0, glute:0.8, lower_back:0.65 },
+  "Dumbbell Hip Thrust":           { glute:1.0, hamstring:0.45 },
+  "Dumbbell Sumo Squat":           { quad:0.7, glute:0.9, hamstring:0.4 },
+  "Dumbbell Calf Raise":           { calf:1.0 },
+  // SHOULDERS additions
+  "Cable Upright Row":             { mid_delt:0.85, trap:0.8, front_delt:0.35, bicep:0.3 },
+  "Dumbbell Upright Row":          { mid_delt:0.8, trap:0.75, front_delt:0.3, bicep:0.3 },
+  // ARMS additions
+  "Dumbbell Skull Crushers":       { tricep:1.0 },
+  "Dumbbell Overhead Tricep Extension": { tricep:1.0 },
+  // CORE additions
+  "Cable Woodchop":                { oblique:1.0, upper_abs:0.7, lower_back:0.3 },
+  // KETTLEBELL
+  "Kettlebell Clean":              { glute:0.8, hamstring:0.6, lat:0.5, trap:0.6, bicep:0.4 },
+  "Kettlebell Press":              { front_delt:0.9, mid_delt:0.6, tricep:0.5, trap:0.3 },
+  "Kettlebell Snatch":             { glute:1.0, hamstring:0.8, lat:0.6, trap:0.5, front_delt:0.5 },
+  "Kettlebell Turkish Get-Up":     { glute:0.7, quad:0.6, front_delt:0.8, upper_abs:0.6, oblique:0.7 },
+  "Kettlebell Goblet Squat":       { quad:0.85, glute:0.75, lower_back:0.3 },
+  "Kettlebell Deadlift":           { lower_back:0.8, glute:0.75, hamstring:0.7, quad:0.4 },
+  "Kettlebell Row":                { lat:0.85, mid_back:0.75, bicep:0.5, rear_delt:0.4 },
+  "Kettlebell Windmill":           { oblique:0.9, glute:0.6, front_delt:0.5, lower_back:0.5 },
+  "Kettlebell Halo":               { mid_delt:0.7, front_delt:0.6, rear_delt:0.5, upper_abs:0.4 },
+  "Kettlebell Clean and Press":    { glute:0.75, hamstring:0.5, front_delt:0.85, mid_delt:0.55, tricep:0.45, trap:0.55 },
+  "Kettlebell Front Squat":        { quad:0.95, glute:0.65, lower_back:0.3 },
+  "Kettlebell Lunge":              { quad:0.8, glute:0.85, hamstring:0.4 },
 };
 
 const MUSCLE_LABELS = {
@@ -1710,13 +1799,16 @@ function ExercisePicker({ onSelect, onClose }) {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("ALL");
   const [subCat, setSubCat] = useState(null);
-  const cats = ["ALL", ...Object.keys(EXERCISE_CATS)];
+  const muscleCats = ["ALL", ...Object.keys(EXERCISE_CATS)];
+  const equipCats = Object.keys(EQUIPMENT_CATS);
   const subCats = cat !== "ALL" ? EXERCISE_SUBCATS[cat] : null;
 
   const handleCatChange = (c) => { setCat(c); setSubCat(null); };
 
   const filtered = EXERCISES.filter(e => {
-    const matchCat = cat === "ALL" || EX_CAT_LOOKUP[e] === cat;
+    const matchCat = cat === "ALL" ? true
+      : EQUIPMENT_CATS[cat] ? EQUIPMENT_CATS[cat].includes(e)
+      : EX_CAT_LOOKUP[e] === cat;
     const matchSub = !subCat || (subCats && subCats[subCat]?.includes(e));
     const matchQ = !q || e.toLowerCase().includes(q.toLowerCase());
     return matchCat && matchSub && matchQ;
@@ -1739,9 +1831,15 @@ function ExercisePicker({ onSelect, onClose }) {
           {q && <button onClick={()=>setQ("")} style={{ position:"absolute", right:28, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:13 }}>✕</button>}
         </div>
 
-        <div style={{ display:"flex", gap:6, padding:"0 18px 8px", overflowX:"auto", scrollbarWidth:"none" }}>
-          {cats.map(c => (
+        <div style={{ display:"flex", gap:6, padding:"0 18px 4px", overflowX:"auto", scrollbarWidth:"none" }}>
+          {muscleCats.map(c => (
             <button key={c} onClick={()=>handleCatChange(c)} style={{ flexShrink:0, padding:"5px 12px", borderRadius:20, border:`1px solid ${cat===c ? G.gold : G.borderB}`, background: cat===c ? `${G.gold}20` : "transparent", color: cat===c ? G.gold : G.textMid, fontFamily:FONT.body, fontSize:10, letterSpacing:2, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}>{c}</button>
+          ))}
+        </div>
+        <div style={{ display:"flex", gap:6, padding:"0 18px 10px", overflowX:"auto", scrollbarWidth:"none", alignItems:"center" }}>
+          <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:2, textTransform:"uppercase", flexShrink:0, marginRight:2 }}>EQUIPMENT</div>
+          {equipCats.map(c => (
+            <button key={c} onClick={()=>handleCatChange(c)} style={{ flexShrink:0, padding:"4px 11px", borderRadius:20, border:`1px solid ${cat===c ? G.purpleLight : G.borderB}`, background: cat===c ? `${G.purple}30` : "transparent", color: cat===c ? G.purpleLight : G.textDim, fontFamily:FONT.body, fontSize:10, letterSpacing:2, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}>{c}</button>
           ))}
         </div>
         {subCats && (
