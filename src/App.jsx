@@ -4017,6 +4017,8 @@ function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
     const streak = profile?.streak || 0;
     const totalSessions = profile?.sessions_count || sessions.length || 0;
     const recent = sessions.slice(0, 7);
+    const age = profile?.age || null;
+    const sex = profile?.sex || null;
 
     // Determine most and least trained muscles
     const sorted = Object.entries(muscleScores || {}).sort(([,a],[,b]) => b - a);
@@ -4057,16 +4059,19 @@ function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
       return { type:"workout", icon:"🏋️", title:"PROGRESSIVE OVERLOAD", text:`Add 5 lbs or 1 rep to your key lifts this session. Small consistent gains compound into massive results over time.` };
     })();
 
-    // Recovery recommendation
+    // Recovery recommendation — adjusted for age
     const recoveryRec = (() => {
       if ((muscleScores[topMuscle] || 0) > 80) return { type:"recovery", icon:"🧊", title:"PRIORITIZE RECOVERY", text:`Your ${topMuscle} is heavily loaded. Use contrast therapy (hot/cold), foam rolling, and get 8+ hours of sleep tonight.` };
+      if (age >= 40) return { type:"recovery", icon:"🧘", title:"RECOVERY IS TRAINING", text:`At ${age}, recovery IS part of your program — not optional. Prioritize 8+ hours of sleep, mobility work, and at least one full rest day between heavy sessions.` };
       if (streak >= 5) return { type:"recovery", icon:"😴", title:"SLEEP IS YOUR SUPERPOWER", text:`On a ${streak}-day streak, sleep quality becomes critical. Aim for 8 hours — that's when muscle protein synthesis peaks.` };
       return { type:"recovery", icon:"💧", title:"HYDRATION CHECK", text:"Aim for at least 100oz of water on training days. Dehydration reduces strength output by up to 10% — don't leave gains on the table." };
     })();
 
-    // Nutrition recommendation
+    // Nutrition recommendation — adjusted for sex and age
     const totalVol = recent.reduce((a, s) => a + (s.vol || 0), 0);
     const nutritionRec = (() => {
+      if (sex === "female") return { type:"nutrition", icon:"🥗", title:"FUEL FOR YOUR PHYSIOLOGY", text:"Women often under-eat on training days. Hit 0.8–1g protein per lb of bodyweight, don't skip carbs around workouts, and ensure adequate iron and calcium intake." };
+      if (age >= 50) return { type:"nutrition", icon:"🥩", title:"PROTEIN IS NON-NEGOTIABLE", text:`After 50, muscle protein synthesis slows. Aim for 1g+ protein per lb of bodyweight and consider creatine monohydrate — it's the most proven supplement for preserving muscle with age.` };
       if (totalVol > 50000) return { type:"nutrition", icon:"🥩", title:"HIGH OUTPUT — FUEL UP", text:"Your training volume is serious. Hit 1g of protein per lb of bodyweight and keep carbs high on training days to fuel performance." };
       if (daysSinceLast >= 2) return { type:"nutrition", icon:"⚡", title:"PRE-WORKOUT FUEL", text:"Eat a balanced meal with carbs and protein 60–90 min before training. A banana + Greek yogurt is a simple, effective combo." };
       return { type:"nutrition", icon:"🥗", title:"POST-WORKOUT WINDOW", text:"Within 30–60 min of finishing, get 30–40g of protein and fast carbs. This window is when muscle repair starts — don't miss it." };
@@ -4645,9 +4650,9 @@ function useAdminData() {
       let profiles, e;
       ({ data: profiles, error: e } = await supabase
         .from("profiles")
-        .select("id, username, avatar_initials, points, streak, sessions_count")
+        .select("id, username, avatar_initials, points, streak, sessions_count, age, sex, location")
         .order("points", { ascending: false }));
-      if (e && (e.message?.includes("sessions_count") || e.code === "42703")) {
+      if (e && (e.message?.includes("sessions_count") || e.message?.includes("age") || e.code === "42703")) {
         ({ data: profiles, error: e } = await supabase
           .from("profiles")
           .select("id, username, avatar_initials, points, streak")
@@ -4749,6 +4754,65 @@ function AdminDashboardContent({ data, loading, error, load }) {
           </ChromeCard>
         </>
       )}
+
+      {data.some(p => p.sex || p.age) && (() => {
+        const withSex = data.filter(p => p.sex);
+        const sexCounts = withSex.reduce((acc, p) => { acc[p.sex] = (acc[p.sex]||0)+1; return acc; }, {});
+        const withAge = data.filter(p => p.age);
+        const ageBrackets = [["13–24",13,24],["25–34",25,34],["35–44",35,44],["45+",45,99]];
+        const ageCounts = ageBrackets.map(([l,lo,hi]) => ({ l, n: withAge.filter(p => p.age >= lo && p.age <= hi).length }));
+        const locations = data.filter(p => p.location).reduce((acc, p) => { const key = p.location.split(",").pop()?.trim() || p.location; acc[key] = (acc[key]||0)+1; return acc; }, {});
+        const topLocs = Object.entries(locations).sort((a,b) => b[1]-a[1]).slice(0,5);
+        return (
+          <>
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:10 }}>MEMBER DEMOGRAPHICS</div>
+            <ChromeCard style={{ padding:"14px", marginBottom:18 }}>
+              {withSex.length > 0 && (
+                <>
+                  <div style={{ fontFamily:FONT.display, fontSize:10, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:8 }}>Sex ({withSex.length} reported)</div>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
+                    {Object.entries(sexCounts).map(([s, n]) => (
+                      <div key={s} style={{ background:`${G.purple}22`, border:`1px solid ${G.purple}44`, borderRadius:6, padding:"5px 10px", fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1 }}>
+                        {s === "prefer_not" ? "Prefer not to say" : s.charAt(0).toUpperCase()+s.slice(1)} <span style={{ color:"#fff", fontFamily:FONT.display }}>{n}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              {withAge.length > 0 && (
+                <>
+                  <div style={{ fontFamily:FONT.display, fontSize:10, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:8 }}>Age ({withAge.length} reported)</div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
+                    {ageCounts.filter(b => b.n > 0).map(b => (
+                      <div key={b.l}>
+                        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                          <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid }}>{b.l}</div>
+                          <div style={{ fontFamily:FONT.display, fontSize:11, color:G.gold }}>{b.n}</div>
+                        </div>
+                        <div style={{ height:4, background:"rgba(255,255,255,0.06)", borderRadius:2, overflow:"hidden" }}>
+                          <div style={{ height:"100%", width:`${Math.round((b.n/withAge.length)*100)}%`, background:G.gold, borderRadius:2 }}/>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              {topLocs.length > 0 && (
+                <>
+                  <div style={{ fontFamily:FONT.display, fontSize:10, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:8 }}>Top Locations</div>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    {topLocs.map(([loc, n]) => (
+                      <div key={loc} style={{ background:"rgba(255,255,255,0.05)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"4px 10px", fontFamily:FONT.body, fontSize:11, color:G.textMid }}>
+                        {loc} <span style={{ color:"#fff", fontFamily:FONT.display }}>{n}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </ChromeCard>
+          </>
+        );
+      })()}
 
       <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:10 }}>ALL USERS ({totalUsers})</div>
       <ChromeCard style={{ padding:0, overflow:"hidden", marginBottom:18 }}>
@@ -5400,6 +5464,85 @@ function ResetPasswordScreen({ onDone }) {
   );
 }
 
+function ProfileSetupModal({ userId, onDone }) {
+  useScrollLock();
+  const [age, setAge] = useState("");
+  const [sex, setSex] = useState("");
+  const [location, setLocation] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const SEX_OPTIONS = [
+    { val:"male",   label:"Male" },
+    { val:"female", label:"Female" },
+    { val:"other",  label:"Non-binary" },
+    { val:"prefer_not", label:"Prefer not to say" },
+  ];
+
+  const handleSave = async () => {
+    setSaving(true);
+    const updates = {};
+    const ageNum = parseInt(age, 10);
+    if (ageNum >= 13 && ageNum <= 99) updates.age = ageNum;
+    if (sex) updates.sex = sex;
+    if (location.trim()) updates.location = location.trim();
+    if (Object.keys(updates).length > 0 && userId) {
+      await supabase.from("profiles").update(updates).eq("id", userId);
+    }
+    setSaving(false);
+    onDone(Object.keys(updates).length > 0 ? updates : null);
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.97)", zIndex:820, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 20px", animation:"motivFadeIn 0.3s ease" }}>
+      <div style={{ width:"100%", maxWidth:400, background:G.bg2, borderRadius:20, padding:"28px 22px", border:`1px solid ${G.purple}44` }}>
+        <div style={{ textAlign:"center", marginBottom:22 }}>
+          <div style={{ fontSize:36, marginBottom:10 }}>💪</div>
+          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:6 }}>
+            TELL US ABOUT <span style={{ color:G.purple }}>YOU</span>
+          </div>
+          <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:1, lineHeight:1.6 }}>
+            Helps your AI Coach give personalized recommendations
+          </div>
+        </div>
+
+        {/* Sex */}
+        <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase", marginBottom:8 }}>Biological Sex</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:16 }}>
+          {SEX_OPTIONS.map(o => (
+            <button key={o.val} onClick={()=>setSex(o.val)}
+              style={{ padding:"10px 8px", borderRadius:8, border:`1px solid ${sex===o.val ? G.purple : G.borderB}`, background:sex===o.val ? `${G.purple}22` : "transparent", color:sex===o.val ? "#fff" : G.textMid, fontFamily:FONT.body, fontSize:12, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Age */}
+        <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase", marginBottom:8 }}>Age</div>
+        <input
+          type="number" inputMode="numeric" value={age} onChange={e=>setAge(e.target.value)}
+          placeholder="e.g. 28" min="13" max="99"
+          style={{ background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:8, padding:"12px 14px", color:"#fff", fontSize:16, outline:"none", width:"100%", boxSizing:"border-box", fontFamily:FONT.body, letterSpacing:1.5, marginBottom:16 }}
+        />
+
+        {/* Location */}
+        <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase", marginBottom:8 }}>Location <span style={{ color:G.textDim }}>(Optional)</span></div>
+        <input
+          type="text" value={location} onChange={e=>setLocation(e.target.value)}
+          placeholder="City, Country (e.g. Los Angeles, USA)"
+          style={{ background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:8, padding:"12px 14px", color:"#fff", fontSize:13, outline:"none", width:"100%", boxSizing:"border-box", fontFamily:FONT.body, letterSpacing:1, marginBottom:20 }}
+        />
+
+        <NeonBtn onClick={handleSave} full disabled={saving} style={{ marginBottom:10 }}>
+          {saving ? "SAVING..." : "SAVE & CONTINUE ◆"}
+        </NeonBtn>
+        <button onClick={()=>onDone(null)} style={{ width:"100%", background:"none", border:"none", fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2, textTransform:"uppercase", cursor:"pointer", padding:"8px" }}>
+          Skip for now
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function LoginScreen() {
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState(() => { try { return localStorage.getItem("sfc_remembered_email") || ""; } catch { return ""; } });
@@ -5676,6 +5819,9 @@ function ProfileModal({ profile, userId, onClose, onSave, showToast }) {
   useScrollLock();
   const [username, setUsername] = useState(profile?.username || "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || null);
+  const [age, setAge] = useState(profile?.age ? String(profile.age) : "");
+  const [sex, setSex] = useState(profile?.sex || "");
+  const [location, setLocation] = useState(profile?.location || "");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
@@ -5707,6 +5853,10 @@ function ProfileModal({ profile, userId, onClose, onSave, showToast }) {
     const initials = trimmed.split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2) || "ME";
     const updates = { username: trimmed, avatar_initials: initials };
     if (avatarUrl) updates.avatar_url = avatarUrl;
+    const ageNum = parseInt(age, 10);
+    if (ageNum >= 13 && ageNum <= 99) updates.age = ageNum;
+    if (sex) updates.sex = sex;
+    if (location.trim()) updates.location = location.trim();
     let { data: rows, error: e2 } = await supabase.from("profiles").update(updates).eq("id", userId).select("id");
     if (e2 && (e2.message?.includes("avatar_url") || e2.code === "42703")) {
       const { username: u, avatar_initials: ai } = updates;
@@ -5748,7 +5898,7 @@ function ProfileModal({ profile, userId, onClose, onSave, showToast }) {
         </div>
 
         {/* Username */}
-        <div style={{ marginBottom:24 }}>
+        <div style={{ marginBottom:20 }}>
           <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:3, textTransform:"uppercase", marginBottom:8 }}>USERNAME</div>
           <input
             value={username}
@@ -5758,6 +5908,39 @@ function ProfileModal({ profile, userId, onClose, onSave, showToast }) {
             style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", color:"#fff", fontFamily:FONT.display, fontSize:16, letterSpacing:3, boxSizing:"border-box", outline:"none" }}
           />
           <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1, marginTop:5 }}>{username.length}/20 characters</div>
+        </div>
+
+        {/* Sex */}
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:3, textTransform:"uppercase", marginBottom:8 }}>Biological Sex</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+            {[{val:"male",label:"Male"},{val:"female",label:"Female"},{val:"other",label:"Non-binary"},{val:"prefer_not",label:"Prefer not to say"}].map(o => (
+              <button key={o.val} onClick={()=>setSex(o.val)}
+                style={{ padding:"10px 8px", borderRadius:8, border:`1px solid ${sex===o.val ? G.purple : G.borderB}`, background:sex===o.val ? `${G.purple}22` : "transparent", color:sex===o.val ? "#fff" : G.textMid, fontFamily:FONT.body, fontSize:12, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Age */}
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:3, textTransform:"uppercase", marginBottom:8 }}>Age</div>
+          <input
+            type="number" inputMode="numeric" value={age} onChange={e=>setAge(e.target.value)}
+            placeholder="e.g. 28" min="13" max="99"
+            style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", color:"#fff", fontFamily:FONT.body, fontSize:14, letterSpacing:1.5, boxSizing:"border-box", outline:"none" }}
+          />
+        </div>
+
+        {/* Location */}
+        <div style={{ marginBottom:24 }}>
+          <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:3, textTransform:"uppercase", marginBottom:8 }}>Location</div>
+          <input
+            type="text" value={location} onChange={e=>setLocation(e.target.value)}
+            placeholder="City, Country (e.g. Los Angeles, USA)"
+            style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", color:"#fff", fontFamily:FONT.body, fontSize:13, letterSpacing:1, boxSizing:"border-box", outline:"none" }}
+          />
         </div>
 
         {err && <div style={{ fontFamily:FONT.body, fontSize:11, color:G.red, letterSpacing:1, marginBottom:16, textAlign:"center" }}>{err}</div>}
@@ -5788,14 +5971,16 @@ function SocialFitClubInner() {
     const today = new Date().toISOString().slice(0, 10);
     try { return localStorage.getItem("sfc_daily_motiv") !== today; } catch { return true; }
   });
+  const [showProfileSetup, setShowProfileSetup] = useState(false);
+  const profileSetupChecked = useRef(false);
   const toastTimer = useRef(null);
 
   const loadProfile = async (userId) => {
-    const { data, error } = await supabase.from("profiles").select("id, username, avatar_initials, avatar_url, points, streak, sessions_count").eq("id", userId).single();
+    const { data, error } = await supabase.from("profiles").select("id, username, avatar_initials, avatar_url, points, streak, sessions_count, age, sex, location").eq("id", userId).single();
     if (data) { setProfile(data); return data; }
     if (error) {
       if (error.code === "PGRST116") return null; // row not found — new user
-      // Column may not be migrated yet — retry with safe baseline columns
+      // age/sex/location or avatar_url may not be migrated yet — retry without them
       const { data: d2, error: e2 } = await supabase.from("profiles").select("id, username, avatar_initials, points, streak, sessions_count").eq("id", userId).single();
       if (d2) { setProfile(d2); return d2; }
       if (e2) {
@@ -5860,6 +6045,14 @@ function SocialFitClubInner() {
     await loadSessions(u.id);
     await loadLeaderboard(u.id);
   };
+
+  useEffect(() => {
+    if (!profile || profileSetupChecked.current) return;
+    profileSetupChecked.current = true;
+    if (profile.age == null) {
+      try { if (!localStorage.getItem("sfc_profile_setup_done")) setTimeout(() => setShowProfileSetup(true), 600); } catch { /* ignore */ }
+    }
+  }, [profile]);
 
   useEffect(() => {
     if (_D) return;
@@ -6040,7 +6233,15 @@ function SocialFitClubInner() {
         try { localStorage.setItem("sfc_onboarded", "1"); } catch { /* ignore */ }
         setShowOnboarding(false);
       }}/>}
-      {!showOnboarding && showDailyMotiv && <DailyMotivModal onClose={() => {
+      {!showOnboarding && showProfileSetup && <ProfileSetupModal
+        userId={user?.id}
+        onDone={(updates) => {
+          try { localStorage.setItem("sfc_profile_setup_done", "1"); } catch { /* ignore */ }
+          setShowProfileSetup(false);
+          if (updates) setProfile(p => ({ ...p, ...updates }));
+        }}
+      />}
+      {!showOnboarding && !showProfileSetup && showDailyMotiv && <DailyMotivModal onClose={() => {
         const today = new Date().toISOString().slice(0, 10);
         try { localStorage.setItem("sfc_daily_motiv", today); } catch { /* ignore */ }
         setShowDailyMotiv(false);
