@@ -26,7 +26,7 @@ A legacy GitHub Actions workflow (`/.github/workflows/deploy.yml`) also exists �
 
 ## Architecture
 
-The entire app lives in a **single file**: `src/App.jsx` (~6900 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+The entire app lives in a **single file**: `src/App.jsx` (~7200 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
 
 `SocialFitClubInner` contains all app logic and is wrapped by an `ErrorBoundary` class component (exported as `SocialFitClub`). Unhandled render errors show a styled "SOMETHING WENT WRONG" screen with a reload button.
 
@@ -200,14 +200,14 @@ Root state passed as props:
 
 | Key | Content | Expires |
 |---|---|---|
-| `sfc_nutrition_log` | `{ date: "YYYY-MM-DD", items: [] }` | Auto-cleared when date changes |
+| `sfc_nutrition_log` | `[{ date: "YYYY-MM-DD", items: [] }, ...]` — rolling 30-day history array, newest first. Migrates old single-day object format automatically on load. | Never (30-day rolling) |
 | `sfc_wip_session` | `{ name, exs, tag }` in-progress workout | Cleared on save |
 | `sfc_streak_freezes` | string-encoded integer | Never |
 | `sfc_goals` | `{ weekly, volume, streak }` — user-set numeric targets | Never |
 | `sfc_pledge` | string-encoded integer 1–7, weekly session commitment | Never |
 | `sfc_body_log` | `[{ date, weight, bf, photo? }]` body check-in history, newest first | Never |
 | `sfc_ble_device` | last paired Bluetooth device name | Never |
-| `sfc_supplement_log` | `{ date: "YYYY-MM-DD", items: [] }` supplement log | Auto-cleared when date changes |
+| `sfc_supplement_log` | `[{ date: "YYYY-MM-DD", items: [] }, ...]` — same rolling 30-day format as `sfc_nutrition_log`. | Never (30-day rolling) |
 | `sfc_notif_prefs` | `{ enabled, reminderTime, streakAlert }` notification settings | Never |
 | `sfc_session_tags` | `{ [supabaseSessionId]: typeId }` workout type tag map | Never (pruned on loadSessions) |
 | `sfc_water_log` | `{ date: "YYYY-MM-DD", entries: [oz, ...] }` | Auto-cleared when date changes |
@@ -379,10 +379,13 @@ The feed is fully **Supabase-backed** — posts, likes, and comments are all sto
 
 - **Barcode scan**: `BarcodeDetector` API (Chrome/Edge only; falls back to manual entry) → Open Food Facts API → UPC Item DB secondary API → `BARCODE_DB` (26-product local fallback). If still not found, `barcode_not_found` state renders a manual macro entry form. `scanTarget` (`"food"` | `"supplement"`) controls which log receives the result.
 - **Meal scan**: captures live video to `<canvas>` → JPEG base64 → `analyze-meal` Edge Function → Claude Haiku vision.
+- **Online food search**: when the SEARCH tab returns 0 local results, a "🌐 SEARCH ONLINE DATABASE" button triggers `searchOnline()` which queries `https://world.openfoodfacts.org/cgi/search.pl?...` (no API key needed, 10s timeout via `AbortSignal.timeout`). Returns up to 12 per-100g results. If online search also finds nothing, a "LOG MANUALLY" form lets the user enter name + macros directly.
 
 ### NutritionScreen tabs
 
 Four tabs: `📋 LOG` (food by meal), `📷 SCAN` (camera AI + barcode), `🔍 SEARCH` (food DB with category filter), `💊 SUPPS` (supplement tracker).
+
+The LOG tab shows today's meals and a **PAST DAYS** collapsible section below them. Each past day row displays date, item count, and daily kcal; tapping expands it to show per-item rows and a macro breakdown footer. `pastFoodDays` is derived from the `nutritionHistory` IIFE on mount (last 7 days excluding today). `expandedFoodDay` state tracks which day is open.
 
 The `scanTarget` state (`"food"` | `"supplement"`) controls where scan results are routed. When `"supplement"`, only the barcode button is shown (no meal photo scan), and results go to `suppLog` / `sfc_supplement_log`. `SUPPLEMENTS_DB` has 25 entries.
 
@@ -472,6 +475,8 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 ### Module-level constants
 
 `ADMIN_EMAIL`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `REST_OPTIONS`, `MACRO_COACH_KEY`, `DAILY_MESSAGES`, `PROGRAMS_DATA`.
+
+`FOODS` has 250+ entries across categories: BREAKFAST, PROTEIN, CARBS, DAIRY, FRUIT, VEG, NUTS, FAT, SUPPLEMENT, FAST FOOD, RESTAURANT, SNACK, BRAND, BEVERAGE. `FOOD_CATS` lists all these including "ALL" at the start.
 
 `SESSION_TYPES` is `[{ id, label, color }]` — 9 workout categories each with a hex color used for chip backgrounds and history badges.
 
