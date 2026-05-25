@@ -1441,6 +1441,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   const [restWarnDismissed, setRestWarnDismissed] = useState(false);
   const [plateCalcOpen, setPlateCalcOpen] = useState(false);
   const [plateCalcWeight, setPlateCalcWeight] = useState("");
+  const [selectedProgram, setSelectedProgram] = useState(null);
   const nextIdRef = useRef(2);
 
   useEffect(() => {
@@ -1544,6 +1545,14 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
       {pickerFor && <ExercisePicker onSelect={name=>{ selectExercise(pickerFor, name); }} onClose={()=>setPickerFor(null)}/>}
       {restSec && <RestTimer sec={restSec} onDone={() => { setRestSec(null); showToast("✓ REST COMPLETE"); }}/>}
       {plateCalcOpen && <PlateCalculatorModal initialWeight={plateCalcWeight} onClose={() => setPlateCalcOpen(false)}/>}
+      {selectedProgram && <ProgramDetailModal program={selectedProgram} onClose={()=>setSelectedProgram(null)} onStartDay={(prog, dayIdx) => {
+        const day = prog.days[dayIdx];
+        setSessName(`${prog.name} — DAY ${dayIdx+1}`);
+        setExs(day.exs.map((ex, i) => ({ id: i+1, name: ex.name, sets:[{r:"",w:"",type:"working"}], rest:60, q:ex.name, sugg:false })));
+        setSubTab("track");
+        setSelectedProgram(null);
+        showToast(`✓ ${day.name} loaded — add your weights!`);
+      }}/>}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:16 }}>
         <div>
           <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
@@ -1973,27 +1982,281 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
             </>
           )}
           <SectionLabel>Training Programs</SectionLabel>
-          {[
-            { name:"GOLDEN ERA HYPERTROPHY", type:"BODYBUILDING", level:"INTERMEDIATE", weeks:12, desc:"Classic high-volume bodybuilding. The Arnold blueprint.", ico:"🏆" },
-            { name:"RAW STRENGTH FOUNDATION", type:"POWERLIFTING", level:"BEGINNER", weeks:8, desc:"Linear progression for squat, bench, and deadlift.", ico:"🏋️" },
-            { name:"EXPLOSIVE ATHLETE", type:"ATHLETICS", level:"ADVANCED", weeks:10, desc:"Speed, power, and sport conditioning.", ico:"⚡" },
-            { name:"FAT LOSS ACCELERATOR", type:"WEIGHT LOSS", level:"BEGINNER", weeks:8, desc:"Metabolic training to maximize fat burn.", ico:"🔥" },
-          ].map((p,i) => (
-            <ChromeCard key={i} style={{ padding:"14px", marginBottom:11 }}>
-              <div style={{ display:"flex", gap:12 }}>
-                <div style={{ fontSize:28, flexShrink:0 }}>{p.ico}</div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:"#fff", textTransform:"uppercase", marginBottom:5 }}>{p.name}</div>
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:6 }}>
-                    <Chip label={p.type} small/><Chip label={p.level} color={G.purpleLight} small/><Chip label={`${p.weeks}WK`} color={G.textMid} small/>
+          {PROGRAMS_DATA.map((p,i) => (
+            <ChromeCard key={i} onClick={()=>setSelectedProgram(p)} style={{ padding:"14px", marginBottom:11, cursor:"pointer" }}>
+              <div style={{ display:"flex", gap:12, alignItems:"center" }}>
+                <div style={{ width:48, height:48, borderRadius:10, background:`${p.col}18`, border:`1px solid ${p.col}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, flexShrink:0 }}>{p.ico}</div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:"#fff", textTransform:"uppercase", marginBottom:5 }}>{p.name}</div>
+                  <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:5 }}>
+                    <Chip label={p.type} small color={p.col}/><Chip label={p.level} small/><Chip label={`${p.weeks}WK`} small color={G.textMid}/><Chip label={`${p.daysPerWeek}x/WK`} small color={G.textMid}/>
                   </div>
                   <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:0.5 }}>{p.desc}</div>
                 </div>
+                <div style={{ color:p.col, fontSize:16, flexShrink:0 }}>›</div>
               </div>
             </ChromeCard>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+const PROGRAMS_DATA = [
+  {
+    id:"golden-era", name:"GOLDEN ERA HYPERTROPHY", type:"BODYBUILDING", level:"INTERMEDIATE",
+    weeks:12, daysPerWeek:5, ico:"🏆", col:"#FDB927",
+    desc:"Classic high-volume bodybuilding. The Arnold blueprint.",
+    goal:"Build maximum muscle size and definition using time-tested techniques from the golden era of bodybuilding.",
+    equipment:["Barbell","Dumbbells","Cable Machine","Bench","Pull-Up Bar"],
+    schedule:["Chest & Tris","Back & Bis","Shoulders & Abs","Legs","Arms","Rest","Rest"],
+    days:[
+      { name:"CHEST & TRICEPS", tag:"push", exs:[
+        { name:"Barbell Bench Press", sets:4, reps:"8–12" },
+        { name:"Incline Dumbbell Press", sets:4, reps:"10–12" },
+        { name:"Cable Flyes", sets:3, reps:"12–15" },
+        { name:"Skull Crushers", sets:3, reps:"10–12" },
+        { name:"Tricep Pushdown", sets:3, reps:"12–15" },
+      ]},
+      { name:"BACK & BICEPS", tag:"pull", exs:[
+        { name:"Pull-Ups", sets:4, reps:"6–10" },
+        { name:"Barbell Row", sets:4, reps:"8–10" },
+        { name:"Lat Pulldown", sets:3, reps:"10–12" },
+        { name:"Barbell Curl", sets:3, reps:"10–12" },
+        { name:"Hammer Curl", sets:3, reps:"12" },
+      ]},
+      { name:"SHOULDERS & ABS", tag:"push", exs:[
+        { name:"Barbell Overhead Press", sets:4, reps:"8–10" },
+        { name:"Arnold Press", sets:3, reps:"10–12" },
+        { name:"Lateral Raises", sets:4, reps:"12–15" },
+        { name:"Rear Delt Flyes", sets:3, reps:"12–15" },
+        { name:"Ab Wheel", sets:3, reps:"10–15" },
+      ]},
+      { name:"LEGS", tag:"legs", exs:[
+        { name:"Barbell Squat", sets:5, reps:"8–10" },
+        { name:"Romanian Deadlift", sets:4, reps:"10–12" },
+        { name:"Leg Press", sets:4, reps:"12–15" },
+        { name:"Leg Curl", sets:3, reps:"12–15" },
+        { name:"Hanging Leg Raises", sets:3, reps:"15" },
+      ]},
+      { name:"ARMS", tag:"pull", exs:[
+        { name:"Barbell Curl", sets:4, reps:"10–12" },
+        { name:"Preacher Curl", sets:3, reps:"10–12" },
+        { name:"Hammer Curl", sets:3, reps:"12" },
+        { name:"Skull Crushers", sets:4, reps:"10–12" },
+        { name:"Tricep Pushdown", sets:3, reps:"12–15" },
+      ]},
+    ],
+  },
+  {
+    id:"raw-strength", name:"RAW STRENGTH FOUNDATION", type:"POWERLIFTING", level:"BEGINNER",
+    weeks:8, daysPerWeek:3, ico:"🏋️", col:"#A29BFE",
+    desc:"Linear progression for squat, bench, and deadlift.",
+    goal:"Build a foundation of raw strength through proven linear progression on the three competition lifts.",
+    equipment:["Barbell","Power Rack","Bench"],
+    schedule:["Squat Focus","Rest","Bench Focus","Rest","Deadlift Focus","Rest","Rest"],
+    days:[
+      { name:"SQUAT FOCUS", tag:"legs", exs:[
+        { name:"Barbell Squat", sets:5, reps:"5" },
+        { name:"Barbell Bench Press", sets:3, reps:"5" },
+        { name:"Barbell Row", sets:3, reps:"5" },
+        { name:"Romanian Deadlift", sets:3, reps:"8" },
+      ]},
+      { name:"BENCH FOCUS", tag:"push", exs:[
+        { name:"Barbell Bench Press", sets:5, reps:"5" },
+        { name:"Barbell Overhead Press", sets:3, reps:"5" },
+        { name:"Barbell Squat", sets:3, reps:"5" },
+        { name:"Lat Pulldown", sets:3, reps:"8" },
+      ]},
+      { name:"DEADLIFT FOCUS", tag:"pull", exs:[
+        { name:"Barbell Deadlift", sets:1, reps:"5" },
+        { name:"Barbell Squat", sets:3, reps:"5" },
+        { name:"Barbell Bench Press", sets:3, reps:"5" },
+        { name:"Barbell Row", sets:3, reps:"5" },
+      ]},
+    ],
+  },
+  {
+    id:"explosive-athlete", name:"EXPLOSIVE ATHLETE", type:"ATHLETICS", level:"ADVANCED",
+    weeks:10, daysPerWeek:4, ico:"⚡", col:"#00CEC9",
+    desc:"Speed, power, and sport conditioning.",
+    goal:"Develop elite athleticism — power output, explosive speed, and conditioning that translates to any sport.",
+    equipment:["Barbell","Box","Kettlebell","Jump Rope","Assault Bike"],
+    schedule:["Power","Upper Strength","Rest","Lower Speed","Conditioning","Rest","Rest"],
+    days:[
+      { name:"POWER", tag:"full", exs:[
+        { name:"Barbell Deadlift", sets:5, reps:"3" },
+        { name:"Box Jumps", sets:4, reps:"5" },
+        { name:"Barbell Squat", sets:4, reps:"4" },
+        { name:"Kettlebell Swing", sets:4, reps:"10" },
+      ]},
+      { name:"UPPER STRENGTH", tag:"upper", exs:[
+        { name:"Barbell Bench Press", sets:5, reps:"4" },
+        { name:"Barbell Row", sets:4, reps:"4" },
+        { name:"Barbell Overhead Press", sets:3, reps:"5" },
+        { name:"Pull-Ups", sets:4, reps:"6–8" },
+      ]},
+      { name:"LOWER SPEED", tag:"legs", exs:[
+        { name:"Barbell Squat", sets:5, reps:"3" },
+        { name:"Bulgarian Split Squat", sets:3, reps:"8" },
+        { name:"Romanian Deadlift", sets:3, reps:"6" },
+        { name:"Box Jumps", sets:5, reps:"5" },
+      ]},
+      { name:"CONDITIONING", tag:"cardio", exs:[
+        { name:"Assault Bike", sets:6, reps:"30s on / 30s off" },
+        { name:"Kettlebell Swing", sets:5, reps:"15" },
+        { name:"Jump Rope", sets:5, reps:"60s" },
+        { name:"Plank", sets:3, reps:"60s" },
+      ]},
+    ],
+  },
+  {
+    id:"fat-loss", name:"FAT LOSS ACCELERATOR", type:"WEIGHT LOSS", level:"BEGINNER",
+    weeks:8, daysPerWeek:4, ico:"🔥", col:"#FF7675",
+    desc:"Metabolic training to maximize fat burn.",
+    goal:"Torch body fat through high-intensity circuit training that keeps your metabolism elevated long after the workout.",
+    equipment:["Dumbbells","Kettlebell","Jump Rope"],
+    schedule:["Circuit A","Cardio & Core","Circuit B","Rest","Cardio & Core","Rest","Rest"],
+    days:[
+      { name:"CIRCUIT A — FULL BODY", tag:"full", exs:[
+        { name:"Barbell Squat", sets:3, reps:"15" },
+        { name:"Barbell Row", sets:3, reps:"12" },
+        { name:"Barbell Overhead Press", sets:3, reps:"12" },
+        { name:"Romanian Deadlift", sets:3, reps:"15" },
+        { name:"Plank", sets:3, reps:"45s" },
+      ]},
+      { name:"CARDIO & CORE", tag:"cardio", exs:[
+        { name:"Jump Rope", sets:4, reps:"90s" },
+        { name:"Kettlebell Swing", sets:4, reps:"20" },
+        { name:"Ab Wheel", sets:3, reps:"12" },
+        { name:"Hanging Leg Raises", sets:3, reps:"15" },
+        { name:"Russian Twists", sets:3, reps:"20" },
+      ]},
+      { name:"CIRCUIT B — FULL BODY", tag:"full", exs:[
+        { name:"Bulgarian Split Squat", sets:3, reps:"12 each" },
+        { name:"Incline Dumbbell Press", sets:3, reps:"12" },
+        { name:"Lat Pulldown", sets:3, reps:"12" },
+        { name:"Kettlebell Swing", sets:3, reps:"20" },
+        { name:"Russian Twists", sets:3, reps:"20" },
+      ]},
+      { name:"CARDIO BLAST", tag:"cardio", exs:[
+        { name:"Assault Bike", sets:5, reps:"45s on / 15s off" },
+        { name:"Box Jumps", sets:4, reps:"10" },
+        { name:"Jump Rope", sets:4, reps:"60s" },
+        { name:"Plank", sets:3, reps:"60s" },
+      ]},
+    ],
+  },
+];
+
+function ProgramDetailModal({ program, onClose, onStartDay }) {
+  useScrollLock();
+  const [activeDay, setActiveDay] = useState(0);
+  const day = program.days[activeDay];
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.97)", zIndex:600, display:"flex", flexDirection:"column" }}>
+      {/* Header */}
+      <div style={{ background:`linear-gradient(135deg,${program.col}22,rgba(0,0,0,0.7))`, borderBottom:`1px solid ${program.col}33`, padding:"16px 18px", display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
+        <div style={{ fontSize:28, flexShrink:0 }}>{program.ico}</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:2, color:"#fff", textTransform:"uppercase", lineHeight:1.2 }}>{program.name}</div>
+          <div style={{ display:"flex", gap:6, marginTop:5, flexWrap:"wrap" }}>
+            <Chip label={program.type} small color={program.col}/>
+            <Chip label={program.level} small/>
+            <Chip label={`${program.weeks}WK`} small/>
+            <Chip label={`${program.daysPerWeek}x/WK`} small/>
+          </div>
+        </div>
+        <button onClick={onClose} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:8, color:G.textMid, cursor:"pointer", fontSize:16, padding:"6px 10px", flexShrink:0 }}>✕</button>
+      </div>
+
+      <div style={{ flex:1, overflowY:"auto", padding:"20px 18px", paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 32px)", maxWidth:480, width:"100%", margin:"0 auto", boxSizing:"border-box" }}>
+
+        {/* Goal */}
+        <ChromeCard style={{ padding:"14px 16px", marginBottom:14 }}>
+          <div style={{ fontFamily:FONT.body, fontSize:11, letterSpacing:2, color:program.col, textTransform:"uppercase", marginBottom:6 }}>PROGRAM GOAL</div>
+          <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:0.5, lineHeight:1.6 }}>{program.goal}</div>
+        </ChromeCard>
+
+        {/* Overview row */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:14 }}>
+          {[
+            { label:"DURATION", val:`${program.weeks} WKS` },
+            { label:"FREQUENCY", val:`${program.daysPerWeek}x / WK` },
+            { label:"EQUIPMENT", val:`${program.equipment.length} ITEMS` },
+          ].map(s => (
+            <ChromeCard key={s.label} style={{ padding:"10px 8px", textAlign:"center" }}>
+              <div style={{ fontFamily:FONT.display, fontSize:16, color:program.col, letterSpacing:1 }}>{s.val}</div>
+              <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase", marginTop:3 }}>{s.label}</div>
+            </ChromeCard>
+          ))}
+        </div>
+
+        {/* Weekly schedule */}
+        <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase", marginBottom:8 }}>WEEKLY SCHEDULE</div>
+        <ChromeCard style={{ padding:"12px 14px", marginBottom:14 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
+            {["M","T","W","T","F","S","S"].map((d,i) => {
+              const isRest = program.schedule[i] === "Rest";
+              return (
+                <div key={i} style={{ textAlign:"center" }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:9, color:G.textDim, letterSpacing:1, marginBottom:4 }}>{d}</div>
+                  <div style={{ width:"100%", aspectRatio:"1", borderRadius:6, background:isRest ? "rgba(255,255,255,0.04)" : `${program.col}22`, border:`1px solid ${isRest ? G.borderB : program.col+"55"}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:7, color:isRest ? G.textDim : program.col, letterSpacing:0.5, textTransform:"uppercase", padding:"1px 2px", textAlign:"center", lineHeight:1.2 }}>
+                      {isRest ? "–" : program.schedule[i].split(" ")[0].slice(0,4)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </ChromeCard>
+
+        {/* Day selector */}
+        <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase", marginBottom:8 }}>SELECT WORKOUT DAY</div>
+        <div style={{ display:"flex", gap:6, marginBottom:14, flexWrap:"wrap" }}>
+          {program.days.map((d,i) => (
+            <button key={i} onClick={()=>setActiveDay(i)}
+              style={{ flex:1, minWidth:0, padding:"8px 6px", borderRadius:8, border:`1px solid ${activeDay===i ? program.col : G.borderB}`, background:activeDay===i ? `${program.col}18` : "transparent", color:activeDay===i ? program.col : G.textMid, fontFamily:FONT.display, fontSize:10, letterSpacing:1, cursor:"pointer", textTransform:"uppercase", textAlign:"center", lineHeight:1.3 }}>
+              <div style={{ fontSize:8, opacity:0.7, marginBottom:2 }}>DAY {i+1}</div>
+              {d.name.split(" ")[0]}
+            </button>
+          ))}
+        </div>
+
+        {/* Day workout */}
+        <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff", textTransform:"uppercase", marginBottom:10 }}>
+          DAY {activeDay+1} — {day.name}
+        </div>
+        {day.exs.map((ex, i) => (
+          <ChromeCard key={i} style={{ padding:"11px 14px", marginBottom:8, display:"flex", alignItems:"center", gap:12 }}>
+            <div style={{ width:26, height:26, borderRadius:6, background:`${program.col}22`, border:`1px solid ${program.col}44`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <div style={{ fontFamily:FONT.display, fontSize:11, color:program.col }}>{i+1}</div>
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontFamily:FONT.body, fontSize:13, color:"#fff", letterSpacing:0.5, textTransform:"uppercase" }}>{ex.name}</div>
+            </div>
+            <div style={{ textAlign:"right", flexShrink:0 }}>
+              <div style={{ fontFamily:FONT.display, fontSize:14, color:program.col, letterSpacing:1 }}>{ex.sets}×{ex.reps}</div>
+              <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1, marginTop:1 }}>SETS × REPS</div>
+            </div>
+          </ChromeCard>
+        ))}
+
+        {/* Equipment */}
+        <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase", marginTop:16, marginBottom:8 }}>EQUIPMENT NEEDED</div>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:20 }}>
+          {program.equipment.map(e => <Chip key={e} label={e} small color={G.textMid}/>)}
+        </div>
+
+        {/* CTA */}
+        <button onClick={()=>onStartDay(program, activeDay)}
+          style={{ width:"100%", padding:"15px", background:`linear-gradient(135deg,${program.col},${program.col}cc)`, border:"none", borderRadius:10, color:"#0A0810", fontFamily:FONT.display, fontSize:15, letterSpacing:3, textTransform:"uppercase", cursor:"pointer", boxShadow:`0 4px 20px ${program.col}55` }}>
+          LOG DAY {activeDay+1} WORKOUT ◆
+        </button>
+      </div>
     </div>
   );
 }
