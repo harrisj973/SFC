@@ -3190,6 +3190,7 @@ function NutritionScreen({ showToast }) {
   const [scanProgress, setScanProgress] = useState(0);
   const [scanLabel, setScanLabel] = useState("");
   const [manualEntry, setManualEntry] = useState({ name:"", cal:"", pro:"", carb:"", fat:"" });
+  const [showSearchManual, setShowSearchManual] = useState(false);
   const scanTimerRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -3349,6 +3350,17 @@ function NutritionScreen({ showToast }) {
       resetScan(); setView("log");
       showToast(`✓ ${item.name} added to ${selMeal}`);
     }
+  };
+
+  const addSearchManual = () => {
+    const name = (manualEntry.name || search).trim();
+    if (!name) { showToast("⚠️ Enter a food name"); return; }
+    const item = { name, cal: parseInt(manualEntry.cal)||0, pro: parseFloat(manualEntry.pro)||0, carb: parseFloat(manualEntry.carb)||0, fat: parseFloat(manualEntry.fat)||0 };
+    setLog(p => [...p, { ...item, id: Date.now(), meal: selMeal }]);
+    showToast(`✓ ${name} added to ${selMeal}`);
+    setManualEntry({ name:"", cal:"", pro:"", carb:"", fat:"" });
+    setShowSearchManual(false);
+    setView("log");
   };
 
   const filteredFoods = FOODS.filter(f => {
@@ -3606,6 +3618,49 @@ function NutritionScreen({ showToast }) {
               <NeonBtn onClick={()=>{setLog(p=>[...p,{...f,id:Date.now(),meal:selMeal}]);showToast(`✓ Added to ${selMeal}`);}} small>+</NeonBtn>
             </ChromeCard>
           ))}
+
+          {search.trim() && filteredFoods.length === 0 && (
+            <div style={{ marginTop:4 }}>
+              {!showSearchManual ? (
+                <ChromeCard style={{ padding:"20px 16px", textAlign:"center" }}>
+                  <div style={{ fontSize:32, marginBottom:10 }}>🍽️</div>
+                  <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff", marginBottom:6, textTransform:"uppercase" }}>NOT IN OUR DATABASE?</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1, marginBottom:16, lineHeight:1.6 }}>
+                    Log <span style={{ color:"#fff" }}>"{search}"</span> with your own macros
+                  </div>
+                  <NeonBtn onClick={() => { setManualEntry(p => ({ ...p, name: search })); setShowSearchManual(true); }} full>LOG MANUALLY ◆</NeonBtn>
+                </ChromeCard>
+              ) : (
+                <ChromeCard style={{ padding:"14px" }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>CUSTOM FOOD ENTRY</div>
+                    <button onClick={() => { setShowSearchManual(false); setManualEntry({ name:"", cal:"", pro:"", carb:"", fat:"" }); }} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:16, lineHeight:1, padding:"4px" }}>✕</button>
+                  </div>
+                  <input
+                    value={manualEntry.name}
+                    onChange={e => setManualEntry(p => ({ ...p, name: e.target.value }))}
+                    placeholder="FOOD NAME"
+                    style={{ ...inp, marginBottom:10, width:"100%", boxSizing:"border-box" }}
+                  />
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:12 }}>
+                    {[{f:"cal",l:"CALORIES",u:"kcal"},{f:"pro",l:"PROTEIN",u:"g"},{f:"carb",l:"CARBS",u:"g"},{f:"fat",l:"FAT",u:"g"}].map(({f,l,u}) => (
+                      <div key={f}>
+                        <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase", marginBottom:4 }}>{l} ({u})</div>
+                        <input
+                          type="number" inputMode="decimal"
+                          value={manualEntry[f]}
+                          onChange={e => setManualEntry(p => ({ ...p, [f]: e.target.value }))}
+                          placeholder="0"
+                          style={{ ...inp, width:"100%", boxSizing:"border-box" }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <NeonBtn onClick={addSearchManual} full>ADD TO {selMeal} ◆</NeonBtn>
+                </ChromeCard>
+              )}
+            </div>
+          )}
         </div>
       )}
 
