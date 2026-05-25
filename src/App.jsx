@@ -340,8 +340,167 @@ const FOODS = [
   { name:"Fairlife Core Power", cat:"BRAND", cal:230, pro:42, carb:7, fat:3.5 },
   { name:"Premier Protein Shake", cat:"BRAND", cal:160, pro:30, carb:5, fat:3 },
   { name:"Muscle Milk 330ml", cat:"BRAND", cal:150, pro:25, carb:9, fat:3 },
+  // ── Breakfast ──────────────────────────────────────────────────────────────
+  { name:"Breakfast Burrito (large)", cat:"BREAKFAST", cal:490, pro:23, carb:52, fat:22 },
+  { name:"Scrambled Eggs (2 large)", cat:"BREAKFAST", cal:182, pro:12, carb:1.6, fat:14 },
+  { name:"Omelette (3-egg, plain)", cat:"BREAKFAST", cal:215, pro:18, carb:1, fat:15 },
+  { name:"French Toast (2 slices)", cat:"BREAKFAST", cal:300, pro:10, carb:43, fat:10 },
+  { name:"Pancakes (2 medium)", cat:"BREAKFAST", cal:350, pro:9, carb:56, fat:10 },
+  { name:"Waffles (2, frozen)", cat:"BREAKFAST", cal:310, pro:7, carb:49, fat:9 },
+  { name:"Bagel (plain, large)", cat:"BREAKFAST", cal:270, pro:10, carb:55, fat:1.5 },
+  { name:"Bagel w/ Cream Cheese", cat:"BREAKFAST", cal:370, pro:12, carb:55, fat:13 },
+  { name:"Blueberry Muffin", cat:"BREAKFAST", cal:426, pro:6, carb:72, fat:14 },
+  { name:"Croissant (plain)", cat:"BREAKFAST", cal:231, pro:5, carb:26, fat:12 },
+  { name:"Granola 100g", cat:"BREAKFAST", cal:450, pro:10, carb:64, fat:17 },
+  { name:"Cheerios 40g", cat:"BREAKFAST", cal:150, pro:4, carb:32, fat:2 },
+  { name:"Frosted Flakes 40g", cat:"BREAKFAST", cal:150, pro:2, carb:37, fat:0 },
+  { name:"Oatmeal w/ Berries", cat:"BREAKFAST", cal:220, pro:7, carb:42, fat:3.5 },
+  { name:"Breakfast Sandwich (egg, ch, bac)", cat:"BREAKFAST", cal:450, pro:25, carb:36, fat:22 },
+  { name:"Hash Browns (fast food)", cat:"BREAKFAST", cal:150, pro:2, carb:20, fat:7 },
+  { name:"Avocado Toast (2 slices)", cat:"BREAKFAST", cal:330, pro:9, carb:35, fat:18 },
+  { name:"Yogurt Parfait (med)", cat:"BREAKFAST", cal:290, pro:13, carb:48, fat:5 },
+  { name:"Acai Bowl (med)", cat:"BREAKFAST", cal:410, pro:8, carb:68, fat:12 },
+  // ── More Proteins ──────────────────────────────────────────────────────────
+  { name:"Cod Fillet 100g", cat:"PROTEIN", cal:82, pro:18, carb:0, fat:0.7 },
+  { name:"Halibut 100g", cat:"PROTEIN", cal:110, pro:23, carb:0, fat:2.3 },
+  { name:"Mahi-Mahi 100g", cat:"PROTEIN", cal:109, pro:24, carb:0, fat:0.9 },
+  { name:"Sardines (canned) 92g", cat:"PROTEIN", cal:191, pro:23, carb:0, fat:11 },
+  { name:"Canned Salmon 85g", cat:"PROTEIN", cal:130, pro:20, carb:0, fat:5 },
+  { name:"Pork Tenderloin 100g", cat:"PROTEIN", cal:143, pro:26, carb:0, fat:3.5 },
+  { name:"Pork Chop 100g", cat:"PROTEIN", cal:172, pro:24, carb:0, fat:8 },
+  { name:"Ribeye Steak 100g", cat:"PROTEIN", cal:291, pro:24, carb:0, fat:21 },
+  { name:"Sirloin Steak 100g", cat:"PROTEIN", cal:207, pro:26, carb:0, fat:11 },
+  { name:"Ground Turkey 93% 100g", cat:"PROTEIN", cal:148, pro:20, carb:0, fat:7.8 },
+  { name:"Rotisserie Chicken 100g", cat:"PROTEIN", cal:185, pro:24, carb:0, fat:10 },
+  { name:"Beef Jerky 28g", cat:"PROTEIN", cal:116, pro:9.4, carb:7.3, fat:7.3 },
+  { name:"Deli Turkey 56g", cat:"PROTEIN", cal:61, pro:11, carb:1.5, fat:0.9 },
+  { name:"Deli Ham 56g", cat:"PROTEIN", cal:73, pro:11, carb:2, fat:2 },
+  { name:"Lamb Chop 100g", cat:"PROTEIN", cal:258, pro:25, carb:0, fat:17 },
+  { name:"Bison 100g", cat:"PROTEIN", cal:143, pro:28, carb:0, fat:3 },
+  // ── More Carbs / Grains ────────────────────────────────────────────────────
+  { name:"Flour Tortilla (10in)", cat:"CARBS", cal:218, pro:5.7, carb:36, fat:5.4 },
+  { name:"Whole Wheat Tortilla (10in)", cat:"CARBS", cal:200, pro:6, carb:34, fat:5 },
+  { name:"Pita Bread (1 piece)", cat:"CARBS", cal:165, pro:5.5, carb:33, fat:0.7 },
+  { name:"Couscous (cooked) 100g", cat:"CARBS", cal:112, pro:3.8, carb:23, fat:0.2 },
+  { name:"Bulgur (cooked) 100g", cat:"CARBS", cal:83, pro:3.1, carb:19, fat:0.2 },
+  { name:"Barley (cooked) 100g", cat:"CARBS", cal:123, pro:2.3, carb:28, fat:0.4 },
+  { name:"Grits (cooked) 100g", cat:"CARBS", cal:59, pro:1.4, carb:13, fat:0.3 },
+  { name:"English Muffin", cat:"CARBS", cal:134, pro:4.4, carb:26, fat:1.1 },
+  { name:"Sourdough Bread 1 slice", cat:"CARBS", cal:93, pro:4, carb:18, fat:0.6 },
+  { name:"Dinner Roll", cat:"CARBS", cal:87, pro:2.7, carb:15, fat:1.9 },
+  { name:"Crackers (5 Triscuits)", cat:"CARBS", cal:120, pro:3, carb:20, fat:4 },
+  { name:"Rice Cakes (2 plain)", cat:"CARBS", cal:70, pro:1.4, carb:15, fat:0.5 },
+  // ── More Dairy ─────────────────────────────────────────────────────────────
+  { name:"String Cheese (1 stick)", cat:"DAIRY", cal:80, pro:7, carb:1, fat:5 },
+  { name:"Cream Cheese 2 tbsp", cat:"DAIRY", cal:100, pro:2, carb:2, fat:10 },
+  { name:"Sour Cream 2 tbsp", cat:"DAIRY", cal:60, pro:0.9, carb:1.2, fat:5.9 },
+  { name:"Butter 1 tbsp", cat:"DAIRY", cal:102, pro:0.1, carb:0, fat:11.5 },
+  { name:"Heavy Cream 1 tbsp", cat:"DAIRY", cal:51, pro:0.3, carb:0.4, fat:5.4 },
+  { name:"Full-Fat Greek Yogurt 170g", cat:"DAIRY", cal:160, pro:15, carb:6, fat:8 },
+  { name:"Kefir 240ml", cat:"DAIRY", cal:150, pro:10, carb:12, fat:5 },
+  { name:"Ricotta Cheese 60g", cat:"DAIRY", cal:107, pro:7, carb:2, fat:8 },
+  { name:"Mozzarella 28g", cat:"DAIRY", cal:85, pro:6.3, carb:0.6, fat:6.3 },
+  // ── More Fruits ────────────────────────────────────────────────────────────
+  { name:"Orange (medium)", cat:"FRUIT", cal:62, pro:1.2, carb:15, fat:0.2 },
+  { name:"Mango (cup, 165g)", cat:"FRUIT", cal:99, pro:1.4, carb:25, fat:0.6 },
+  { name:"Peach (medium)", cat:"FRUIT", cal:58, pro:1.4, carb:14, fat:0.4 },
+  { name:"Grapes (cup, 151g)", cat:"FRUIT", cal:104, pro:1.1, carb:27, fat:0.2 },
+  { name:"Watermelon (cup, 152g)", cat:"FRUIT", cal:46, pro:0.9, carb:11.5, fat:0.2 },
+  { name:"Pineapple (cup, 165g)", cat:"FRUIT", cal:82, pro:0.9, carb:22, fat:0.2 },
+  { name:"Kiwi (1 medium)", cat:"FRUIT", cal:42, pro:0.8, carb:10, fat:0.4 },
+  { name:"Grapefruit (half)", cat:"FRUIT", cal:52, pro:0.9, carb:13, fat:0.2 },
+  { name:"Raspberries (cup, 123g)", cat:"FRUIT", cal:64, pro:1.5, carb:15, fat:0.8 },
+  { name:"Blackberries (cup, 144g)", cat:"FRUIT", cal:62, pro:2, carb:14, fat:0.7 },
+  { name:"Cherries (cup, 138g)", cat:"FRUIT", cal:87, pro:1.5, carb:22, fat:0.3 },
+  { name:"Pear (medium)", cat:"FRUIT", cal:101, pro:0.6, carb:27, fat:0.2 },
+  // ── More Vegetables ────────────────────────────────────────────────────────
+  { name:"Bell Pepper (1 medium)", cat:"VEG", cal:31, pro:1, carb:7, fat:0.3 },
+  { name:"Cucumber 100g", cat:"VEG", cal:15, pro:0.7, carb:3.6, fat:0.1 },
+  { name:"Asparagus (5 spears)", cat:"VEG", cal:20, pro:2.2, carb:3.7, fat:0.2 },
+  { name:"Zucchini 100g", cat:"VEG", cal:17, pro:1.2, carb:3.1, fat:0.3 },
+  { name:"Kale 100g", cat:"VEG", cal:49, pro:4.3, carb:9, fat:0.9 },
+  { name:"Cauliflower 100g", cat:"VEG", cal:25, pro:1.9, carb:5, fat:0.3 },
+  { name:"Brussels Sprouts 100g", cat:"VEG", cal:43, pro:3.4, carb:9, fat:0.3 },
+  { name:"Mushrooms 100g", cat:"VEG", cal:22, pro:3.1, carb:3.3, fat:0.3 },
+  { name:"Tomato (medium)", cat:"VEG", cal:22, pro:1.1, carb:4.8, fat:0.2 },
+  { name:"Carrot (1 medium)", cat:"VEG", cal:25, pro:0.6, carb:6, fat:0.1 },
+  { name:"Green Beans 100g", cat:"VEG", cal:31, pro:1.8, carb:7, fat:0.1 },
+  { name:"Edamame (shelled) 100g", cat:"VEG", cal:121, pro:11, carb:9, fat:5.2 },
+  { name:"Celery (2 stalks)", cat:"VEG", cal:14, pro:0.7, carb:3, fat:0.2 },
+  { name:"Onion 100g", cat:"VEG", cal:40, pro:1.1, carb:9.3, fat:0.1 },
+  // ── More Nuts & Seeds ──────────────────────────────────────────────────────
+  { name:"Cashews 28g", cat:"NUTS", cal:157, pro:5.2, carb:8.6, fat:12.4 },
+  { name:"Pistachios 28g", cat:"NUTS", cal:159, pro:5.7, carb:7.7, fat:12.9 },
+  { name:"Pecans 28g", cat:"NUTS", cal:196, pro:2.6, carb:3.9, fat:20.4 },
+  { name:"Macadamia Nuts 28g", cat:"NUTS", cal:204, pro:2.2, carb:3.9, fat:21.5 },
+  { name:"Chia Seeds 1 tbsp", cat:"NUTS", cal:58, pro:2, carb:5, fat:3.7 },
+  { name:"Sunflower Seeds 28g", cat:"NUTS", cal:166, pro:5.8, carb:6.8, fat:14.4 },
+  { name:"Pumpkin Seeds 28g", cat:"NUTS", cal:151, pro:8.5, carb:5, fat:13 },
+  { name:"Flaxseed 1 tbsp", cat:"NUTS", cal:55, pro:1.9, carb:3, fat:4.3 },
+  { name:"Hemp Seeds 3 tbsp", cat:"NUTS", cal:166, pro:9.5, carb:2.6, fat:14.6 },
+  // ── Fast Food Additions ────────────────────────────────────────────────────
+  { name:"BK Whopper", cat:"FAST FOOD", cal:657, pro:28, carb:49, fat:40 },
+  { name:"Wendy's Dave's Single", cat:"FAST FOOD", cal:590, pro:34, carb:39, fat:34 },
+  { name:"Taco Bell Chicken Burrito", cat:"FAST FOOD", cal:510, pro:22, carb:68, fat:16 },
+  { name:"Taco Bell Crunchy Taco", cat:"FAST FOOD", cal:170, pro:8, carb:13, fat:9 },
+  { name:"Chick-fil-A Nuggets 8pc", cat:"FAST FOOD", cal:260, pro:26, carb:14, fat:12 },
+  { name:"McDonald's McDouble", cat:"FAST FOOD", cal:400, pro:22, carb:34, fat:19 },
+  { name:"McDonald's Fries (med)", cat:"FAST FOOD", cal:320, pro:4.4, carb:44, fat:15 },
+  { name:"Domino's Pepperoni Slice", cat:"FAST FOOD", cal:300, pro:13, carb:35, fat:12 },
+  { name:"Papa John's Cheese Slice", cat:"FAST FOOD", cal:290, pro:12, carb:36, fat:11 },
+  // ── Restaurant Additions ───────────────────────────────────────────────────
+  { name:"Panera Chicken Avocado Melt", cat:"RESTAURANT", cal:620, pro:45, carb:54, fat:24 },
+  { name:"Panera Bread Mac & Cheese", cat:"RESTAURANT", cal:970, pro:34, carb:105, fat:46 },
+  { name:"Panda Express Orange Chicken", cat:"RESTAURANT", cal:420, pro:14, carb:57, fat:20 },
+  { name:"Panda Express Chow Mein", cat:"RESTAURANT", cal:510, pro:14, carb:80, fat:21 },
+  { name:"Chipotle Steak Bowl", cat:"RESTAURANT", cal:710, pro:53, carb:72, fat:18 },
+  { name:"Chipotle Burrito (full)", cat:"RESTAURANT", cal:1075, pro:51, carb:114, fat:36 },
+  { name:"Sushi Roll (California, 6pc)", cat:"RESTAURANT", cal:255, pro:9, carb:38, fat:7 },
+  { name:"Sushi Roll (Spicy Tuna, 6pc)", cat:"RESTAURANT", cal:290, pro:14, carb:32, fat:11 },
+  { name:"Pad Thai (restaurant, 1 cup)", cat:"RESTAURANT", cal:400, pro:20, carb:54, fat:11 },
+  { name:"Chicken Fried Rice (1 cup)", cat:"RESTAURANT", cal:343, pro:17, carb:55, fat:6.5 },
+  { name:"Beef & Broccoli (1 cup)", cat:"RESTAURANT", cal:336, pro:24, carb:22, fat:17 },
+  { name:"Chicken Tikka Masala (1 cup)", cat:"RESTAURANT", cal:310, pro:26, carb:12, fat:18 },
+  { name:"Beef Tacos (2, hard shell)", cat:"RESTAURANT", cal:370, pro:18, carb:34, fat:17 },
+  { name:"Cheese Quesadilla (1 large)", cat:"RESTAURANT", cal:520, pro:22, carb:52, fat:26 },
+  { name:"Pasta Primavera (1 cup)", cat:"RESTAURANT", cal:330, pro:12, carb:51, fat:9 },
+  // ── More Snacks ────────────────────────────────────────────────────────────
+  { name:"Popcorn (3 cups, air-pop)", cat:"SNACK", cal:93, pro:3, carb:19, fat:1.1 },
+  { name:"Potato Chips 28g", cat:"SNACK", cal:152, pro:2, carb:15, fat:10 },
+  { name:"Pretzels 28g", cat:"SNACK", cal:108, pro:2.6, carb:23, fat:0.8 },
+  { name:"Dark Chocolate 28g", cat:"SNACK", cal:170, pro:2, carb:13, fat:12 },
+  { name:"Granola Bar (generic)", cat:"SNACK", cal:193, pro:4, carb:29, fat:7.6 },
+  { name:"Cheese & Crackers (snack pk)", cat:"SNACK", cal:210, pro:6, carb:24, fat:11 },
+  { name:"Trail Mix 28g", cat:"SNACK", cal:131, pro:3.7, carb:12, fat:8.3 },
+  { name:"Hummus 2 tbsp", cat:"SNACK", cal:70, pro:2, carb:8, fat:3 },
+  { name:"Rice Cake with PB", cat:"SNACK", cal:165, pro:5, carb:19, fat:8 },
+  { name:"Banana Chips 28g", cat:"SNACK", cal:147, pro:0.7, carb:17, fat:9.5 },
+  { name:"Dried Mango 40g", cat:"SNACK", cal:128, pro:0.8, carb:33, fat:0.2 },
+  { name:"Gummy Bears 10 pieces", cat:"SNACK", cal:87, pro:2, carb:20, fat:0 },
+  // ── More Beverages ─────────────────────────────────────────────────────────
+  { name:"Orange Juice 240ml", cat:"BEVERAGE", cal:112, pro:1.7, carb:26, fat:0.5 },
+  { name:"Apple Juice 240ml", cat:"BEVERAGE", cal:114, pro:0.1, carb:28, fat:0.3 },
+  { name:"Sports Drink (Gatorade) 590ml", cat:"BEVERAGE", cal:140, pro:0, carb:36, fat:0 },
+  { name:"Almond Milk (unsweetened) 240ml", cat:"BEVERAGE", cal:30, pro:1, carb:1, fat:2.5 },
+  { name:"Oat Milk 240ml", cat:"BEVERAGE", cal:120, pro:3, carb:16, fat:5 },
+  { name:"Protein Coffee 355ml", cat:"BEVERAGE", cal:160, pro:20, carb:16, fat:2.5 },
+  { name:"Green Tea 240ml", cat:"BEVERAGE", cal:2, pro:0, carb:0, fat:0 },
+  { name:"Black Coffee 240ml", cat:"BEVERAGE", cal:5, pro:0.3, carb:0, fat:0 },
+  { name:"Cold Brew 355ml", cat:"BEVERAGE", cal:30, pro:1.5, carb:3, fat:0 },
+  { name:"Kombucha 355ml", cat:"BEVERAGE", cal:70, pro:0, carb:18, fat:0 },
+  // ── More Brands ────────────────────────────────────────────────────────────
+  { name:"Kirkland Chicken Breast 100g", cat:"BRAND", cal:130, pro:27, carb:0, fat:2 },
+  { name:"Dannon Light & Fit 150g", cat:"BRAND", cal:80, pro:12, carb:9, fat:0 },
+  { name:"Yoplait Original 170g", cat:"BRAND", cal:170, pro:5, carb:33, fat:1.5 },
+  { name:"Fairlife 2% Milk 240ml", cat:"BRAND", cal:80, pro:13, carb:6, fat:2.5 },
+  { name:"Good Culture Cottage 226g", cat:"BRAND", cal:180, pro:25, carb:6, fat:5 },
+  { name:"Oikos Pro Yogurt 150g", cat:"BRAND", cal:130, pro:20, carb:6, fat:2 },
+  { name:"Built Bar (Choc Mint)", cat:"BRAND", cal:130, pro:17, carb:14, fat:2.5 },
+  { name:"Kirkland Protein Bar", cat:"BRAND", cal:190, pro:21, carb:20, fat:7 },
+  { name:"Lenny & Larry's Cookie", cat:"BRAND", cal:420, pro:16, carb:66, fat:12 },
+  { name:"Special K Protein Bar", cat:"BRAND", cal:170, pro:12, carb:24, fat:4 },
 ];
-const FOOD_CATS = ["ALL","PROTEIN","CARBS","DAIRY","FRUIT","VEG","NUTS","FAT","SUPPLEMENT","FAST FOOD","RESTAURANT","SNACK","BRAND","BEVERAGE"];
+const FOOD_CATS = ["ALL","BREAKFAST","PROTEIN","CARBS","DAIRY","FRUIT","VEG","NUTS","FAT","SUPPLEMENT","FAST FOOD","RESTAURANT","SNACK","BRAND","BEVERAGE"];
 const BARCODE_DB = {
   "049000028911": {name:"Coca-Cola 355ml",cal:140,pro:0,carb:39,fat:0,brand:"Coca-Cola"},
   "049000050043": {name:"Coca-Cola Zero Sugar 355ml",cal:0,pro:0,carb:0,fat:0,brand:"Coca-Cola"},
@@ -3191,6 +3350,9 @@ function NutritionScreen({ showToast }) {
   const [scanLabel, setScanLabel] = useState("");
   const [manualEntry, setManualEntry] = useState({ name:"", cal:"", pro:"", carb:"", fat:"" });
   const [showSearchManual, setShowSearchManual] = useState(false);
+  const [apiResults, setApiResults] = useState([]);
+  const [apiLoading, setApiLoading] = useState(false);
+  const [apiSearched, setApiSearched] = useState(false);
   const scanTimerRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -3361,6 +3523,35 @@ function NutritionScreen({ showToast }) {
     setManualEntry({ name:"", cal:"", pro:"", carb:"", fat:"" });
     setShowSearchManual(false);
     setView("log");
+  };
+
+  const searchOnline = async () => {
+    if (!search.trim() || apiLoading) return;
+    setApiLoading(true);
+    setApiSearched(true);
+    setApiResults([]);
+    try {
+      const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(search.trim())}&search_simple=1&action=process&json=1&page_size=20&fields=product_name,brands,nutriments`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      const data = await res.json();
+      const mapped = (data.products || [])
+        .filter(p => p.product_name && p.nutriments?.["energy-kcal_100g"] != null)
+        .map(p => ({
+          name: [p.product_name, p.brands ? `(${p.brands.split(",")[0].trim()})` : ""].filter(Boolean).join(" "),
+          cal: Math.round(p.nutriments["energy-kcal_100g"] || 0),
+          pro: Math.round((p.nutriments["proteins_100g"] || 0) * 10) / 10,
+          carb: Math.round((p.nutriments["carbohydrates_100g"] || 0) * 10) / 10,
+          fat: Math.round((p.nutriments["fat_100g"] || 0) * 10) / 10,
+          cat: "BRAND",
+          per100g: true,
+        }))
+        .filter(p => p.cal > 0 && p.name.length > 2)
+        .slice(0, 12);
+      setApiResults(mapped);
+    } catch {
+      showToast("⚠️ Couldn't reach the food database. Check your connection.");
+    }
+    setApiLoading(false);
   };
 
   const filteredFoods = FOODS.filter(f => {
@@ -3589,7 +3780,7 @@ function NutritionScreen({ showToast }) {
       {view==="search" && (
         <div>
           <div style={{ position:"relative", marginBottom:10 }}>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="SEARCH 60+ FOODS, BRANDS, RESTAURANTS..." style={{ ...inp, paddingLeft:36, paddingRight:search?36:12 }}/>
+            <input value={search} onChange={e=>{ setSearch(e.target.value); setApiResults([]); setApiSearched(false); }} placeholder="SEARCH 250+ FOODS, BRANDS, RESTAURANTS..." style={{ ...inp, paddingLeft:36, paddingRight:search?36:12 }}/>
             <span style={{ position:"absolute", left:11, top:"50%", transform:"translateY(-50%)", fontSize:14, color:G.textDim }}>🔍</span>
             {search && <button onClick={()=>setSearch("")} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:14 }}>✕</button>}
           </div>
@@ -3621,14 +3812,49 @@ function NutritionScreen({ showToast }) {
 
           {search.trim() && filteredFoods.length === 0 && (
             <div style={{ marginTop:4 }}>
-              {!showSearchManual ? (
-                <ChromeCard style={{ padding:"20px 16px", textAlign:"center" }}>
-                  <div style={{ fontSize:32, marginBottom:10 }}>🍽️</div>
-                  <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff", marginBottom:6, textTransform:"uppercase" }}>NOT IN OUR DATABASE?</div>
-                  <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1, marginBottom:16, lineHeight:1.6 }}>
-                    Log <span style={{ color:"#fff" }}>"{search}"</span> with your own macros
+              {/* Online search section */}
+              {!apiSearched ? (
+                <NeonBtn onClick={searchOnline} full outline disabled={apiLoading} style={{ marginBottom:10 }}>
+                  🌐 SEARCH ONLINE DATABASE
+                </NeonBtn>
+              ) : (
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                    <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textMid, textTransform:"uppercase" }}>
+                      {apiLoading ? "SEARCHING ONLINE..." : `${apiResults.length} ONLINE RESULTS (per 100g)`}
+                    </div>
+                    {!apiLoading && <button onClick={() => { setApiResults([]); setApiSearched(false); }} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:11, fontFamily:FONT.body, letterSpacing:1 }}>CLEAR</button>}
                   </div>
-                  <NeonBtn onClick={() => { setManualEntry(p => ({ ...p, name: search })); setShowSearchManual(true); }} full>LOG MANUALLY ◆</NeonBtn>
+                  {apiLoading && (
+                    <ChromeCard style={{ padding:"20px", textAlign:"center" }}>
+                      <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:2 }}>SEARCHING...</div>
+                    </ChromeCard>
+                  )}
+                  {apiResults.map((f, i) => (
+                    <ChromeCard key={i} style={{ padding:"10px 12px", marginBottom:7, display:"flex", alignItems:"center", gap:10, border:`1px solid ${G.purple}33` }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginBottom:2 }}>{f.name}</div>
+                        <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase" }}>{f.cal} CAL · P:{f.pro}G · C:{f.carb}G · F:{f.fat}G</div>
+                      </div>
+                      <NeonBtn onClick={() => { setLog(p=>[...p,{...f,id:Date.now(),meal:selMeal}]); showToast(`✓ ${f.name} added to ${selMeal}`); }} small>+</NeonBtn>
+                    </ChromeCard>
+                  ))}
+                  {!apiLoading && apiResults.length === 0 && (
+                    <ChromeCard style={{ padding:"14px", textAlign:"center" }}>
+                      <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1.5 }}>No online results found. Log manually below.</div>
+                    </ChromeCard>
+                  )}
+                </div>
+              )}
+
+              {/* Manual entry section */}
+              {!showSearchManual ? (
+                <ChromeCard style={{ padding:"16px 16px", textAlign:"center" }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:"#fff", marginBottom:4, textTransform:"uppercase" }}>LOG MANUALLY</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, marginBottom:12, lineHeight:1.6 }}>
+                    Enter custom macros for <span style={{ color:"#fff" }}>"{search}"</span>
+                  </div>
+                  <NeonBtn onClick={() => { setManualEntry(p => ({ ...p, name: search })); setShowSearchManual(true); }} full outline>+ CUSTOM ENTRY</NeonBtn>
                 </ChromeCard>
               ) : (
                 <ChromeCard style={{ padding:"14px" }}>
