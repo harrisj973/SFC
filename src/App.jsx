@@ -6116,7 +6116,22 @@ function ProfileModal({ profile, userId, onClose, onSave, showToast }) {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
+  const [usernameStatus, setUsernameStatus] = useState(null); // null | "checking" | "available" | "taken"
   const fileRef = useRef(null);
+
+  useEffect(() => {
+    const trimmed = username.trim().toUpperCase();
+    if (!trimmed || trimmed === (profile?.username || "").toUpperCase()) {
+      setTimeout(() => setUsernameStatus(null), 0);
+      return;
+    }
+    const t = setTimeout(async () => {
+      setUsernameStatus("checking");
+      const { data } = await supabase.from("profiles").select("id").ilike("username", trimmed).neq("id", userId).limit(1);
+      setUsernameStatus(data?.length > 0 ? "taken" : "available");
+    }, 500);
+    return () => clearTimeout(t);
+  }, [username, userId, profile?.username]);
 
   const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];
@@ -6139,6 +6154,8 @@ function ProfileModal({ profile, userId, onClose, onSave, showToast }) {
 
   const handleSave = async () => {
     if (!userId) { setErr("Not logged in — please sign out and sign back in."); return; }
+    if (usernameStatus === "taken") { setErr("That username is already taken. Choose a different one."); return; }
+    if (usernameStatus === "checking") { setErr("Still checking username availability — please wait a moment."); return; }
     setSaving(true); setErr(null);
     const trimmed = username.trim().toUpperCase().slice(0, 20) || "ATHLETE";
     const initials = trimmed.split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2) || "ME";
@@ -6154,6 +6171,7 @@ function ProfileModal({ profile, userId, onClose, onSave, showToast }) {
       ({ data: rows, error: e2 } = await supabase.from("profiles").update({ username: u, avatar_initials: ai }).eq("id", userId).select("id"));
     }
     setSaving(false);
+    if (e2?.code === "23505") { setErr("That username is already taken. Choose a different one."); return; }
     if (e2) { setErr(`Save failed: ${e2.message}`); return; }
     if (!rows || rows.length === 0) {
       setErr(`Save blocked — no matching profile row. Your user ID: ${userId?.slice(0,8)}... Please sign out and sign back in, then try again.`);
@@ -6196,9 +6214,14 @@ function ProfileModal({ profile, userId, onClose, onSave, showToast }) {
             onChange={e => setUsername(e.target.value.toUpperCase().slice(0, 20))}
             placeholder="YOUR NAME"
             maxLength={20}
-            style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 14px", color:"#fff", fontFamily:FONT.display, fontSize:16, letterSpacing:3, boxSizing:"border-box", outline:"none" }}
+            style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:`1px solid ${usernameStatus === "taken" ? "#FF4444" : usernameStatus === "available" ? G.green : G.borderB}`, borderRadius:10, padding:"12px 14px", color:"#fff", fontFamily:FONT.display, fontSize:16, letterSpacing:3, boxSizing:"border-box", outline:"none", transition:"border-color 0.2s" }}
           />
-          <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1, marginTop:5 }}>{username.length}/20 characters</div>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:5 }}>
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>{username.length}/20 characters</div>
+            {usernameStatus === "checking" && <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>CHECKING...</div>}
+            {usernameStatus === "available" && <div style={{ fontFamily:FONT.body, fontSize:9, color:G.green, letterSpacing:1 }}>✓ AVAILABLE</div>}
+            {usernameStatus === "taken" && <div style={{ fontFamily:FONT.body, fontSize:9, color:"#FF4444", letterSpacing:1 }}>✗ ALREADY TAKEN</div>}
+          </div>
         </div>
 
         {/* Sex */}
@@ -6332,7 +6355,13 @@ function SocialFitClubInner() {
       const raw = u.user_metadata?.display_name || u.email.split("@")[0].replace(/[^a-zA-Z0-9 ]/g, " ").trim().toUpperCase();
       const base = raw.slice(0, 20);
       const initials = base.split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2) || "ME";
-      const { data } = await supabase.from("profiles").insert({ id: u.id, username: base || "ATHLETE", avatar_initials: initials, points: 0, streak: 0, sessions_count: 0 }).select().single();
+      let { data, error: insErr } = await supabase.from("profiles").insert({ id: u.id, username: base || "ATHLETE", avatar_initials: initials, points: 0, streak: 0, sessions_count: 0 }).select().single();
+      if (insErr?.code === "23505") {
+        const suffix = Math.floor(1000 + Math.random() * 9000);
+        const unique = (base || "ATHLETE").slice(0, 16) + suffix;
+        const uInitials = unique.split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2) || "ME";
+        ({ data } = await supabase.from("profiles").insert({ id: u.id, username: unique, avatar_initials: uInitials, points: 0, streak: 0, sessions_count: 0 }).select().single());
+      }
       if (data) setProfile(data);
     }
     await loadSessions(u.id);
