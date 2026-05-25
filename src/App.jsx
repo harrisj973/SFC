@@ -1320,12 +1320,16 @@ function PlateCalculatorModal({ onClose, initialWeight = "" }) {
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.92)", zIndex:500, display:"flex", alignItems:"flex-end" }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"16px 16px 0 0", padding:"22px 18px 48px", border:`1px solid ${G.border}`, borderBottom:"none" }}>
+      <div onClick={e => e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"16px 16px 0 0", border:`1px solid ${G.border}`, borderBottom:"none", maxHeight:"88vh", display:"flex", flexDirection:"column" }}>
+        <div style={{ padding:"22px 18px 0", flexShrink:0 }}>
         <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"0 auto 18px" }}/>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
           <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>PLATE CALCULATOR</div>
           <button onClick={onClose} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:20, lineHeight:1 }}>✕</button>
         </div>
+        </div>
+
+        <div style={{ overflowY:"auto", flex:1, padding:"0 18px", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 28px)" }}>
 
         <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:7 }}>BAR WEIGHT</div>
         <div style={{ display:"flex", gap:6, marginBottom:16 }}>
@@ -1403,6 +1407,7 @@ function PlateCalculatorModal({ onClose, initialWeight = "" }) {
             )}
           </>
         )}
+        </div>
       </div>
     </div>
   );
