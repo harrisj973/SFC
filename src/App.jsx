@@ -3918,6 +3918,10 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
   const [newChalType, setNewChalType] = useState("pr");
   const [newChalExercise, setNewChalExercise] = useState("");
   const [newChalTarget, setNewChalTarget] = useState("");
+  const [postImage, setPostImage] = useState(null);
+  const [postImagePreview, setPostImagePreview] = useState(null);
+  const postImgUrlRef = useRef(null);
+  const postFileInputRef = useRef(null);
 
   useEffect(() => { localStorage.setItem("sfc_challenges", JSON.stringify(challenges)); }, [challenges]);
 
@@ -4033,16 +4037,34 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
   };
 
   const submitPost = async () => {
-    if (!newTxt.trim() || !userId || submitting) return;
+    if ((!newTxt.trim() && !postImage) || !userId || submitting) return;
     setSubmitting(true);
+    let image_url = null;
+    if (postImage) {
+      try {
+        const b64 = await compressImage(postImage);
+        const base64Data = b64.split(",")[1];
+        const byteChars = atob(base64Data);
+        const byteArr = new Uint8Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+        const blob = new Blob([byteArr], { type: "image/jpeg" });
+        const path = `${userId}/${crypto.randomUUID()}.jpg`;
+        const { error: upErr } = await supabase.storage.from("post-images").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+        if (!upErr) {
+          const { data: urlData } = supabase.storage.from("post-images").getPublicUrl(path);
+          image_url = urlData.publicUrl;
+        }
+      } catch { /* upload failed — post without image */ }
+    }
     const tag = (newType !== "post" && newTag.trim()) ? newTag.trim().toUpperCase() : null;
     const { data } = await supabase.from("posts")
-      .insert({ user_id: userId, type: newType, txt: newTxt.trim(), tag, likes: 0, comment_count: 0 })
+      .insert({ user_id: userId, type: newType, txt: newTxt.trim() || null, tag, likes: 0, comment_count: 0, image_url })
       .select("*, profiles!posts_user_id_fkey(username, avatar_initials, avatar_url)")
       .single();
     if (data) setPosts(p => [data, ...p]);
     showToast("🔥 POST SHARED WITH THE SQUAD!");
     setNewTxt(""); setNewTag(""); setNewType("post"); setShowCompose(false); setSubmitting(false);
+    clearImage();
   };
 
   const submitChallenge = async () => {
@@ -4068,6 +4090,24 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
     if (data) setPosts(p => [data, ...p]);
     setNewChalExercise(""); setNewChalTarget(""); setNewChalType("pr"); setShowCompose(false);
     showToast("⚔️ CHALLENGE LAUNCHED!");
+  };
+
+  const handleImagePick = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (postImgUrlRef.current) URL.revokeObjectURL(postImgUrlRef.current);
+    const url = URL.createObjectURL(file);
+    postImgUrlRef.current = url;
+    setPostImage(file);
+    setPostImagePreview(url);
+    e.target.value = "";
+  };
+
+  const clearImage = () => {
+    if (postImgUrlRef.current) URL.revokeObjectURL(postImgUrlRef.current);
+    postImgUrlRef.current = null;
+    setPostImage(null);
+    setPostImagePreview(null);
   };
 
   const onFollowChange = async () => {
@@ -4178,6 +4218,11 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
               {/* Text */}
               {post.txt && <div style={{ padding:"0 16px 14px", fontFamily:FONT.body, fontSize:14, color:G.text, lineHeight:1.65, letterSpacing:0.3 }}>{post.txt}</div>}
 
+              {/* Image */}
+              {post.image_url && (
+                <img src={post.image_url} alt="" style={{ width:"100%", maxHeight:420, objectFit:"cover", display:"block", marginBottom:0 }} loading="lazy"/>
+              )}
+
               {/* Divider */}
               <div style={{ height:1, background:"rgba(255,255,255,0.05)", margin:"0 16px" }}/>
 
@@ -4231,7 +4276,7 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
 
       {/* Compose sheet */}
       {showCompose && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.95)", zIndex:300, display:"flex", alignItems:"flex-end" }} onClick={() => setShowCompose(false)}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.95)", zIndex:300, display:"flex", alignItems:"flex-end" }} onClick={() => { setShowCompose(false); clearImage(); }}>
           <div onClick={e => e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"16px 16px 0 0", padding:"20px 18px 0", border:`1px solid ${G.border}`, borderBottom:"none", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 32px)", overflowY:"auto", maxHeight:"80vh" }}>
             <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"0 auto 18px" }}/>
             <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:16 }}>SHARE WITH THE SQUAD</div>
@@ -4264,11 +4309,23 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
                 <textarea
                   value={newTxt}
                   onChange={e => setNewTxt(e.target.value)}
-                  placeholder={newType==="pr" ? "What's the PR? How did it feel?" : newType==="milestone" ? "Share your milestone..." : "What's on your mind?"}
+                  placeholder={newType==="pr" ? "What's the PR? How did it feel?" : newType==="milestone" ? "Share your milestone..." : newType==="post" ? "What's on your mind? (or just add a photo)" : "What's on your mind?"}
                   rows={4}
-                  style={{ ...inp, resize:"none", lineHeight:1.6, marginBottom:14 }}
+                  style={{ ...inp, resize:"none", lineHeight:1.6, marginBottom:12 }}
                 />
-                <NeonBtn onClick={submitPost} full disabled={submitting || !newTxt.trim()}>{submitting ? "POSTING..." : "SHARE WITH SQUAD ◆"}</NeonBtn>
+                {/* Image picker */}
+                <input type="file" accept="image/*" capture="environment" ref={postFileInputRef} onChange={handleImagePick} style={{ display:"none" }}/>
+                <div style={{ marginBottom:14 }}>
+                  {postImagePreview ? (
+                    <div style={{ position:"relative" }}>
+                      <img src={postImagePreview} alt="preview" style={{ width:"100%", borderRadius:10, maxHeight:220, objectFit:"cover", display:"block" }}/>
+                      <button onClick={clearImage} style={{ position:"absolute", top:8, right:8, width:30, height:30, borderRadius:"50%", background:"rgba(0,0,0,0.75)", border:"none", color:"#fff", fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1 }}>✕</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => postFileInputRef.current?.click()} style={{ width:"100%", padding:"11px 14px", borderRadius:8, border:`1px dashed ${G.borderB}`, background:"transparent", color:G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>📷 ADD PHOTO</button>
+                  )}
+                </div>
+                <NeonBtn onClick={submitPost} full disabled={submitting || (!newTxt.trim() && !postImage)}>{submitting ? "POSTING..." : "SHARE WITH SQUAD ◆"}</NeonBtn>
               </>
             )}
           </div>
