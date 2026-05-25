@@ -110,7 +110,24 @@ const EXERCISE_SUBCATS = {
   },
 };
 
-
+// Maps cardio exercise names to their two input fields.
+// a = primary field (left col), b = secondary field (right col).
+// r stores field-a value, w stores field-b value (same set structure).
+const CARDIO_SET_CONFIG = {
+  "Treadmill Run":  { a:{ label:"TIME",    unit:"MIN",  mode:"decimal" }, b:{ label:"INCLINE", unit:"%",   mode:"decimal" } },
+  "Stair Climber":  { a:{ label:"TIME",    unit:"MIN",  mode:"decimal" }, b:{ label:"SPEED",   unit:"LVL", mode:"decimal" } },
+  "Assault Bike":   { a:{ label:"TIME",    unit:"MIN",  mode:"decimal" }, b:{ label:"LEVEL",   unit:"",    mode:"numeric"  } },
+  "Rowing Machine": { a:{ label:"TIME",    unit:"MIN",  mode:"decimal" }, b:{ label:"DIST",    unit:"M",   mode:"numeric"  } },
+  "Jump Rope":      { a:{ label:"TIME",    unit:"MIN",  mode:"decimal" }, b:{ label:"ROUNDS",  unit:"",    mode:"numeric"  } },
+  "Battle Ropes":   { a:{ label:"TIME",    unit:"SEC",  mode:"numeric"  }, b:{ label:"ROUNDS",  unit:"",    mode:"numeric"  } },
+  "Sled Push":      { a:{ label:"SETS",    unit:"",     mode:"numeric"  }, b:{ label:"DIST",    unit:"YDS", mode:"numeric"  } },
+  "Burpees":        { a:{ label:"TIME",    unit:"MIN",  mode:"decimal" }, b:{ label:"REPS",    unit:"",    mode:"numeric"  } },
+  "Box Jumps":      { a:{ label:"SETS",    unit:"",     mode:"numeric"  }, b:{ label:"REPS",    unit:"",    mode:"numeric"  } },
+  "Jump Squats":    { a:{ label:"SETS",    unit:"",     mode:"numeric"  }, b:{ label:"REPS",    unit:"",    mode:"numeric"  } },
+  "High Knees":     { a:{ label:"TIME",    unit:"SEC",  mode:"numeric"  }, b:{ label:"ROUNDS",  unit:"",    mode:"numeric"  } },
+  "Bear Crawl":     { a:{ label:"TIME",    unit:"SEC",  mode:"numeric"  }, b:{ label:"ROUNDS",  unit:"",    mode:"numeric"  } },
+  "Farmer's Walk":  { a:{ label:"DIST",    unit:"YDS",  mode:"numeric"  }, b:{ label:"WEIGHT",  unit:"LBS", mode:"decimal" } },
+};
 
 const MACROS_GOAL = { cal:2200, pro:180, carb:220, fat:65 };
 
@@ -1937,7 +1954,15 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   }, [quickStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totSets = exs.reduce((a,e) => a + e.sets.filter(s=>s.r&&s.w&&s.type!=="warmup").length, 0);
-  const totVol = exs.reduce((a,e) => a + e.sets.filter(s=>s.type!=="warmup").reduce((b,s) => b+(parseFloat(s.w)||0)*(parseInt(s.r)||0),0),0);
+  const totVol = exs.reduce((a,e) => {
+    if (CARDIO_SET_CONFIG[e.name]) return a;
+    return a + e.sets.filter(s=>s.type!=="warmup").reduce((b,s) => b+(parseFloat(s.w)||0)*(parseInt(s.r)||0),0);
+  },0);
+  const totCardioMin = exs.reduce((a,e) => {
+    const conf = CARDIO_SET_CONFIG[e.name];
+    if (!conf || conf.a.unit !== "MIN") return a;
+    return a + e.sets.filter(s=>s.type!=="warmup").reduce((b,s) => b+(parseFloat(s.r)||0),0);
+  },0);
   const pts = totSets * 10 + Math.floor(totVol / 100) * 5;
   const prs = calcPRs(sessions);
   const overloadedMuscles = (() => {
@@ -2161,13 +2186,21 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                   ) : null;
                 })()}
 
-                <div style={{ display:"grid", gridTemplateColumns:"30px 1fr 1fr 30px", gap:6, padding:"6px 12px 3px", alignItems:"center" }}>
-                  {["TYPE","REPS","WEIGHT (LBS)",""].map((h,i)=>(
-                    <div key={i} style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase" }}>{h}</div>
-                  ))}
-                </div>
+                {(() => {
+                  const cardioConf = CARDIO_SET_CONFIG[ex.name];
+                  const hA = cardioConf ? `${cardioConf.a.label}${cardioConf.a.unit ? ` (${cardioConf.a.unit})` : ""}` : "REPS";
+                  const hB = cardioConf ? `${cardioConf.b.label}${cardioConf.b.unit ? ` (${cardioConf.b.unit})` : ""}` : "WEIGHT (LBS)";
+                  return (
+                    <div style={{ display:"grid", gridTemplateColumns:"30px 1fr 1fr 30px", gap:6, padding:"6px 12px 3px", alignItems:"center" }}>
+                      {["TYPE", hA, hB, ""].map((h,i)=>(
+                        <div key={i} style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase" }}>{h}</div>
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 {ex.sets.map((set,si)=>{
+                  const cardioConf = CARDIO_SET_CONFIG[ex.name];
                   const lastPerf2 = getLastExercisePerformance(ex.name, sessions);
                   const prevSet = lastPerf2?.sets[si];
                   const setType = set.type || "working";
@@ -2178,17 +2211,17 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                     : setType==="drop"
                     ? { bg:"#FF7675", border:"#FF767588", label:"D", color:"#fff" }
                     : { bg: set.r&&set.w ? `linear-gradient(135deg,${G.gold},${G.goldDark})` : "rgba(255,255,255,0.05)", border: set.r&&set.w ? G.gold+"88" : G.borderB, label: String(si+1), color: set.r&&set.w ? "#0A0810" : G.textDim };
-                  const inputColor = setType==="warmup" ? "#74B9FF" : setType==="drop" ? "#FF7675" : (set.r||set.w) ? G.gold : G.textDim;
+                  const inputColor = cardioConf ? G.purpleLight : setType==="warmup" ? "#74B9FF" : setType==="drop" ? "#FF7675" : (set.r||set.w) ? G.gold : G.textDim;
                   return (
                     <div key={si}>
                       <div style={{ display:"grid", gridTemplateColumns:"30px 1fr 1fr 30px", gap:6, padding:"3px 12px", alignItems:"center" }}>
                         <button onClick={()=>updSet(ex.id,si,"type",nextType)} title={`Tap to change: ${nextType}`} style={{ width:24, height:24, borderRadius:4, background:badgeCfg.bg, border:`1px solid ${badgeCfg.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT.display, fontSize:11, color:badgeCfg.color, cursor:"pointer", padding:0 }}>{badgeCfg.label}</button>
-                        <input type="number" inputMode="numeric" placeholder={prevSet ? String(prevSet.r) : "—"} value={set.r} onChange={e=>updSet(ex.id,si,"r",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color:inputColor }}/>
-                        <input type="number" inputMode="decimal" placeholder={prevSet ? String(progressWeight(prevSet.w)) : "—"} value={set.w} onChange={e=>updSet(ex.id,si,"w",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color:inputColor }}/>
+                        <input type="number" inputMode={cardioConf ? cardioConf.a.mode : "numeric"} placeholder={cardioConf ? "0" : (prevSet ? String(prevSet.r) : "—")} value={set.r} onChange={e=>updSet(ex.id,si,"r",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color:inputColor }}/>
+                        <input type="number" inputMode={cardioConf ? cardioConf.b.mode : "decimal"} placeholder={cardioConf ? "0" : (prevSet ? String(progressWeight(prevSet.w)) : "—")} value={set.w} onChange={e=>updSet(ex.id,si,"w",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color:inputColor }}/>
                         <button onClick={()=>{if(ex.sets.length>1)setExs(p=>p.map(e=>e.id!==ex.id?e:{...e,sets:e.sets.filter((_,j)=>j!==si)}));}} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:13 }}>✕</button>
                       </div>
-                      {setType==="warmup" && <div style={{ paddingLeft:48, paddingBottom:1, fontFamily:FONT.body, fontSize:9, color:"#74B9FF", letterSpacing:1.5, textTransform:"uppercase" }}>warm-up · not counted in volume</div>}
-                      {setType==="drop" && <div style={{ paddingLeft:48, paddingBottom:1, fontFamily:FONT.body, fontSize:9, color:"#FF7675", letterSpacing:1.5, textTransform:"uppercase" }}>drop set · no rest</div>}
+                      {!cardioConf && setType==="warmup" && <div style={{ paddingLeft:48, paddingBottom:1, fontFamily:FONT.body, fontSize:9, color:"#74B9FF", letterSpacing:1.5, textTransform:"uppercase" }}>warm-up · not counted in volume</div>}
+                      {!cardioConf && setType==="drop" && <div style={{ paddingLeft:48, paddingBottom:1, fontFamily:FONT.body, fontSize:9, color:"#FF7675", letterSpacing:1.5, textTransform:"uppercase" }}>drop set · no rest</div>}
                     </div>
                   );
                 })}
@@ -2215,7 +2248,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
               <div>
                 <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>Save Session</div>
-                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{totSets} sets · {totVol.toLocaleString()} lbs volume</div>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{totSets} sets{totVol > 0 ? ` · ${totVol.toLocaleString()} lbs` : ""}{totCardioMin > 0 ? ` · ${totCardioMin} min cardio` : ""}</div>
               </div>
               <div style={{ textAlign:"right" }}>
                 <div style={{ fontFamily:FONT.display, fontSize:28, color:G.gold, textShadow:G.goldGlow2, letterSpacing:1 }}>+{pts}</div>
