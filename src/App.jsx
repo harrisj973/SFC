@@ -95,6 +95,21 @@ const EXERCISES = Object.values(EXERCISE_CATS).flat();
 const EX_CAT_LOOKUP = {};
 Object.entries(EXERCISE_CATS).forEach(([cat, arr]) => arr.forEach(n => { EX_CAT_LOOKUP[n] = cat; }));
 
+const EXERCISE_SUBCATS = {
+  "LEGS": {
+    "QUADS": [
+      "Barbell Squat","Front Squat","Hack Squat","Goblet Squat","Box Squat",
+      "Leg Press","Single Leg Press","Bulgarian Split Squat",
+      "Walking Lunges","Reverse Lunges","Dumbbell Lunge","Step-Ups",
+      "Leg Extension","Calf Raise","Seated Calf Raise",
+    ],
+    "HAMSTRINGS": [
+      "Romanian Deadlift","Leg Curl","Seated Leg Curl","Nordic Hamstring Curl",
+      "Kettlebell Swing","Hip Thrust","Glute Bridge",
+    ],
+  },
+};
+
 
 
 const MACROS_GOAL = { cal:2200, pro:180, carb:220, fat:65 };
@@ -1677,12 +1692,17 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile, o
 function ExercisePicker({ onSelect, onClose }) {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("ALL");
+  const [subCat, setSubCat] = useState(null);
   const cats = ["ALL", ...Object.keys(EXERCISE_CATS)];
+  const subCats = cat !== "ALL" ? EXERCISE_SUBCATS[cat] : null;
+
+  const handleCatChange = (c) => { setCat(c); setSubCat(null); };
 
   const filtered = EXERCISES.filter(e => {
     const matchCat = cat === "ALL" || EX_CAT_LOOKUP[e] === cat;
+    const matchSub = !subCat || (subCats && subCats[subCat]?.includes(e));
     const matchQ = !q || e.toLowerCase().includes(q.toLowerCase());
-    return matchCat && matchQ;
+    return matchCat && matchSub && matchQ;
   });
 
   const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:7, padding:"10px 14px 10px 38px", color:"#fff", fontSize:13, outline:"none", boxSizing:"border-box", width:"100%", fontFamily:FONT.body, letterSpacing:1.5, textTransform:"uppercase" };
@@ -1702,11 +1722,21 @@ function ExercisePicker({ onSelect, onClose }) {
           {q && <button onClick={()=>setQ("")} style={{ position:"absolute", right:28, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:13 }}>✕</button>}
         </div>
 
-        <div style={{ display:"flex", gap:6, padding:"0 18px 12px", overflowX:"auto", scrollbarWidth:"none" }}>
+        <div style={{ display:"flex", gap:6, padding:"0 18px 8px", overflowX:"auto", scrollbarWidth:"none" }}>
           {cats.map(c => (
-            <button key={c} onClick={()=>setCat(c)} style={{ flexShrink:0, padding:"5px 12px", borderRadius:20, border:`1px solid ${cat===c ? G.gold : G.borderB}`, background: cat===c ? `${G.gold}20` : "transparent", color: cat===c ? G.gold : G.textMid, fontFamily:FONT.body, fontSize:10, letterSpacing:2, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}>{c}</button>
+            <button key={c} onClick={()=>handleCatChange(c)} style={{ flexShrink:0, padding:"5px 12px", borderRadius:20, border:`1px solid ${cat===c ? G.gold : G.borderB}`, background: cat===c ? `${G.gold}20` : "transparent", color: cat===c ? G.gold : G.textMid, fontFamily:FONT.body, fontSize:10, letterSpacing:2, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}>{c}</button>
           ))}
         </div>
+        {subCats && (
+          <div style={{ display:"flex", gap:5, padding:"0 18px 10px", overflowX:"auto", scrollbarWidth:"none", alignItems:"center" }}>
+            <div style={{ width:3, height:3, borderRadius:"50%", background:G.purple, flexShrink:0 }}/>
+            <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:2, textTransform:"uppercase", flexShrink:0, marginRight:2 }}>FOCUS</div>
+            <button onClick={()=>setSubCat(null)} style={{ flexShrink:0, padding:"3px 10px", borderRadius:20, border:`1px solid ${!subCat ? G.purple : G.borderB}`, background: !subCat ? `${G.purple}25` : "transparent", color: !subCat ? G.purpleLight : G.textDim, fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}>ALL</button>
+            {Object.keys(subCats).map(sc => (
+              <button key={sc} onClick={()=>setSubCat(sc)} style={{ flexShrink:0, padding:"3px 10px", borderRadius:20, border:`1px solid ${subCat===sc ? G.purple : G.borderB}`, background: subCat===sc ? `${G.purple}25` : "transparent", color: subCat===sc ? G.purpleLight : G.textDim, fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}>{sc}</button>
+            ))}
+          </div>
+        )}
 
         <div style={{ overflowY:"auto", flex:1, paddingBottom:24 }}>
           {filtered.length === 0 && (
