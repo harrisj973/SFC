@@ -5317,6 +5317,18 @@ function HelpSupportModal({ onClose }) {
             We typically respond within <span style={{ color:"#fff" }}>24–48 hours</span>. For the fastest response, include your username and a description of the issue.
           </div>
         </ChromeCard>
+
+        <ChromeCard style={{ padding:"18px", marginTop:16 }}>
+          <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:3, color:G.textMid, textTransform:"uppercase", marginBottom:12 }}>LEGAL</div>
+          <a href="/privacy.html" target="_blank" style={{ display:"flex", alignItems:"center", justifyContent:"space-between", textDecoration:"none", paddingBottom:10, borderBottom:`1px solid ${G.borderB}`, marginBottom:10 }}>
+            <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:1 }}>Privacy Policy</div>
+            <div style={{ color:G.textDim, fontSize:12 }}>›</div>
+          </a>
+          <a href="/terms.html" target="_blank" style={{ display:"flex", alignItems:"center", justifyContent:"space-between", textDecoration:"none" }}>
+            <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:1 }}>Terms of Service</div>
+            <div style={{ color:G.textDim, fontSize:12 }}>›</div>
+          </a>
+        </ChromeCard>
       </div>
     </div>
   );
