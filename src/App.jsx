@@ -3260,24 +3260,30 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
 function NutritionScreen({ showToast }) {
   const [view, setView] = useState("log");
   const today = new Date().toISOString().slice(0, 10);
-  const savedLog = (() => {
+  const nutritionHistory = (() => {
     try {
       const s = localStorage.getItem("sfc_nutrition_log");
       if (!s) return [];
-      const parsed = JSON.parse(s);
-      return parsed.date === today ? parsed.items : [];
+      const p = JSON.parse(s);
+      if (Array.isArray(p)) return p;
+      if (p?.date) return [{ date: p.date, items: p.items || [] }];
+      return [];
     } catch { return []; }
   })();
-  const [log, setLog] = useState(savedLog);
-  const savedSuppLog = (() => {
+  const [log, setLog] = useState(() => nutritionHistory.find(e => e.date === today)?.items || []);
+  const suppHistory = (() => {
     try {
       const s = localStorage.getItem("sfc_supplement_log");
       if (!s) return [];
-      const parsed = JSON.parse(s);
-      return parsed.date === today ? parsed.items : [];
+      const p = JSON.parse(s);
+      if (Array.isArray(p)) return p;
+      if (p?.date) return [{ date: p.date, items: p.items || [] }];
+      return [];
     } catch { return []; }
   })();
-  const [suppLog, setSuppLog] = useState(savedSuppLog);
+  const [suppLog, setSuppLog] = useState(() => suppHistory.find(e => e.date === today)?.items || []);
+  const pastFoodDays = nutritionHistory.filter(e => e.date !== today).slice(0, 7);
+  const [expandedFoodDay, setExpandedFoodDay] = useState(null);
   const [suppSearch, setSuppSearch] = useState("");
   const [suppTypeFilter, setSuppTypeFilter] = useState("ALL");
   const [scanTarget, setScanTarget] = useState("food");
@@ -3299,10 +3305,26 @@ function NutritionScreen({ showToast }) {
   const [goalDraft, setGoalDraft] = useState("");
 
   useEffect(() => {
-    localStorage.setItem("sfc_nutrition_log", JSON.stringify({ date: today, items: log }));
+    const s = localStorage.getItem("sfc_nutrition_log");
+    let history = [];
+    try {
+      const p = JSON.parse(s || "null");
+      if (Array.isArray(p)) history = p;
+      else if (p?.date) history = [{ date: p.date, items: p.items || [] }];
+    } catch { /* ignore parse errors */ }
+    const updated = [{ date: today, items: log }, ...history.filter(e => e.date !== today)].slice(0, 30);
+    localStorage.setItem("sfc_nutrition_log", JSON.stringify(updated));
   }, [log, today]);
   useEffect(() => {
-    localStorage.setItem("sfc_supplement_log", JSON.stringify({ date: today, items: suppLog }));
+    const s = localStorage.getItem("sfc_supplement_log");
+    let history = [];
+    try {
+      const p = JSON.parse(s || "null");
+      if (Array.isArray(p)) history = p;
+      else if (p?.date) history = [{ date: p.date, items: p.items || [] }];
+    } catch { /* ignore parse errors */ }
+    const updated = [{ date: today, items: suppLog }, ...history.filter(e => e.date !== today)].slice(0, 30);
+    localStorage.setItem("sfc_supplement_log", JSON.stringify(updated));
   }, [suppLog, today]);
   useEffect(() => {
     localStorage.setItem("sfc_water_log", JSON.stringify({ date: today, entries: waterEntries }));
@@ -4014,6 +4036,57 @@ function NutritionScreen({ showToast }) {
           </div>
         );
       })}
+
+      {view==="log" && pastFoodDays.length > 0 && (
+        <div style={{ marginTop:8, marginBottom:14 }}>
+          <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:3, textTransform:"uppercase", marginBottom:8 }}>PAST DAYS</div>
+          {pastFoodDays.map(day => {
+            const dayTotals = (day.items||[]).reduce((a,f)=>({cal:a.cal+(f.cal||0),pro:a.pro+(f.pro||0),carb:a.carb+(f.carb||0),fat:a.fat+(f.fat||0)}),{cal:0,pro:0,carb:0,fat:0});
+            const isExpanded = expandedFoodDay === day.date;
+            const label = (() => {
+              const d = new Date(day.date + "T12:00:00");
+              return d.toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric" }).toUpperCase();
+            })();
+            return (
+              <div key={day.date} style={{ marginBottom:6 }}>
+                <button onClick={()=>setExpandedFoodDay(isExpanded ? null : day.date)} style={{ width:"100%", background:"rgba(255,255,255,0.03)", border:`1px solid ${G.borderB}`, borderRadius:8, padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer", textAlign:"left" }}>
+                  <div>
+                    <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:1.5, color:"#fff", textTransform:"uppercase" }}>{label}</div>
+                    <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase", marginTop:2 }}>
+                      {day.items?.length||0} items · {dayTotals.cal} kcal · P:{dayTotals.pro}g
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                    <div style={{ textAlign:"right" }}>
+                      <div style={{ fontFamily:FONT.mono, fontSize:11, color:G.gold }}>{dayTotals.cal}</div>
+                      <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:1 }}>KCAL</div>
+                    </div>
+                    <div style={{ color:G.textDim, fontSize:12 }}>{isExpanded ? "▲" : "▼"}</div>
+                  </div>
+                </button>
+                {isExpanded && (day.items||[]).length > 0 && (
+                  <div style={{ marginTop:4, paddingLeft:8 }}>
+                    {(day.items||[]).map((f,i) => (
+                      <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 10px", background:"rgba(255,255,255,0.02)", borderRadius:5, marginBottom:3, borderLeft:`2px solid ${G.borderB}` }}>
+                        <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1, textTransform:"uppercase", flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.name}</div>
+                        <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1, flexShrink:0, marginLeft:8 }}>{f.cal} cal · {f.meal}</div>
+                      </div>
+                    ))}
+                    <div style={{ display:"flex", gap:12, padding:"8px 10px", background:`${G.purple}10`, borderRadius:5, marginTop:4 }}>
+                      {[{l:"PROTEIN",v:dayTotals.pro,c:G.purpleLight},{l:"CARBS",v:dayTotals.carb,c:G.gold},{l:"FAT",v:dayTotals.fat,c:"#FF6B35"}].map(m=>(
+                        <div key={m.l} style={{ flex:1, textAlign:"center" }}>
+                          <div style={{ fontFamily:FONT.display, fontSize:14, color:m.c }}>{m.v}g</div>
+                          <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>{m.l}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {view==="supps" && (() => {
         const filteredSupps = SUPPLEMENTS_DB.filter(s => {
