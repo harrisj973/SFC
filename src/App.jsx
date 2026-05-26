@@ -1604,7 +1604,13 @@ function UserProfileModal({ user, currentUserId, onClose }) {
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", user.id),
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", user.id),
       ]);
-      if (profRes.data) setProf(profRes.data);
+      if (profRes.error || !profRes.data) {
+        setErr("Could not load profile");
+        setProf({});
+        setUserSessions([]);
+        return;
+      }
+      setProf(profRes.data);
       if (sessRes.data) {
         setUserSessions(sessRes.data.map(s => ({ id: s.id, name: s.name, exs: s.exercises, sets: s.sets, vol: s.volume, pts: s.points, date: s.date, createdAt: s.created_at })));
       } else if (sessRes.error) {
@@ -3440,7 +3446,10 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
             const todayNutrition = (() => {
               try {
                 const saved = JSON.parse(localStorage.getItem("sfc_nutrition_log")||"null");
-                if(saved?.date===now.toISOString().slice(0,10)) return saved.items||[];
+                const today = now.toISOString().slice(0,10);
+                // Handle both array format [{date,items}] and legacy single-object format
+                if (Array.isArray(saved)) return (saved.find(e => e.date === today)?.items) || [];
+                if (saved?.date === today) return saved.items || [];
               } catch { /* ignore */ }
               return [];
             })();
@@ -3664,7 +3673,7 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
       )}
 
       {activeTab==="heatmap" && (
-        <MuscleHeatMap sessions={sessions} showToast={showToast}/>
+        <MuscleHeatMap sessions={sessions}/>
       )}
 
       {photoLightbox && (
@@ -3802,7 +3811,6 @@ function NutritionScreen({ showToast }) {
   const [apiResults, setApiResults] = useState([]);
   const [apiLoading, setApiLoading] = useState(false);
   const [apiSearched, setApiSearched] = useState(false);
-  const scanTimerRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const scanAnimRef = useRef(null);
@@ -3814,7 +3822,7 @@ function NutritionScreen({ showToast }) {
     if (zxingControlsRef.current) { try { zxingControlsRef.current.stop(); } catch { /* ignore */ } zxingControlsRef.current = null; }
   };
 
-  useEffect(() => () => { stopCamera(); clearInterval(scanTimerRef.current); }, []);
+  useEffect(() => () => { stopCamera(); }, []);
 
   const MEALS = ["BREAKFAST","PRE-WORKOUT","LUNCH","POST-WORKOUT","DINNER","LATE SNACK"];
   const macroTargets = getActiveMacroTargets();
@@ -3957,7 +3965,7 @@ function NutritionScreen({ showToast }) {
     }
   };
 
-  const resetScan = () => { stopCamera(); clearInterval(scanTimerRef.current); setScanMode("idle"); setScanResult(null); setBarcodeInput(""); setScanProgress(0); setManualEntry({ name:"", cal:"", pro:"", carb:"", fat:"" }); setScanTarget("food"); };
+  const resetScan = () => { stopCamera(); setScanMode("idle"); setScanResult(null); setBarcodeInput(""); setScanProgress(0); setManualEntry({ name:"", cal:"", pro:"", carb:"", fat:"" }); setScanTarget("food"); };
   const addScanResult = () => {
     if (!scanResult) return;
     if (scanTarget === "supplement") {
@@ -4876,22 +4884,27 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
 
   const loadPosts = async (tab, followSet) => {
     setLoading(true);
-    const fSet = followSet !== undefined ? followSet : followingIds;
-    let query = supabase.from("posts")
-      .select("*, profiles!posts_user_id_fkey(username, avatar_initials, avatar_url)")
-      .order("created_at", { ascending: false })
-      .limit(60);
-    if (tab === "following") {
-      const ids = [...fSet, userId].filter(Boolean);
-      if (ids.length > 0) query = query.in("user_id", ids);
+    try {
+      const fSet = followSet !== undefined ? followSet : followingIds;
+      let query = supabase.from("posts")
+        .select("*, profiles!posts_user_id_fkey(username, avatar_initials, avatar_url)")
+        .order("created_at", { ascending: false })
+        .limit(60);
+      if (tab === "following") {
+        const ids = [...fSet, userId].filter(Boolean);
+        if (ids.length > 0) query = query.in("user_id", ids);
+      }
+      const { data } = await query;
+      setPosts(data || []);
+      if (userId) {
+        const { data: likes } = await supabase.from("post_likes").select("post_id").eq("user_id", userId);
+        setLikedIds(new Set(likes?.map(l => l.post_id) || []));
+      }
+    } catch {
+      // network error — keep stale posts visible
+    } finally {
+      setLoading(false);
     }
-    const { data } = await query;
-    setPosts(data || []);
-    if (userId) {
-      const { data: likes } = await supabase.from("post_likes").select("post_id").eq("user_id", userId);
-      setLikedIds(new Set(likes?.map(l => l.post_id) || []));
-    }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -4907,8 +4920,10 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
     init();
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const feedTabMounted = useRef(false);
   useEffect(() => {
-    setTimeout(() => loadPosts(feedTab), 0);
+    if (!feedTabMounted.current) { feedTabMounted.current = true; return; }
+    loadPosts(feedTab);
   }, [feedTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -4972,12 +4987,16 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
   const submitComment = async (postId) => {
     const txt = (commentTexts[postId] || "").trim();
     if (!txt || !userId) return;
-    setCommentTexts(p => ({ ...p, [postId]: "" }));
     const currentCount = posts.find(p => p.id === postId)?.comment_count || 0;
-    const { data } = await supabase.from("post_comments")
+    const { data, error: commentErr } = await supabase.from("post_comments")
       .insert({ post_id: postId, user_id: userId, txt })
       .select("*, profiles!post_comments_user_id_fkey(username, avatar_initials, avatar_url)")
       .single();
+    if (commentErr) {
+      showToast("❌ COMMENT FAILED — TRY AGAIN");
+      return;
+    }
+    setCommentTexts(p => ({ ...p, [postId]: "" }));
     if (data) {
       setPostComments(p => ({ ...p, [postId]: [...(p[postId] || []), data] }));
       setPosts(p => p.map(x => x.id === postId ? { ...x, comment_count: (x.comment_count || 0) + 1 } : x));
@@ -5346,10 +5365,15 @@ function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
 
     // Pick today's focus based on muscle fatigue
     const muscleToFocusLabel = {
-      chest:"CHEST & TRIS", back:"BACK & BIS", quads:"LEGS & QUADS",
-      hamstrings:"HAMSTRINGS & GLUTES", shoulders:"SHOULDERS", biceps:"ARMS",
-      triceps:"ARMS", glutes:"GLUTES & HIPS", core:"CORE & ABS", calves:"LOWER LEGS"
+      chest:"CHEST & TRIS", lat:"BACK & LATS", mid_back:"BACK & ROWS",
+      lower_back:"LOWER BACK", quad:"LEGS & QUADS", hamstring:"HAMSTRINGS & GLUTES",
+      glute:"GLUTES & HIPS", deltoid:"SHOULDERS", front_delt:"FRONT DELTS",
+      mid_delt:"SIDE DELTS", rear_delt:"REAR DELTS", bicep:"BICEPS & ARMS",
+      tricep:"TRICEPS & ARMS", trap:"TRAPS & UPPER BACK", ab:"CORE & ABS",
+      upper_abs:"CORE & ABS", lower_abs:"CORE & ABS", oblique:"CORE & ABS",
+      hip_flexor:"HIPS & CORE", calf:"LOWER LEGS", forearm:"FOREARMS",
     };
+    const muscleDisplayName = { ...MUSCLE_LABELS };
     let todayFocus = "FULL BODY";
     if (sorted.length > 0) {
       // Train the least-worked muscle group
@@ -5369,13 +5393,13 @@ function AiCoachModal({ profile, sessions, muscleScores, onClose }) {
     // Workout recommendation
     const workoutRec = (() => {
       if (daysSinceLast === 0) return { type:"recovery", icon:"🧘", title:"REST DAY PROTOCOL", text:"You already trained today — prioritize sleep and light movement. A 20-min walk or stretch session is perfect." };
-      if (topMuscle && (muscleScores[topMuscle] || 0) > 75) return { type:"workout", icon:"🏋️", title:"SMART ROTATION", text:`Your ${topMuscle} score is high — avoid training it again today. Focus on ${todayFocus} to balance your program and prevent overuse.` };
+      if (topMuscle && (muscleScores[topMuscle] || 0) > 75) return { type:"workout", icon:"🏋️", title:"SMART ROTATION", text:`Your ${muscleDisplayName[topMuscle] || topMuscle} score is high — avoid training it again today. Focus on ${todayFocus} to balance your program and prevent overuse.` };
       return { type:"workout", icon:"🏋️", title:"PROGRESSIVE OVERLOAD", text:`Add 5 lbs or 1 rep to your key lifts this session. Small consistent gains compound into massive results over time.` };
     })();
 
     // Recovery recommendation — adjusted for age
     const recoveryRec = (() => {
-      if ((muscleScores[topMuscle] || 0) > 80) return { type:"recovery", icon:"🧊", title:"PRIORITIZE RECOVERY", text:`Your ${topMuscle} is heavily loaded. Use contrast therapy (hot/cold), foam rolling, and get 8+ hours of sleep tonight.` };
+      if ((muscleScores[topMuscle] || 0) > 80) return { type:"recovery", icon:"🧊", title:"PRIORITIZE RECOVERY", text:`Your ${muscleDisplayName[topMuscle] || topMuscle} is heavily loaded. Use contrast therapy (hot/cold), foam rolling, and get 8+ hours of sleep tonight.` };
       if (age >= 40) return { type:"recovery", icon:"🧘", title:"RECOVERY IS TRAINING", text:`At ${age}, recovery IS part of your program — not optional. Prioritize 8+ hours of sleep, mobility work, and at least one full rest day between heavy sessions.` };
       if (streak >= 5) return { type:"recovery", icon:"😴", title:"SLEEP IS YOUR SUPERPOWER", text:`On a ${streak}-day streak, sleep quality becomes critical. Aim for 8 hours — that's when muscle protein synthesis peaks.` };
       return { type:"recovery", icon:"💧", title:"HYDRATION CHECK", text:"Aim for at least 100oz of water on training days. Dehydration reduces strength output by up to 10% — don't leave gains on the table." };
@@ -6769,7 +6793,8 @@ function ProfileSetupModal({ userId, onDone }) {
     if (sex) updates.sex = sex;
     if (location.trim()) updates.location = location.trim();
     if (Object.keys(updates).length > 0 && userId) {
-      await supabase.from("profiles").update(updates).eq("id", userId);
+      const { error: saveErr } = await supabase.from("profiles").update(updates).eq("id", userId);
+      if (saveErr) console.error("ProfileSetup save error:", saveErr);
     }
     setSaving(false);
     onDone(Object.keys(updates).length > 0 ? updates : null);
@@ -7322,11 +7347,12 @@ function SocialFitClubInner() {
   };
 
   const loadLeaderboard = async (currentUserId) => {
-    const { data } = await supabase
+    const { data, error: lbErr } = await supabase
       .from("profiles")
       .select("id, username, avatar_initials, avatar_url, points, sessions_count, streak")
       .order("points", { ascending: false })
       .limit(20);
+    if (lbErr) { console.error("loadLeaderboard error:", lbErr); return; }
     if (data) {
       setLeaderboard(data.map((p, i) => ({
         rank: i + 1,
@@ -7353,7 +7379,11 @@ function SocialFitClubInner() {
         const suffix = Math.floor(1000 + Math.random() * 9000);
         const unique = (base || "ATHLETE").slice(0, 16) + suffix;
         const uInitials = unique.split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2) || "ME";
-        ({ data } = await supabase.from("profiles").insert({ id: u.id, username: unique, avatar_initials: uInitials, points: 0, streak: 0, sessions_count: 0 }).select().single());
+        const { data: retryData, error: retryErr } = await supabase.from("profiles").insert({ id: u.id, username: unique, avatar_initials: uInitials, points: 0, streak: 0, sessions_count: 0 }).select().single();
+        if (retryErr) console.error("ensureProfile retry error:", retryErr);
+        data = retryData;
+      } else if (insErr) {
+        console.error("ensureProfile insert error:", insErr);
       }
       if (data) setProfile(data);
     }
