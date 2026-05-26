@@ -4840,16 +4840,13 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
       } catch { /* upload failed — post without image */ }
     }
     const tag = (newType !== "post" && newTag.trim()) ? newTag.trim().toUpperCase() : null;
-    const { data, error: postErr } = await supabase.from("posts")
-      .insert({ user_id: userId, type: newType, txt: newTxt.trim() || null, tag, likes: 0, comment_count: 0, image_url })
-      .select("*, profiles!posts_user_id_fkey(username, avatar_initials, avatar_url)")
-      .single();
-    if (postErr || !data) {
+    const { error: postErr } = await supabase.from("posts")
+      .insert({ user_id: userId, type: newType, txt: newTxt.trim() || null, tag, likes: 0, comment_count: 0, image_url });
+    if (postErr) {
       showToast("❌ POST FAILED — CHECK YOUR CONNECTION AND TRY AGAIN");
       setSubmitting(false);
       return;
     }
-    setPosts(p => [data, ...p]);
     showToast("🔥 POST SHARED WITH THE SQUAD!");
     setNewTxt(""); setNewTag(""); setNewType("post"); setShowCompose(false); setSubmitting(false);
     clearImage();
@@ -5066,7 +5063,7 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
       {/* Compose sheet */}
       {showCompose && (
         <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.95)", zIndex:300, display:"flex", alignItems:"flex-end" }} onClick={() => { setShowCompose(false); clearImage(); }}>
-          <div onClick={e => e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"16px 16px 0 0", padding:"20px 18px 0", border:`1px solid ${G.border}`, borderBottom:"none", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 32px)", overflowY:"auto", maxHeight:"80vh" }}>
+          <div onClick={e => e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"16px 16px 0 0", padding:"20px 18px 0", border:`1px solid ${G.border}`, borderBottom:"none", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 100px)", overflowY:"auto", maxHeight:"80vh" }}>
             <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"0 auto 18px" }}/>
             <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:"#fff", textTransform:"uppercase", marginBottom:16 }}>SHARE WITH THE SQUAD</div>
 
