@@ -5681,90 +5681,6 @@ function WeeklyReportModal({ sessions, muscleScores, onClose }) {
   );
 }
 
-function AccountabilityModal({ sessions, profile, onClose }) {
-  useScrollLock();
-  const [pledge, setPledge] = useState(() => {
-    try { return parseInt(localStorage.getItem("sfc_pledge") || "4", 10); } catch { return 4; }
-  });
-  const [editing, setEditing] = useState(false);
-
-  const now = new Date();
-  const dayOfWeek = (now.getDay() + 6) % 7;
-  const startOfWeek = new Date(now);
-  startOfWeek.setHours(0, 0, 0, 0);
-  startOfWeek.setDate(now.getDate() - dayOfWeek);
-  const thisWeek = sessions.filter(s => s.createdAt && new Date(s.createdAt) >= startOfWeek);
-  const completed = thisWeek.length;
-  const pct = Math.min(100, (completed / pledge) * 100);
-  const onTrack = completed >= Math.floor(((dayOfWeek + 1) / 7) * pledge);
-
-  const savePledge = (val) => {
-    const n = Math.max(1, Math.min(7, val));
-    setPledge(n);
-    localStorage.setItem("sfc_pledge", String(n));
-    setEditing(false);
-  };
-
-  const msgs = [
-    "Every rep is a promise kept to yourself.",
-    "Consistency beats intensity every time.",
-    "Show up. The results take care of themselves.",
-    "Your future self is counting on you.",
-    "Champions are built in the sessions nobody sees.",
-  ];
-  const msg = msgs[(profile?.sessions_count || 0) % msgs.length];
-
-  return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.96)", zIndex:400, display:"flex", alignItems:"flex-end" }} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.bg2, borderRadius:"18px 18px 0 0", border:`1px solid ${G.green}44`, borderBottom:"none", maxHeight:"80vh", overflowY:"auto", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 72px)" }}>
-        <div style={{ width:36, height:3, background:G.border, borderRadius:2, margin:"14px auto 0" }}/>
-        <div style={{ padding:"14px 18px 0", display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
-          <div style={{ width:44, height:44, borderRadius:12, background:`${G.green}22`, border:`1px solid ${G.green}55`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>🤝</div>
-          <div>
-            <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>ACCOUNTABILITY</div>
-            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>Commit · Track · Deliver</div>
-          </div>
-          <button onClick={onClose} style={{ marginLeft:"auto", background:"none", border:"none", color:G.textMid, cursor:"pointer", fontSize:18, padding:"4px 6px", flexShrink:0 }}>✕</button>
-        </div>
-        <div style={{ height:1, background:`linear-gradient(90deg,transparent,${G.green}44,transparent)`, marginBottom:18 }}/>
-        <div style={{ padding:"0 18px" }}>
-          <ChromeCard gold style={{ padding:"18px", marginBottom:14, textAlign:"center" }}>
-            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:3, textTransform:"uppercase", marginBottom:8 }}>YOUR WEEKLY PLEDGE</div>
-            {editing ? (
-              <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:4 }}>
-                {[1,2,3,4,5,6,7].map(n => (
-                  <button key={n} onClick={()=>savePledge(n)} style={{ width:36, height:36, borderRadius:8, border:`1px solid ${n===pledge?G.gold:G.borderB}`, background:n===pledge?`${G.gold}22`:"transparent", color:n===pledge?G.gold:"#fff", fontFamily:FONT.display, fontSize:16, cursor:"pointer" }}>{n}</button>
-                ))}
-              </div>
-            ) : (
-              <>
-                <div style={{ fontFamily:FONT.display, fontSize:72, color:G.gold, letterSpacing:-2, lineHeight:1, textShadow:G.goldGlow }}>{pledge}</div>
-                <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:4, color:"#fff", marginBottom:14 }}>DAYS / WEEK</div>
-                <button onClick={()=>setEditing(true)} style={{ background:"transparent", border:`1px solid ${G.borderB}`, borderRadius:5, padding:"6px 16px", color:G.textMid, fontFamily:FONT.body, fontSize:10, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>✏️ CHANGE PLEDGE</button>
-              </>
-            )}
-          </ChromeCard>
-          <ChromeCard style={{ padding:"14px", marginBottom:12 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-              <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>THIS WEEK</div>
-              <Chip label={onTrack ? "ON TRACK ✓" : "BEHIND"} color={onTrack ? G.green : G.red} small/>
-            </div>
-            <div style={{ display:"flex", gap:8, alignItems:"baseline", marginBottom:10 }}>
-              <div style={{ fontFamily:FONT.display, fontSize:40, color:completed >= pledge ? G.green : "#fff", lineHeight:1 }}>{completed}</div>
-              <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:1 }}>/ {pledge} sessions pledged</div>
-            </div>
-            <div style={{ height:6, background:"rgba(255,255,255,0.07)", borderRadius:3, overflow:"hidden" }}>
-              <div style={{ height:"100%", width:`${pct}%`, background:completed>=pledge?`linear-gradient(90deg,${G.green}99,${G.green})`:`linear-gradient(90deg,${G.gold}99,${G.gold})`, borderRadius:3, transition:"width 0.4s ease" }}/>
-            </div>
-          </ChromeCard>
-          <div style={{ background:`${G.green}08`, border:`1px solid ${G.green}22`, borderRadius:10, padding:"14px 16px", textAlign:"center" }}>
-            <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.green, textTransform:"uppercase", lineHeight:1.5 }}>{msg}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function HealthConnectModal({ onClose }) {
   useScrollLock();
@@ -6601,7 +6517,6 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
   const [aiCoachOpen, setAiCoachOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
-  const [accountabilityOpen, setAccountabilityOpen] = useState(false);
   const [healthOpen, setHealthOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -6633,7 +6548,6 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
     {id:"macro", l:"MACRO COACH", ico:"⚡", desc:"Adaptive calorie & macro targets", col:G.gold, hot:true},
     {id:"health", l:"HEALTH CONNECT", ico:"⌚", desc:"BLE heart rate & fitness devices", col:G.blue, hot:true},
     {id:"ai", l:"AI COACH", ico:"🤖", desc:"Smart daily recommendations", col:G.gold, hot:true},
-    {id:"partners", l:"ACCOUNTABILITY", ico:"🤝", desc:"Train together, stay consistent", col:G.green},
     {id:"goals", l:"GOALS", ico:"🎯", desc:"Track your fitness targets", col:G.gold},
     {id:"notif", l:"NOTIFICATIONS", ico:"🔔", desc:"Reminders & streak alerts", col:G.purpleLight, hot:true},
     {id:"form", l:"FORM CHECK", ico:"🏋️", desc:"AI feedback on your lifts", col:G.gold, hot:true},
@@ -6643,7 +6557,6 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
     if (id === "ai") setAiCoachOpen(true);
     else if (id === "goals") setGoalsOpen(true);
     else if (id === "reports") setReportsOpen(true);
-    else if (id === "partners") setAccountabilityOpen(true);
     else if (id === "health") setHealthOpen(true);
     else if (id === "notif") setNotifOpen(true);
     else if (id === "macro") setMacroCoachOpen(true);
@@ -6666,7 +6579,6 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
       {aiCoachOpen && <AiCoachModal profile={profile} sessions={sessions} muscleScores={muscleScores} onClose={()=>setAiCoachOpen(false)}/>}
       {goalsOpen && <GoalsModal sessions={sessions} profile={profile} onClose={()=>setGoalsOpen(false)}/>}
       {reportsOpen && <WeeklyReportModal sessions={sessions} muscleScores={muscleScores} onClose={()=>setReportsOpen(false)}/>}
-      {accountabilityOpen && <AccountabilityModal sessions={sessions} profile={profile} onClose={()=>setAccountabilityOpen(false)}/>}
       {healthOpen && <HealthConnectModal onClose={()=>setHealthOpen(false)}/>}
       {adminOpen && <AdminDashboardModal onClose={()=>setAdminOpen(false)}/>}
       {notifOpen && <NotificationsModal sessions={sessions} onClose={()=>setNotifOpen(false)}/>}

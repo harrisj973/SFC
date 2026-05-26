@@ -208,7 +208,6 @@ const moreModals = [
   { tile: "AI COACH", expected: "AI COACH" },
   { tile: "GOALS", expected: "GOALS" },
   { tile: "WEEKLY REPORTS", expected: "REPORT" },
-  { tile: "ACCOUNTABILITY", expected: "ACCOUNTABILITY" },
   { tile: "NOTIFICATIONS", expected: "NOTIFICATION" },
   { tile: "FORM CHECK", expected: "FORM CHECK" },
   { tile: "HEALTH CONNECT", expected: "HEALTH CONNECT" },

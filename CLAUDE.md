@@ -204,7 +204,6 @@ Root state passed as props:
 | `sfc_wip_session` | `{ name, exs, tag }` in-progress workout | Cleared on save |
 | `sfc_streak_freezes` | string-encoded integer | Never |
 | `sfc_goals` | `{ weekly, volume, streak }` — user-set numeric targets | Never |
-| `sfc_pledge` | string-encoded integer 1–7, weekly session commitment | Never |
 | `sfc_body_log` | `[{ date, weight, bf, photo? }]` body check-in history, newest first | Never |
 | `sfc_ble_device` | last paired Bluetooth device name | Never |
 | `sfc_supplement_log` | `[{ date: "YYYY-MM-DD", items: [] }, ...]` — same rolling 30-day format as `sfc_nutrition_log`. | Never (30-day rolling) |
@@ -312,7 +311,6 @@ The `motivFadeIn` CSS animation (`opacity 0 → 1`, `scale 0.96 → 1`) is decla
 | `AiCoachModal` | AI COACH | — | `profile`, `sessions`, `muscleScores`, `onClose` |
 | `GoalsModal` | GOALS | `sfc_goals` | `sessions`, `profile`, `onClose` |
 | `WeeklyReportModal` | WEEKLY REPORTS | — | `sessions`, `muscleScores`, `onClose` |
-| `AccountabilityModal` | ACCOUNTABILITY | `sfc_pledge` | `sessions`, `profile`, `onClose` |
 | `HealthConnectModal` | HEALTH CONNECT | `sfc_ble_device` | `onClose` |
 | `MacroCoachModal` | MACRO COACH | `sfc_macro_coach` | `onClose` |
 | `AdminDashboardModal` | ADMIN DASHBOARD (admin only) | — | `onClose` |
@@ -508,7 +506,7 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 
 - **Stable callback refs**: `RestTimer` uses `useRef` + `useEffect(() => { ref.current = onDone; })` (no deps) to keep the `onDone` callback current without restarting the interval on every parent re-render. Do not replace with a direct dependency.
 - **Streak calculation in `handleSave`**: compares the most recent existing session's `createdAt` date against today/yesterday to decide whether to extend or reset the streak. This must remain before the optimistic state update.
-- **Sign-out cleanup**: `handleSignOut` calls `supabase.auth.signOut()`, then immediately sets `setUser(null)` directly (in addition to the async `onAuthStateChange` callback) so the LoginScreen renders without waiting for the auth event. Only four session-ephemeral keys are cleared: `sfc_daily_motiv`, `sfc_wip_session`, `sfc_session_tags`, `sfc_feed`. All personal data keys (`sfc_nutrition_log`, `sfc_supplement_log`, `sfc_macro_coach`, `sfc_body_log`, `sfc_water_log`, `sfc_water_goal`, `sfc_goals`, `sfc_meal_templates`, `sfc_challenges`, `sfc_notif_prefs`, `sfc_streak_freezes`, `sfc_pledge`) are intentionally preserved across sign-out so users don't lose history when logging back in. `sfc_onboarded`, `sfc_profile_setup_done`, `sfc_tour_done`, `sfc_home_widgets` are also preserved (device-level state). `sfc_remembered_email` persists by design but is cleared by `DeleteAccountModal`. `DeleteAccountModal` clears everything (all `sfc_*` keys) since the account is being permanently deleted.
+- **Sign-out cleanup**: `handleSignOut` calls `supabase.auth.signOut()`, then immediately sets `setUser(null)` directly (in addition to the async `onAuthStateChange` callback) so the LoginScreen renders without waiting for the auth event. Only four session-ephemeral keys are cleared: `sfc_daily_motiv`, `sfc_wip_session`, `sfc_session_tags`, `sfc_feed`. All personal data keys (`sfc_nutrition_log`, `sfc_supplement_log`, `sfc_macro_coach`, `sfc_body_log`, `sfc_water_log`, `sfc_water_goal`, `sfc_goals`, `sfc_meal_templates`, `sfc_challenges`, `sfc_notif_prefs`, `sfc_streak_freezes`) are intentionally preserved across sign-out so users don't lose history when logging back in. `sfc_onboarded`, `sfc_profile_setup_done`, `sfc_tour_done`, `sfc_home_widgets` are also preserved (device-level state). `sfc_remembered_email` persists by design but is cleared by `DeleteAccountModal`. `DeleteAccountModal` clears everything (all `sfc_*` keys) since the account is being permanently deleted.
 - **Body scroll lock**: `useScrollLock()` is a module-level hook called at the top of every modal component. It sets `document.body.style.overflow = "hidden"` on mount and restores the previous value on unmount, preventing iOS Safari background scroll bleed-through.
 - **Screen top padding**: Every screen root div uses `padding: "calc(env(safe-area-inset-top, 0px) + Xpx) 18px 0"` to clear the iOS status bar. Never use a fixed pixel top padding on screen containers.
 - **Bottom sheet modals**: All bottom sheet containers use `maxHeight: "80vh"` and `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 72px)"` with `overflowY: "auto"`. The 80vh (not 93vh) is intentional — mobile Safari measures `vh` against the full screen including its own chrome, so 80vh gives enough clearance when running as a website (not a PWA).
