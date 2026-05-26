@@ -4840,14 +4840,20 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
       } catch { /* upload failed — post without image */ }
     }
     const tag = (newType !== "post" && newTag.trim()) ? newTag.trim().toUpperCase() : null;
-    const { data } = await supabase.from("posts")
+    const { data, error: postErr } = await supabase.from("posts")
       .insert({ user_id: userId, type: newType, txt: newTxt.trim() || null, tag, likes: 0, comment_count: 0, image_url })
       .select("*, profiles!posts_user_id_fkey(username, avatar_initials, avatar_url)")
       .single();
-    if (data) setPosts(p => [data, ...p]);
+    if (postErr || !data) {
+      showToast("❌ POST FAILED — CHECK YOUR CONNECTION AND TRY AGAIN");
+      setSubmitting(false);
+      return;
+    }
+    setPosts(p => [data, ...p]);
     showToast("🔥 POST SHARED WITH THE SQUAD!");
     setNewTxt(""); setNewTag(""); setNewType("post"); setShowCompose(false); setSubmitting(false);
     clearImage();
+    loadPosts(feedTab);
   };
 
   const submitChallenge = async () => {
