@@ -26,6 +26,7 @@ ctx.addInitScript(() => {
   const today = new Date().toISOString().slice(0, 10);
   localStorage.setItem("sfc_onboarded", "1");
   localStorage.setItem("sfc_profile_setup_done", "1");
+  localStorage.setItem("sfc_tour_done", "1");
   localStorage.setItem("sfc_daily_motiv", today);
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
   localStorage.setItem("sfc_nutrition_log", JSON.stringify([

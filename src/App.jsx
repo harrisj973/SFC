@@ -244,6 +244,150 @@ const DAILY_MESSAGES = [
   { msg: "Champions train. Everyone else wishes.", sub: "Be a champion." },
 ];
 
+function GuidedTourOverlay({ onDone }) {
+  useScrollLock();
+  const [stepIdx, setStepIdx] = useState(0);
+  const [spotRect, setSpotRect] = useState(null);
+
+  const STEPS = [
+    { sel: null,                    ico: "🏋️",  title: "WELCOME TO SFC",   body: "Let us walk you through the key features. It'll only take a minute." },
+    { sel: "[data-tour='nav']",     ico: "⌂",   title: "NAVIGATION",       body: "These 6 tabs are your home base — tap any icon to switch sections.", pad: 8 },
+    { sel: "[data-tour='tab-train']",     ico: "⊞",  title: "TRAIN",       body: "Log workouts, track every set, hit personal records, and follow structured programs.", pad: 10 },
+    { sel: "[data-tour='tab-progress']",  ico: "⤴",  title: "STATS",       body: "See your progress over time, view your streak, and explore the muscle heat map.", pad: 10 },
+    { sel: "[data-tour='tab-nutrition']", ico: "◉",  title: "FUEL",        body: "Log meals, scan barcodes, and hit your daily calorie and macro targets.", pad: 10 },
+    { sel: "[data-tour='tab-feed']",      ico: "⚇",  title: "SQUAD",       body: "Share your PRs, post updates, send challenges, and connect with your crew.", pad: 10 },
+    { sel: "[data-tour='tab-more']",      ico: "···", title: "MORE TOOLS",  body: "Get your AI Coach report, set weekly goals, check weekly reports, and much more.", pad: 10 },
+  ];
+
+  const current = STEPS[stepIdx];
+  const isLast = stepIdx === STEPS.length - 1;
+  const PAD = current.pad || 0;
+
+  useEffect(() => {
+    if (!current.sel) { setSpotRect(null); return; }
+    const measure = () => {
+      const el = document.querySelector(current.sel);
+      if (!el) { setSpotRect(null); return; }
+      const r = el.getBoundingClientRect();
+      setSpotRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+    };
+    measure();
+    const t = setTimeout(measure, 120);
+    return () => clearTimeout(t);
+  }, [stepIdx, current.sel]);
+
+  const next = () => { if (isLast) finish(); else setStepIdx(i => i + 1); };
+  const finish = () => { try { localStorage.setItem("sfc_tour_done", "1"); } catch { /* ignore */ } onDone(); };
+
+  const tooltipAbove = spotRect ? (spotRect.top > window.innerHeight * 0.5) : false;
+  const tooltipBottom = tooltipAbove ? (window.innerHeight - spotRect.top + PAD + 16) : undefined;
+  const tooltipTop = !tooltipAbove && spotRect ? (spotRect.top + spotRect.height + PAD + 16) : undefined;
+
+  const dots = (
+    <div style={{ display:"flex", justifyContent:"center", gap:6, marginBottom:14 }}>
+      {STEPS.map((_, i) => (
+        <div key={i} style={{ width: i===stepIdx ? 16 : 6, height:6, borderRadius:3, background: i===stepIdx ? G.purple : G.textDim, transition:"all 0.25s", boxShadow: i===stepIdx ? `0 0 8px ${G.purple}` : "none" }}/>
+      ))}
+    </div>
+  );
+
+  const btns = (
+    <div style={{ display:"flex", gap:10 }}>
+      <button onClick={finish} style={{ flex:1, background:"transparent", border:`1px solid ${G.borderB}`, borderRadius:8, padding:"11px 0", fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:G.textDim, cursor:"pointer" }}>SKIP</button>
+      <button onClick={next} style={{ flex:2, background:`linear-gradient(135deg,${G.purple},${G.purpleBright})`, border:"none", borderRadius:8, padding:"11px 0", fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:"#fff", cursor:"pointer", boxShadow:`0 0 16px ${G.purple}55` }}>
+        {isLast ? "DONE ✓" : "NEXT →"}
+      </button>
+    </div>
+  );
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:9100 }}>
+      {/* click-blocker — transparent but catches all taps behind the tooltip */}
+      <div style={{ position:"absolute", inset:0, background:"transparent" }}/>
+
+      {/* spotlight ring with box-shadow dim */}
+      {spotRect && (
+        <div style={{
+          position:"fixed",
+          top: spotRect.top - PAD,
+          left: spotRect.left - PAD,
+          width: spotRect.width + PAD * 2,
+          height: spotRect.height + PAD * 2,
+          borderRadius: 12,
+          border: `2px solid ${G.purple}`,
+          boxShadow: `0 0 0 9999px rgba(6,6,14,0.84), 0 0 28px ${G.purple}99, inset 0 0 16px ${G.purple}22`,
+          pointerEvents: "none",
+          transition: "top 0.3s ease, left 0.3s ease, width 0.3s ease, height 0.3s ease",
+          zIndex: 9101,
+        }}/>
+      )}
+
+      {/* welcome card (step 0, no spotlight) */}
+      {!spotRect && (
+        <div style={{
+          position:"fixed", top:"50%", left:"50%", transform:"translate(-50%,-50%)",
+          width:"min(320px, 88vw)", background:G.bg2,
+          border:`1px solid ${G.purple}55`, borderRadius:16,
+          padding:"28px 24px 22px", textAlign:"center",
+          boxShadow:`${G.purpleGlow}, 0 24px 64px rgba(0,0,0,0.8)`,
+          animation:"tourFadeIn 0.3s ease", zIndex:9102,
+        }}>
+          <div style={{ fontSize:44, marginBottom:14 }}>{current.ico}</div>
+          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", marginBottom:8 }}>
+            WELCOME TO <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>SFC</span>
+          </div>
+          <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:1, lineHeight:1.65, marginBottom:22 }}>
+            {current.body}
+          </div>
+          {dots}
+          {btns}
+        </div>
+      )}
+
+      {/* feature tooltip */}
+      {spotRect && (
+        <div style={{
+          position:"fixed",
+          left:"50%", transform:"translateX(-50%)",
+          ...(tooltipAbove ? { bottom: tooltipBottom } : { top: tooltipTop }),
+          width:"min(300px, 86vw)", background:G.bg2,
+          border:`1px solid ${G.purple}44`, borderRadius:14,
+          padding:"18px 20px 16px",
+          boxShadow:`${G.purpleGlow}, 0 16px 48px rgba(0,0,0,0.75)`,
+          animation:"tourTipIn 0.22s ease", zIndex:9102,
+        }}>
+          {/* arrow */}
+          <div style={{
+            position:"absolute",
+            ...(tooltipAbove ? { bottom:-7 } : { top:-7 }),
+            left:"50%", transform:"translateX(-50%)",
+            width:0, height:0,
+            borderLeft:"7px solid transparent",
+            borderRight:"7px solid transparent",
+            ...(tooltipAbove
+              ? { borderTop:`7px solid ${G.purple}55` }
+              : { borderBottom:`7px solid ${G.purple}55` }),
+          }}/>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:7 }}>
+            <span style={{ color:G.purple, fontSize:16 }}>{current.ico}</span>
+            <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:3, color:"#fff" }}>{current.title}</div>
+          </div>
+          <div style={{ fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:1, lineHeight:1.6, marginBottom:16 }}>
+            {current.body}
+          </div>
+          {dots}
+          {btns}
+        </div>
+      )}
+
+      <style>{`
+        @keyframes tourFadeIn { from{opacity:0;transform:translate(-50%,-50%) scale(0.95)} to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
+        @keyframes tourTipIn { from{opacity:0;transform:translateX(-50%) scale(0.96)} to{opacity:1;transform:translateX(-50%) scale(1)} }
+      `}</style>
+    </div>
+  );
+}
+
 function OnboardingModal({ onDone }) {
   useScrollLock();
   const [slide, setSlide] = useState(0);
@@ -7208,6 +7352,7 @@ function SocialFitClubInner() {
     try { return localStorage.getItem("sfc_daily_motiv") !== today; } catch { return true; }
   });
   const [showProfileSetup, setShowProfileSetup] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   const [viewingUser, setViewingUser] = useState(null);
   const profileSetupChecked = useRef(false);
   const toastTimer = useRef(null);
@@ -7491,6 +7636,7 @@ function SocialFitClubInner() {
           try { localStorage.setItem("sfc_profile_setup_done", "1"); } catch { /* ignore */ }
           setShowProfileSetup(false);
           if (updates) setProfile(p => ({ ...p, ...updates }));
+          try { if (!localStorage.getItem("sfc_tour_done")) setTimeout(() => setShowTour(true), 400); } catch { /* ignore */ }
         }}
       />}
       {!showOnboarding && !showProfileSetup && showDailyMotiv && <DailyMotivModal onClose={() => {
@@ -7498,6 +7644,8 @@ function SocialFitClubInner() {
         try { localStorage.setItem("sfc_daily_motiv", today); } catch { /* ignore */ }
         setShowDailyMotiv(false);
       }}/>}
+
+      {showTour && !showOnboarding && !showProfileSetup && <GuidedTourOverlay onDone={() => setShowTour(false)}/>}
 
       {viewingUser && <UserProfileModal user={viewingUser} currentUserId={user?.id} onClose={() => setViewingUser(null)}/>}
 
@@ -7512,11 +7660,11 @@ function SocialFitClubInner() {
 
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, zIndex:50 }}>
         <div style={{ height:1, background:`linear-gradient(90deg,transparent,${G.gold}66,${G.gold},${G.gold}66,transparent)`, boxShadow:`0 0 10px ${G.gold}55` }}/>
-        <div style={{ background:`linear-gradient(180deg,rgba(6,6,14,0.97) 0%,rgba(8,8,16,1) 100%)`, backdropFilter:"blur(20px)", display:"flex", padding:`8px 0 calc(env(safe-area-inset-bottom, 0px) + 12px)` }}>
+        <div data-tour="nav" style={{ background:`linear-gradient(180deg,rgba(6,6,14,0.97) 0%,rgba(8,8,16,1) 100%)`, backdropFilter:"blur(20px)", display:"flex", padding:`8px 0 calc(env(safe-area-inset-bottom, 0px) + 12px)` }}>
           {TABS.map(t => {
             const active = tab === t.id;
             return (
-              <button key={t.id} onClick={() => setTab(t.id)} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2, background:"none", border:"none", cursor:"pointer", padding:"4px 0", position:"relative" }}>
+              <button data-tour={`tab-${t.id}`} key={t.id} onClick={() => setTab(t.id)} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2, background:"none", border:"none", cursor:"pointer", padding:"4px 0", position:"relative" }}>
                 {active && <div style={{ position:"absolute", top:0, left:"50%", transform:"translateX(-50%)", width:30, height:2, background:G.gold, borderRadius:1, boxShadow:G.goldGlow2 }}/>}
                 <span style={{ fontSize:18, filter: active ? `drop-shadow(0 0 6px ${G.gold})` : "none", transition:"filter 0.2s", marginTop:4 }}>{t.ico}</span>
                 <span style={{ fontFamily:FONT.display, fontSize:9, letterSpacing:2, textTransform:"uppercase", color: active ? G.gold : G.textDim, transition:"color 0.2s" }}>{t.l}</span>
