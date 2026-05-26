@@ -5006,9 +5006,23 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
       } catch { /* upload failed — post without image */ }
     }
     const tag = (newType !== "post" && newTag.trim()) ? newTag.trim().toUpperCase() : null;
-    const { error: postErr } = await supabase.from("posts")
-      .insert({ user_id: userId, type: newType, txt: newTxt.trim() || null, tag, likes: 0, comment_count: 0, image_url });
+    const insertData = { user_id: userId, type: newType, txt: newTxt.trim() || null, tag, likes: 0, comment_count: 0 };
+    if (image_url) insertData.image_url = image_url;
+    const { error: postErr } = await supabase.from("posts").insert(insertData);
     if (postErr) {
+      console.error("submitPost error:", postErr);
+      // If image_url column missing, retry without it
+      if (postErr.code === "42703" && image_url) {
+        delete insertData.image_url;
+        const { error: retryErr } = await supabase.from("posts").insert(insertData);
+        if (!retryErr) {
+          showToast("🔥 POST SHARED WITH THE SQUAD!");
+          setNewTxt(""); setNewTag(""); setNewType("post"); setShowCompose(false); setSubmitting(false);
+          clearImage();
+          loadPosts(feedTab);
+          return;
+        }
+      }
       showToast("❌ POST FAILED — CHECK YOUR CONNECTION AND TRY AGAIN");
       setSubmitting(false);
       return;
