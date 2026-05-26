@@ -3887,7 +3887,7 @@ function NutritionScreen({ showToast }) {
         try {
           const { BrowserMultiFormatReader } = await import("@zxing/browser");
           const codeReader = new BrowserMultiFormatReader();
-          const controls = codeReader.decodeFromVideoElement(videoRef.current, (result) => {
+          const controls = await codeReader.decodeFromVideoElementContinuously(videoRef.current, (result) => {
             if (result) {
               zxingControlsRef.current = null;
               controls.stop();
