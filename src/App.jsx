@@ -2767,7 +2767,7 @@ function ProgramDetailModal({ program, onClose, onStartDay }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.97)", zIndex:600, display:"flex", flexDirection:"column" }}>
       {/* Header */}
-      <div style={{ background:`linear-gradient(135deg,${program.col}22,rgba(0,0,0,0.7))`, borderBottom:`1px solid ${program.col}33`, padding:"16px 18px", display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
+      <div style={{ background:`linear-gradient(135deg,${program.col}22,rgba(0,0,0,0.7))`, borderBottom:`1px solid ${program.col}33`, padding:"16px 18px", paddingTop:"calc(env(safe-area-inset-top, 0px) + 16px)", display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
         <div style={{ fontSize:28, flexShrink:0 }}>{program.ico}</div>
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:2, color:"#fff", textTransform:"uppercase", lineHeight:1.2 }}>{program.name}</div>
@@ -2781,7 +2781,7 @@ function ProgramDetailModal({ program, onClose, onStartDay }) {
         <button onClick={onClose} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:8, color:G.textMid, cursor:"pointer", fontSize:16, padding:"6px 10px", flexShrink:0 }}>✕</button>
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", padding:"20px 18px", paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 32px)", maxWidth:480, width:"100%", margin:"0 auto", boxSizing:"border-box" }}>
+      <div style={{ flex:1, overflowY:"auto", padding:"20px 18px", paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 100px)", maxWidth:480, width:"100%", margin:"0 auto", boxSizing:"border-box" }}>
 
         {/* Goal */}
         <ChromeCard style={{ padding:"14px 16px", marginBottom:14 }}>
