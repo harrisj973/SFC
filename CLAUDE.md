@@ -246,6 +246,8 @@ Four sub-tabs: `TRACK`, `HISTORY`, `PRs`, `PROGRAMS`.
 
 **Programs** — `PROGRAMS_DATA` is a module-level constant with 4 complete workout programs (each has `id`, `name`, `goal`, `days`, `duration`, `level`, `color`, and `schedule: [{ day, name, exercises: [{ name, sets, reps }] }]`). Tapping a program card opens `ProgramDetailModal` (full-screen, not a bottom sheet): shows goal, a 3-stat grid (days/duration/level), a weekly schedule strip with day selector, an exercise list for the selected day, and a "LOG DAY X WORKOUT" button. That button pre-loads exercise names into `exs`, sets `sessName`, and switches the `subTab` to `"track"` via `onStartDay` prop. `TrainScreen` owns `selectedProgram` state.
 
+`ProgramDetailModal` is `position:fixed, inset:0` and renders over the bottom nav bar. Its header uses `paddingTop:"calc(env(safe-area-inset-top, 0px) + 16px)"` to push the ✕ close button below the iOS status bar/notch. The scrollable content area uses `paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 100px)"` — the 100px (not 32px) clears both the fixed bottom nav bar (~82px) and the iOS home indicator.
+
 **Recovery alert** — inside the TRACK sub-tab, `overloadedMuscles` is derived each render: for each exercise in the current session, look up `EXERCISE_MUSCLE_MAP[ex.name]` and collect muscles with `factor >= 0.6`; filter those where `calcMuscleScores(sessions)[muscle] > 80`. If any are found and `restWarnDismissed` is false, an orange banner is shown above the exercise list. Dismissed per-session via local `restWarnDismissed` state.
 
 **Plate calculator** — `PlateCalculatorModal` is opened by the ⚖️ PLATES button in the Training Hub header. Greedy algorithm: for a given target weight and bar weight, iterates `[45, 35, 25, 10, 5, 2.5]` lb plates and assigns as many of each as fit per side. Renders a visual bar diagram and per-side plate list. Bar presets: STANDARD (45 lb), WOMEN'S (35 lb), TRAP/HEX (60 lb), EZ-CURL (25 lb).
@@ -357,6 +359,8 @@ The feed is fully **Supabase-backed** — posts, likes, and comments are all sto
 
 **Compose sheet** — `newType` state (`"post"` | `"pr"` | `"milestone"` | `"challenge"`). Challenge type has its own flow via `submitChallenge()`. All other types go through `submitPost()`. Backdrop `onClick` clears the image state via `clearImage()`.
 
+**`submitPost` error handling** — captures `error` from the Supabase `.insert()` call. On failure: shows an error toast and returns early without clearing the compose form (user can retry). On success: optimistically prepends the returned row to `posts`, shows the success toast, clears the compose, then calls `loadPosts(feedTab)` as a safety net to ensure the feed stays in sync with the DB. The toast must not fire before checking for errors — do not move `showToast` above the error check.
+
 **Challenge system** — `challenges` state (from `sfc_challenges`) is an array of `{ id, type, exercise?, target, created, deadline, completed, completedAt }`. `type` is `"pr"` | `"vol"` | `"sessions"`. A `useEffect` on `sessions` auto-completes challenges and inserts a `milestone` post when the target is reached. `getChallengeProgress()` renders the progress bar and countdown on challenge post cards.
 
 **User search** — `UserSearchModal` (zIndex 790) debounces 300ms and queries `profiles` with `.ilike("username", ...)`. Has full ARIA accessibility: `role="dialog"`, `role="search"`, `role="list"`, `aria-live` region announces result counts, result cards are keyboard-focusable (`tabIndex=0`, Enter/Space). Input has a 🔍 icon on the left and a ✕ clear button on the right when text is present. Follow/unfollow is optimistic via `localFollowing` Set.
@@ -391,9 +395,11 @@ The `scanTarget` state (`"food"` | `"supplement"`) controls where scan results a
 
 ### PWA / Icons
 
-`public/manifest.json` enables home-screen installation. Key fields: `display: "standalone"`, `orientation: "portrait"`, `background_color`/`theme_color` both `#06060E`.
+`public/manifest.json` enables home-screen installation and app-store submission. Key fields: `id: "/"` (required for Android TWA identity), `display: "standalone"`, `orientation: "portrait"`, `background_color`/`theme_color` both `#06060E`, `lang: "en"`, `dir: "ltr"`.
 
-Icons live in `public/`: `favicon.svg` (vector badge logo, also the browser tab icon), `icon-192.png` (home screen), `icon-512.png` (splash / maskable). `index.html` wires them up via `<link rel="manifest">`, `<link rel="apple-touch-icon">`, and the iOS-specific meta tags (`apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`, `apple-mobile-web-app-title`).
+Icons live in `public/`: `favicon.svg` (vector badge logo, also the browser tab icon), `icon-192.png` (home screen), `icon-512.png` (splash / maskable). The 512px icon has **two separate manifest entries** — one `"purpose": "any"` and one `"purpose": "maskable"` — because combining them as `"any maskable"` fails some validators. The 512px icon has a solid purple background so it satisfies the maskable safe-zone requirement without needing a separate file. `index.html` wires them up via `<link rel="manifest">`, `<link rel="apple-touch-icon">`, and the iOS-specific meta tags (`apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`, `apple-mobile-web-app-title`).
+
+Six app screenshots live in `public/screenshots/` (390×844 PNG, one per main screen). They are referenced in `manifest.json` with `"form_factor": "narrow"` and shown by PWABuilder / Play Store during installation. Regenerate by running the Playwright screenshot loop in `sweep_final.mjs` or a similar script.
 
 **SEO** — `index.html` has a `<meta name="description">` tag and `public/robots.txt` (`Allow: /`) is present. Lighthouse production scores: Performance 97, Accessibility 100, Best Practices 96, SEO 100.
 
@@ -468,7 +474,7 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 
 `ChromeCard` accepts an optional `onClick` prop which is forwarded to the root div. Always pass `onClick` directly to `ChromeCard` — do not wrap it in another div to handle clicks, as `ChromeCard` now supports this natively.
 
-`ExercisePicker` is a bottom-sheet modal used in `TrainScreen`. It receives `{ onSelect, onClose }` and renders: a search bar, two chip rows (gold muscle-group chips from `EXERCISE_CATS` + purple equipment chips from `EQUIPMENT_CATS`), an optional FOCUS sub-row when LEGS is selected (QUADS / HAMSTRINGS from `EXERCISE_SUBCATS`), and a filtered exercise list with muscle label and category badge. Opens via the ⊞ button next to each exercise name input.
+`ExercisePicker` is a bottom-sheet modal used in `TrainScreen`. It receives `{ onSelect, onClose }` and renders: a search bar, two chip rows (gold muscle-group chips from `EXERCISE_CATS` + purple equipment chips from `EQUIPMENT_CATS`), an optional FOCUS sub-row when LEGS is selected (QUADS / HAMSTRINGS from `EXERCISE_SUBCATS`), and a filtered exercise list with muscle label and category badge. Opens via the purple **⊞ BROWSE** pill button next to each exercise name input.
 
 `PlateCalculatorModal` is a standalone modal (not a MoreScreen tile). Opened from the TrainScreen header ⚖️ PLATES button. Accepts `{ onClose, initialWeight }`.
 
@@ -512,3 +518,5 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 - **UserProfileModal fragment wrapper**: the component's `return` wraps everything in `<>...</>` because it renders the main modal div, `FollowListModal`, and a nested `UserProfileModal` for `subUser` as siblings. Do not remove the fragment.
 - **Optimistic follower count in `UserProfileModal`**: `toggleFollow` updates `followersCount` state immediately (`+1` on follow, `-1` on unfollow, floored at 0) without waiting for the DB round-trip. Do not remove this — without it the count stays stale until the modal is reopened.
 - **MoreScreen follow count refresh**: when the `moreViewingUser` `UserProfileModal` closes (via `onClose`), the `followerCount`/`followingCount` state is re-fetched from Supabase. This is intentional — the current user may have followed/unfollowed someone inside that modal, making the displayed pills stale.
+- **`doSave` is async**: `doSave` in `TrainScreen` `await`s `onSave()` (which is `handleSave` in `SocialFitClubInner`). `handleSave` returns `true` on success and `false` on Supabase error (after rolling back the optimistic state update). `doSave` only clears the form and navigates to history if the return value is not `false`. Do not make `doSave` fire-and-forget — the form must not clear before the DB insert resolves.
+- **Full-screen modals over the bottom nav**: `ProgramDetailModal` (and any future `position:fixed, inset:0` modal) renders on top of the bottom nav bar. Its header must use `paddingTop: "calc(env(safe-area-inset-top, 0px) + Xpx)"` to clear the iOS notch, and its scroll container must use `paddingBottom` large enough to clear the bottom nav (~82px) plus the iOS home indicator. Use 100px minimum for the bottom padding.
