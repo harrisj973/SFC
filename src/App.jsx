@@ -3662,10 +3662,12 @@ function NutritionScreen({ showToast }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const scanAnimRef = useRef(null);
+  const zxingControlsRef = useRef(null);
 
   const stopCamera = () => {
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
     cancelAnimationFrame(scanAnimRef.current);
+    if (zxingControlsRef.current) { try { zxingControlsRef.current.stop(); } catch { /* ignore */ } zxingControlsRef.current = null; }
   };
 
   useEffect(() => () => { stopCamera(); clearInterval(scanTimerRef.current); }, []);
@@ -3712,7 +3714,9 @@ function NutritionScreen({ showToast }) {
       setScanMode("result");
     } catch (e) {
       setScanMode("idle");
-      showToast(e.message === "No food detected" ? "No food detected — try again" : "Scan failed — check connection");
+      if (e.message === "No food detected") showToast("No food detected — try again");
+      else if (e.message?.includes("API key") || e.message?.includes("not configured")) showToast("⚠️ AI scan not set up — use BARCODE tab instead");
+      else showToast("Scan failed — check connection");
     }
   };
 
@@ -3723,6 +3727,7 @@ function NutritionScreen({ showToast }) {
       streamRef.current = stream;
       if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
       if ("BarcodeDetector" in window) {
+        // Native BarcodeDetector — Chrome and Safari 17+
         const detector = new window.BarcodeDetector({ formats:["ean_13","upc_a","upc_e","ean_8","code_128","code_39"] });
         const detect = async () => {
           if (!videoRef.current || !streamRef.current) return;
@@ -3733,6 +3738,23 @@ function NutritionScreen({ showToast }) {
           scanAnimRef.current = requestAnimationFrame(detect);
         };
         scanAnimRef.current = requestAnimationFrame(detect);
+      } else {
+        // ZXing fallback — works on iOS Safari and all other browsers
+        try {
+          const { BrowserMultiFormatReader } = await import("@zxing/browser");
+          const codeReader = new BrowserMultiFormatReader();
+          const controls = codeReader.decodeFromVideoElement(videoRef.current, (result) => {
+            if (result) {
+              zxingControlsRef.current = null;
+              controls.stop();
+              stopCamera();
+              lookupBarcode(result.getText());
+            }
+          });
+          zxingControlsRef.current = controls;
+        } catch {
+          // ZXing failed to load — manual entry input is still visible
+        }
       }
     } catch {
       showToast("Camera access denied — enter barcode manually");
