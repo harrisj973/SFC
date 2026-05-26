@@ -213,7 +213,7 @@ Root state passed as props:
 | `sfc_water_goal` | number (daily oz target, default 64) | Never |
 | `sfc_macro_coach` | MacroCoach setup + history (see MacroCoachModal) | Never |
 | `sfc_challenges` | `[{ id, type, exercise?, target, created, deadline, completed, completedAt }]` | Never |
-| `sfc_home_widgets` | `{ order: string[], hidden: string[] }` widget display preferences | Never |
+| `sfc_templates` | `[{ id, name, exs, tag }]` saved workout templates in TrainScreen | Never |
 | `sfc_meal_templates` | `[{ id, name, items: [{ name, cal, pro, carb, fat, brand? }] }]` | Never |
 | `sfc_daily_motiv` | `"YYYY-MM-DD"` — date the daily motivational popup was last shown | Auto-cleared on sign-out |
 | `sfc_onboarded` | `"1"` — set after user completes or skips the onboarding flow | Never (persists across sign-outs) |
@@ -281,8 +281,6 @@ The HomeScreen was redesigned with a purple-dominant theme. Layout (top to botto
 4. **Weekly volume** — SVG line chart with dots (purple), day labels below. Today's dot is highlighted and larger.
 5. **Leaderboard row** — tappable, expands (`lbExpanded` state) to show top-5 ranked users inline. Non-self rows are tappable and call `onViewProfile(u)` to open `UserProfileModal` via `SocialFitClubInner`.
 6. **Quick Start row** — tappable, expands (`qsExpanded` state, default open) to reveal a 2×2 grid of workout cards.
-
-`sfc_home_widgets` is a localStorage key written by a legacy widget system; the current HomeScreen ignores it and does not clear it on sign-out.
 
 ### Onboarding Flow
 
@@ -506,7 +504,7 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 
 - **Stable callback refs**: `RestTimer` uses `useRef` + `useEffect(() => { ref.current = onDone; })` (no deps) to keep the `onDone` callback current without restarting the interval on every parent re-render. Do not replace with a direct dependency.
 - **Streak calculation in `handleSave`**: compares the most recent existing session's `createdAt` date against today/yesterday to decide whether to extend or reset the streak. This must remain before the optimistic state update.
-- **Sign-out cleanup**: `handleSignOut` calls `supabase.auth.signOut()`, then immediately sets `setUser(null)` directly (in addition to the async `onAuthStateChange` callback) so the LoginScreen renders without waiting for the auth event. Only four session-ephemeral keys are cleared: `sfc_daily_motiv`, `sfc_wip_session`, `sfc_session_tags`, `sfc_feed`. All personal data keys (`sfc_nutrition_log`, `sfc_supplement_log`, `sfc_macro_coach`, `sfc_body_log`, `sfc_water_log`, `sfc_water_goal`, `sfc_goals`, `sfc_meal_templates`, `sfc_challenges`, `sfc_notif_prefs`, `sfc_streak_freezes`) are intentionally preserved across sign-out so users don't lose history when logging back in. `sfc_onboarded`, `sfc_profile_setup_done`, `sfc_tour_done`, `sfc_home_widgets` are also preserved (device-level state). `sfc_remembered_email` persists by design but is cleared by `DeleteAccountModal`. `DeleteAccountModal` clears everything (all `sfc_*` keys) since the account is being permanently deleted.
+- **Sign-out cleanup**: `handleSignOut` calls `supabase.auth.signOut()`, then immediately sets `setUser(null)` directly (in addition to the async `onAuthStateChange` callback) so the LoginScreen renders without waiting for the auth event. Only four session-ephemeral keys are cleared: `sfc_daily_motiv`, `sfc_wip_session`, `sfc_session_tags`, `sfc_feed`. All personal data keys (`sfc_nutrition_log`, `sfc_supplement_log`, `sfc_macro_coach`, `sfc_body_log`, `sfc_water_log`, `sfc_water_goal`, `sfc_goals`, `sfc_meal_templates`, `sfc_challenges`, `sfc_notif_prefs`, `sfc_streak_freezes`) are intentionally preserved across sign-out so users don't lose history when logging back in. `sfc_onboarded`, `sfc_profile_setup_done`, `sfc_tour_done` are preserved across sign-out (device-level state) but are cleared by `DeleteAccountModal` so re-signup gets a clean onboarding flow. `sfc_remembered_email` persists by design but is cleared by `DeleteAccountModal`. `DeleteAccountModal` clears all `sfc_*` keys including `sfc_templates`, `sfc_onboarded`, `sfc_profile_setup_done`, and `sfc_tour_done`.
 - **Body scroll lock**: `useScrollLock()` is a module-level hook called at the top of every modal component. It sets `document.body.style.overflow = "hidden"` on mount and restores the previous value on unmount, preventing iOS Safari background scroll bleed-through.
 - **Screen top padding**: Every screen root div uses `padding: "calc(env(safe-area-inset-top, 0px) + Xpx) 18px 0"` to clear the iOS status bar. Never use a fixed pixel top padding on screen containers.
 - **Bottom sheet modals**: All bottom sheet containers use `maxHeight: "80vh"` and `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 72px)"` with `overflowY: "auto"`. The 80vh (not 93vh) is intentional — mobile Safari measures `vh` against the full screen including its own chrome, so 80vh gives enough clearance when running as a website (not a PWA).

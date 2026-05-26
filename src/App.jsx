@@ -264,10 +264,10 @@ function GuidedTourOverlay({ onDone }) {
   const PAD = current.pad || 0;
 
   useEffect(() => {
-    if (!current.sel) { setSpotRect(null); return; }
+    if (!current.sel) { setTimeout(() => setSpotRect(null), 0); return; }
     const measure = () => {
       const el = document.querySelector(current.sel);
-      if (!el) { setSpotRect(null); return; }
+      if (!el) { setTimeout(() => setSpotRect(null), 0); return; }
       const r = el.getBoundingClientRect();
       setSpotRect({ top: r.top, left: r.left, width: r.width, height: r.height });
     };
@@ -7002,7 +7002,7 @@ function DeleteAccountModal({ onClose, onDeleted }) {
       const { error: e } = await supabase.functions.invoke("delete-account");
       if (e) throw e;
       // Clear all local data
-      const keys = ["sfc_nutrition_log","sfc_wip_session","sfc_feed","sfc_streak_freezes","sfc_goals","sfc_pledge","sfc_body_log","sfc_ble_device","sfc_supplement_log","sfc_notif_prefs","sfc_session_tags","sfc_water_log","sfc_water_goal","sfc_macro_coach","sfc_challenges","sfc_meal_templates","sfc_daily_motiv","sfc_remembered_email"];
+      const keys = ["sfc_nutrition_log","sfc_wip_session","sfc_feed","sfc_streak_freezes","sfc_goals","sfc_body_log","sfc_ble_device","sfc_supplement_log","sfc_notif_prefs","sfc_session_tags","sfc_water_log","sfc_water_goal","sfc_macro_coach","sfc_challenges","sfc_meal_templates","sfc_templates","sfc_daily_motiv","sfc_remembered_email","sfc_onboarded","sfc_profile_setup_done","sfc_tour_done"];
       keys.forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
       onDeleted();
     } catch {
