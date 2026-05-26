@@ -16,9 +16,21 @@ No test suite is configured. **Smoke tests** can be run against the dev server w
 ```bash
 npm run dev          # start dev server first
 node test-bugcheck.mjs   # 53-check headless browser sweep (uses ?demo=1 mode)
+node deep_test.mjs       # 43-check interactive flow test covering all screens end-to-end
 ```
 
-`test-bugcheck.mjs` pre-sets `sfc_onboarded`, `sfc_profile_setup_done`, `sfc_tour_done`, and `sfc_daily_motiv` in localStorage via `ctx.addInitScript()` before navigation. Without `sfc_onboarded`/`sfc_profile_setup_done`, `OnboardingModal` and `ProfileSetupModal` block all interaction in a fresh headless session (they suppress `DailyMotivModal`, which the test expects to appear first). Sub-tab clicks in `ProgressScreen` must use `page.locator("button", { hasText: /^LABEL$/i })` — `page.click("text=LABEL")` hits the screen tagline div first because CSS `text-transform: uppercase` makes it match before the actual button. Exercise picker item clicks require `page.evaluate()` JS dispatch — the picker's scroll-container backdrop intercepts pointer events and causes Playwright's `locator.click()` to time out: `await page.evaluate(() => { const el = [...document.querySelectorAll("div")].find(d => d.textContent.trim() === "Exercise Name"); el?.click(); })`.
+Both scripts pre-set `sfc_onboarded`, `sfc_profile_setup_done`, `sfc_tour_done`, and `sfc_daily_motiv` in localStorage via `ctx.addInitScript()` before navigation. Without `sfc_onboarded`/`sfc_profile_setup_done`, `OnboardingModal` and `ProfileSetupModal` block all interaction in a fresh headless session.
+
+**Critical Playwright gotchas in this environment:**
+- `ctx.addInitScript(fn, params)` — the two-argument form silently fails (params are not serialized). Always compute dynamic values like `today`/`yesterday` **inside** the callback: `ctx.addInitScript(() => { const today = new Date().toISOString().slice(0,10); ... })`.
+- Sub-tab clicks in `ProgressScreen` must use `page.locator("button", { hasText: /^LABEL$/i })` — `page.click("text=LABEL")` hits the screen tagline div first because CSS `text-transform: uppercase` makes it match before the actual button.
+- Exercise picker item clicks require `page.evaluate()` JS dispatch — the picker's scroll-container backdrop intercepts pointer events and causes Playwright's `locator.click()` to time out: `await page.evaluate(() => { const el = [...document.querySelectorAll("div")].find(d => d.textContent.trim() === "Exercise Name"); el?.click(); })`.
+- Water quick-add buttons (`+8`, `+12`, `+16`, `+20 oz`) are in **NutritionScreen (FUEL)**, not ProgressScreen (STATS). STATS only shows a "TODAY'S WATER" stat pill.
+- Food search results render as `ChromeCard` divs, not `<button>` elements — look for divs with food name text, not buttons.
+- Compose post type buttons have emoji prefixes: `"📢 POST"`, `"🏆 PR"`, `"⭐ MILESTONE"`, `"⚔️ CHALLENGE"`. Use `/POST|PR|MILESTONE|CHALLENGE/i` without `^` anchors.
+- GoalsModal inputs are only visible **after** clicking the "✏️ EDIT TARGET" button (edit mode is off by default).
+- PAST DAYS in the FUEL LOG tab: `"PAST DAYS"` is a plain non-clickable `<div>` label. The individual day rows below it are `<button>` elements; clicking them toggles expansion.
+- Session name input placeholder is `"e.g. PUSH DAY · CHEST FOCUS"` — not "SESSION NAME".
 
 **Primary deployment target is Vercel** — production branch is `main`; Vite is auto-detected (`npm run build` → `dist/`). `vercel.json` sets `Service-Worker-Allowed: /` and `Cache-Control: no-cache` on `/sw.js`. The custom domain is `socialfitclub26.com` (purchased on Vercel, auto-configured DNS). After any new Vercel domain is added, update **Supabase → Authentication → URL Configuration** (Site URL + Redirect URLs) or auth email links will redirect to the wrong origin.
 
@@ -141,7 +153,7 @@ All three functions are deployed. Deploy with `supabase functions deploy <name>`
 
 `ResetPasswordScreen` is shown when `onAuthStateChange` fires a `PASSWORD_RECOVERY` event (user clicked reset link in email). It calls `supabase.auth.updateUser({ password })` and returns to the main app on success.
 
-Render guards (in order): blank screen while `authReady` is false → `<ResetPasswordScreen/>` when `passwordRecovery` is true → `<LoginScreen/>` when no user → "CONNECTION ERROR" screen with Retry button when `!profile && dataLoadFailed` (network errors in `loadProfile`/`loadSessions` set this flag; a missing profile row — Postgres error `PGRST116` — does not) → blank while profile loads → main app with overlay stack: `OnboardingModal` (zIndex 850) → `ProfileSetupModal` (zIndex 820) → `DailyMotivModal` (zIndex 800). `DailyMotivModal` is suppressed while onboarding or profile setup is active.
+Render guards (in order): blank screen while `authReady` is false → `<ResetPasswordScreen/>` when `passwordRecovery` is true → `<LoginScreen/>` when no user → "CONNECTION ERROR" screen with Retry button when `!profile && dataLoadFailed` (network errors in `loadProfile`/`loadSessions` set this flag; a missing profile row — Postgres error `PGRST116` — does not) → blank while profile loads → main app with overlay stack: `OnboardingModal` (zIndex 850) → `ProfileSetupModal` (zIndex 820) → `DailyMotivModal` (zIndex 800) → `GuidedTourOverlay` (triggered after ProfileSetupModal completes/skips). `DailyMotivModal` is suppressed while onboarding or profile setup is active. `GuidedTourOverlay` fires once per device (guarded by `sfc_tour_done`), triggered with a 400ms delay after ProfileSetupModal's onDone callback.
 
 `loadProfile` uses a **cascading fallback** SELECT: tries the full column set first (`avatar_url`, `sessions_count`, `age`, `sex`, `location`, etc.), then retries with progressively simpler queries if a column doesn't exist yet. This prevents CONNECTION ERROR when the database schema is behind the code. Only sets `dataLoadFailed` if the minimal baseline query also fails.
 
@@ -301,6 +313,20 @@ Slides: (1) Welcome + brand identity, (2) 2×2 feature grid (Train, Nutrition, P
 `DAILY_MESSAGES` is a module-level array of 44 `{ msg, sub }` objects. The message is selected by `dayOfYear % DAILY_MESSAGES.length` so all users see the same quote on a given calendar day. Uses `const [nowMs] = useState(() => Date.now())` inside the component to avoid the `react-hooks/purity` ESLint error.
 
 The `motivFadeIn` CSS animation (`opacity 0 → 1`, `scale 0.96 → 1`) is declared in the `<style>` block at the bottom of `SocialFitClubInner`'s render.
+
+### Guided Feature Tour
+
+`GuidedTourOverlay` (rendered in `SocialFitClubInner` when `showTour` is true, zIndex above the main app) is a 7-step spotlight tour for new users. Each step highlights a real UI element via `getBoundingClientRect()` + a CSS `boxShadow` cutout (`boxShadow: "0 0 0 9999px rgba(6,6,14,0.84), 0 0 28px purple"`). The overlay div covers the full screen to block accidental navigation during the tour.
+
+Steps target elements via CSS selectors stored in `STEPS[i].sel`:
+- Step 0: no selector — welcome card centered on screen (no spotlight)
+- Steps 1–6: target `[data-tour="nav"]` and `[data-tour="tab-{id}"]` attributes on the bottom nav bar
+
+`data-tour` attributes are on the nav container div and each tab `<button>`: `data-tour="tab-train"`, `data-tour="tab-progress"`, `data-tour="tab-nutrition"`, `data-tour="tab-feed"`, `data-tour="tab-more"`.
+
+Tooltip position is computed each step via a `useEffect` that calls `getBoundingClientRect()` with a 120ms retry. Tooltip renders above or below the spotlight based on whether `spotRect.top > window.innerHeight * 0.5`. Two separate CSS animations: `tourFadeIn` (for the centered welcome card, `translate(-50%,-50%)`) and `tourTipIn` (for positioned tooltips, `translateX(-50%)`).
+
+`showTour` is set via `setTimeout(() => setShowTour(true), 400)` inside `ProfileSetupModal`'s `onDone` callback, but only if `sfc_tour_done` is not already set. The `GuidedTourOverlay`'s `onDone` sets `sfc_tour_done = "1"` in localStorage.
 
 ### MoreScreen modals
 
