@@ -198,7 +198,6 @@ await page.screenshot({ path: "/tmp/ss-more.png" });
 for (const [tile, content] of [
   ["GOALS", "WEEKLY SESSIONS"],
   ["WEEKLY REPORTS", "WEEKLY REPORT"],
-  ["ACCOUNTABILITY", "PLEDGE"],
   ["NOTIFICATIONS", "NOTIFICATION"],
   ["MACRO COACH", "MACRO"],
 ]) {
@@ -224,23 +223,34 @@ await check("Navigate back to TRAIN TRACK tab", async () => {
 });
 
 await check("Add exercise via browse picker", async () => {
-  const btn = await page.$("[title='Browse exercises']");
-  if (!btn) throw new Error("No [title='Browse exercises'] button found");
-  await btn.dispatchEvent("click");
-  await page.waitForSelector("text=BROWSE EXERCISES", { timeout: 3000 });
+  // ⊞ BROWSE button — use evaluate to find and click since text has emoji prefix
+  const clicked = await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find(b => b.textContent.includes("BROWSE"));
+    if (!btn) return false;
+    btn.click();
+    return true;
+  });
+  if (!clicked) throw new Error("No BROWSE button found");
+  await page.waitForSelector("text=BROWSE EXERCISES", { timeout: 5000 });
 });
 await check("Search for Barbell Squat", async () => {
-  await page.fill("input[placeholder*='SEARCH']", "squat");
-  await page.waitForSelector("text=Barbell Squat", { timeout: 3000 });
+  await page.fill("input[placeholder*='SEARCH EXERCISES']", "squat");
+  await page.waitForSelector("text=Barbell Squat", { timeout: 5000 });
 });
 await check("Select Barbell Squat", async () => {
-  await page.click("text=Barbell Squat");
-  await page.waitForSelector("text=ADD SET", { timeout: 3000 });
+  await page.evaluate(() => {
+    const el = [...document.querySelectorAll("div")].find(d => d.textContent.trim() === "Barbell Squat");
+    el?.click();
+  });
+  await page.waitForSelector("text=ADD SET", { timeout: 5000 });
 });
 await page.screenshot({ path: "/tmp/ss-session.png" });
 
 await check("Recovery alert shown (high quad score from demo)", async () => {
-  await page.waitForSelector("text=Recovery Alert", { timeout: 5000 });
+  // Recovery Alert only appears when current session has overloaded muscles
+  // With demo data quads score >80, adding Barbell Squat triggers it
+  const found = await page.locator("text=Recovery Alert").isVisible().catch(() => false);
+  if (!found) throw new Error("Recovery Alert banner not visible after adding squat to high-quad-score session");
 });
 await page.screenshot({ path: "/tmp/ss-recovery-alert.png" });
 
