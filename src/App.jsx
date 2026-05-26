@@ -4656,21 +4656,30 @@ function timeAgo(ts) {
 function FollowListModal({ userId, mode, onClose, onViewProfile }) {
   useScrollLock();
   const [users, setUsers] = useState(null);
+  const [loadErr, setLoadErr] = useState(false);
 
-  useEffect(() => {
-    async function load() {
+  const load = async () => {
+    setUsers(null); setLoadErr(false);
+    try {
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 8000));
       const col = mode === "following" ? "following_id" : "follower_id";
       const filter = mode === "following" ? "follower_id" : "following_id";
-      const { data: rows } = await supabase.from("follows").select(col).eq(filter, userId);
+      const { data: rows } = await Promise.race([
+        supabase.from("follows").select(col).eq(filter, userId),
+        timeout,
+      ]);
       if (!rows?.length) { setUsers([]); return; }
       const ids = rows.map(r => r[col]);
       const { data: profs } = await supabase.from("profiles")
         .select("id, username, avatar_initials, avatar_url, points, sessions_count, streak")
         .in("id", ids);
       setUsers(profs || []);
+    } catch {
+      setLoadErr(true);
     }
-    load();
-  }, [userId, mode]);
+  };
+
+  useEffect(() => { load(); }, [userId, mode]); // eslint-disable-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
 
   const P = G.purple;
   const title = mode === "following" ? "FOLLOWING" : "FOLLOWERS";
@@ -4685,7 +4694,13 @@ function FollowListModal({ userId, mode, onClose, onViewProfile }) {
           </div>
         </div>
 
-        {users === null && <div style={{ textAlign:"center", padding:"48px 0", fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2 }}>LOADING...</div>}
+        {users === null && !loadErr && <div style={{ textAlign:"center", padding:"48px 0", fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2 }}>LOADING...</div>}
+        {loadErr && (
+          <div style={{ textAlign:"center", padding:"48px 0" }}>
+            <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textDim, letterSpacing:1, marginBottom:16 }}>Failed to load — check connection</div>
+            <button onClick={load} style={{ background:`${G.purple}33`, border:`1px solid ${G.purple}`, borderRadius:8, padding:"10px 24px", color:"#fff", fontFamily:FONT.display, fontSize:12, letterSpacing:2, cursor:"pointer" }}>RETRY</button>
+          </div>
+        )}
 
         {users?.length === 0 && (
           <div style={{ textAlign:"center", padding:"48px 0" }}>
@@ -5876,12 +5891,15 @@ function useAdminData() {
 
   const load = async () => {
     setLoading(true); setError(null);
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Request timed out — check connection")), 10000));
     try {
       let profiles, e;
-      ({ data: profiles, error: e } = await supabase
-        .from("profiles")
-        .select("id, username, avatar_initials, points, streak, sessions_count, age, sex, location")
-        .order("points", { ascending: false }));
+      ({ data: profiles, error: e } = await Promise.race([
+        supabase.from("profiles")
+          .select("id, username, avatar_initials, points, streak, sessions_count, age, sex, location")
+          .order("points", { ascending: false }),
+        timeout,
+      ]));
       if (e && (e.message?.includes("sessions_count") || e.message?.includes("age") || e.code === "42703")) {
         ({ data: profiles, error: e } = await supabase
           .from("profiles")
@@ -7376,13 +7394,26 @@ function SocialFitClubInner() {
       if (session?.user) { loadProfile(session.user.id); loadSessions(session.user.id); loadLeaderboard(session.user.id); }
       setAuthReady(true);
     });
+    // Refresh data when app resumes from background (iOS PWA)
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user) {
+            loadProfile(session.user.id);
+            loadSessions(session.user.id);
+            loadLeaderboard(session.user.id);
+          }
+        });
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "PASSWORD_RECOVERY") { setPasswordRecovery(true); return; }
       setUser(session?.user ?? null);
       if (session?.user) await ensureProfile(session.user);
       else { setProfile(null); setSessions([]); }
     });
-    return () => subscription.unsubscribe();
+    return () => { subscription.unsubscribe(); document.removeEventListener("visibilitychange", handleVisibility); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
