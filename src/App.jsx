@@ -3947,6 +3947,15 @@ function NutritionScreen({ showToast }) {
   const [foodQty, setFoodQty] = useState(1);            // fraction/amount per unit (e.g. 0.5, 1, 2)
   const [foodCount, setFoodCount] = useState(1);        // whole-number quantity (e.g. 2 eggs)
   const [foodUnit, setFoodUnit] = useState("serving");  // "serving" | "cup"
+
+  // Lock body scroll when the serving picker sheet is open (iOS Safari fix)
+  useEffect(() => {
+    if (addingFood) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [addingFood]);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const scanAnimRef = useRef(null);
@@ -4841,13 +4850,15 @@ function NutritionScreen({ showToast }) {
       const scaledFat  = Math.round((addingFood.fat  || 0) * q * 10) / 10;
       return (
         <div style={{ position:"fixed", inset:0, zIndex:910, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
-          <div onClick={()=>setAddingFood(null)} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.65)" }}/>
+          {/* Backdrop — preventDefault on touchmove stops iOS Safari from scrolling the page behind */}
+          <div onClick={()=>setAddingFood(null)} onTouchMove={e=>e.preventDefault()} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.65)" }}/>
           {/* Sheet panel — flex column so header + scrollable body + sticky button never overflow */}
           <div
             onTouchStart={e=>e.stopPropagation()}
+            onTouchMove={e=>e.stopPropagation()}
             style={{ position:"relative", background:"#0F0E22", borderRadius:"18px 18px 0 0", border:`1px solid ${G.borderB}`, borderBottom:"none",
                      display:"flex", flexDirection:"column",
-                     maxHeight:"82vh", overflow:"hidden" }}>
+                     maxHeight:"80vh", overflow:"hidden" }}>
 
             {/* ── Sticky header (never scrolls) ── */}
             <div style={{ flexShrink:0, padding:"18px 18px 0" }}>
@@ -4861,7 +4872,7 @@ function NutritionScreen({ showToast }) {
             </div>
 
             {/* ── Scrollable body ── */}
-            <div style={{ flex:1, overflowY:"auto", overflowX:"hidden", overscrollBehavior:"contain", WebkitOverflowScrolling:"touch", padding:"0 18px" }}>
+            <div onTouchMove={e=>e.stopPropagation()} style={{ flex:1, overflowY:"auto", overflowX:"hidden", overscrollBehavior:"contain", WebkitOverflowScrolling:"touch", padding:"0 18px" }}>
 
               {/* QUANTITY row */}
               <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>QUANTITY</div>
