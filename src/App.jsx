@@ -1982,31 +1982,33 @@ function ExercisePicker({ onSelect, onClose }) {
   return (
     <div style={{ position:"fixed", inset:0, zIndex:900, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
       <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.65)" }}/>
-      <div style={{ position:"relative", background:"#0F0E22", borderRadius:"18px 18px 0 0", border:`1px solid ${G.borderB}`, borderBottom:"none", maxHeight:"80vh", display:"flex", flexDirection:"column" }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 18px 12px" }}>
+      <div
+        onTouchStart={e => e.stopPropagation()}
+        style={{ position:"relative", background:"#0F0E22", borderRadius:"18px 18px 0 0", border:`1px solid ${G.borderB}`, borderBottom:"none", maxHeight:"92vh", display:"flex", flexDirection:"column", minHeight:0 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 18px 12px", flexShrink:0 }}>
           <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:G.gold }}>BROWSE EXERCISES</div>
           <button onClick={onClose} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:20, lineHeight:1 }}>✕</button>
         </div>
 
-        <div style={{ padding:"0 18px 10px", position:"relative" }}>
+        <div style={{ padding:"0 18px 10px", position:"relative", flexShrink:0 }}>
           <span style={{ position:"absolute", left:30, top:"50%", transform:"translateY(-50%)", color:G.textDim, fontSize:14, pointerEvents:"none" }}>🔍</span>
           <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="SEARCH EXERCISES..." style={inp}/>
           {q && <button onClick={()=>setQ("")} style={{ position:"absolute", right:28, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:13 }}>✕</button>}
         </div>
 
-        <div style={{ display:"flex", gap:6, padding:"0 18px 4px", overflowX:"auto", scrollbarWidth:"none" }}>
+        <div style={{ display:"flex", gap:6, padding:"0 18px 4px", overflowX:"auto", scrollbarWidth:"none", flexShrink:0 }}>
           {muscleCats.map(c => (
             <button key={c} onClick={()=>handleCatChange(c)} style={{ flexShrink:0, padding:"5px 12px", borderRadius:20, border:`1px solid ${cat===c ? G.gold : G.borderB}`, background: cat===c ? `${G.gold}20` : "transparent", color: cat===c ? G.gold : G.textMid, fontFamily:FONT.body, fontSize:10, letterSpacing:2, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}>{c}</button>
           ))}
         </div>
-        <div style={{ display:"flex", gap:6, padding:"0 18px 10px", overflowX:"auto", scrollbarWidth:"none", alignItems:"center" }}>
+        <div style={{ display:"flex", gap:6, padding:"0 18px 8px", overflowX:"auto", scrollbarWidth:"none", alignItems:"center", flexShrink:0 }}>
           <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:2, textTransform:"uppercase", flexShrink:0, marginRight:2 }}>EQUIPMENT</div>
           {equipCats.map(c => (
             <button key={c} onClick={()=>handleCatChange(c)} style={{ flexShrink:0, padding:"4px 11px", borderRadius:20, border:`1px solid ${cat===c ? G.purpleLight : G.borderB}`, background: cat===c ? `${G.purple}30` : "transparent", color: cat===c ? G.purpleLight : G.textDim, fontFamily:FONT.body, fontSize:10, letterSpacing:2, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}>{c}</button>
           ))}
         </div>
         {subCats && (
-          <div style={{ display:"flex", gap:5, padding:"0 18px 10px", overflowX:"auto", scrollbarWidth:"none", alignItems:"center" }}>
+          <div style={{ display:"flex", gap:5, padding:"0 18px 8px", overflowX:"auto", scrollbarWidth:"none", alignItems:"center", flexShrink:0 }}>
             <div style={{ width:3, height:3, borderRadius:"50%", background:G.purple, flexShrink:0 }}/>
             <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:2, textTransform:"uppercase", flexShrink:0, marginRight:2 }}>FOCUS</div>
             <button onClick={()=>setSubCat(null)} style={{ flexShrink:0, padding:"3px 10px", borderRadius:20, border:`1px solid ${!subCat ? G.purple : G.borderB}`, background: !subCat ? `${G.purple}25` : "transparent", color: !subCat ? G.purpleLight : G.textDim, fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}>ALL</button>
@@ -2016,7 +2018,7 @@ function ExercisePicker({ onSelect, onClose }) {
           </div>
         )}
 
-        <div style={{ overflowY:"auto", flex:1, paddingBottom:24 }}>
+        <div style={{ overflowY:"auto", flex:1, minHeight:0, paddingBottom:24, WebkitOverflowScrolling:"touch", overscrollBehavior:"contain" }}>
           {filtered.length === 0 && (
             <div style={{ textAlign:"center", padding:"32px 18px", color:G.textDim, fontFamily:FONT.body, fontSize:12, letterSpacing:2 }}>NO EXERCISES FOUND</div>
           )}
