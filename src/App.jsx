@@ -208,18 +208,6 @@ const SESSION_TYPES = [
   { id:"recovery", label:"RECOVERY",  color:"#B2BEC3" },
 ];
 
-const SESSION_TYPE_EXERCISES = {
-  push:     ["Barbell Bench Press","Incline Dumbbell Press","Overhead Press","Lateral Raises","Tricep Pushdown","Dips"],
-  pull:     ["Pull-Ups","Barbell Row","Lat Pulldown","Seated Cable Row","Barbell Curl","Hammer Curl"],
-  legs:     ["Barbell Squat","Romanian Deadlift","Leg Press","Leg Curl","Hip Thrust","Calf Raise"],
-  upper:    ["Barbell Bench Press","Barbell Row","Overhead Press","Pull-Ups","Barbell Curl","Tricep Pushdown"],
-  lower:    ["Barbell Squat","Romanian Deadlift","Leg Press","Hip Thrust","Leg Curl","Calf Raise"],
-  full:     ["Barbell Squat","Barbell Bench Press","Barbell Row","Overhead Press","Romanian Deadlift","Barbell Curl"],
-  cardio:   ["Treadmill Run","Rowing Machine","Jump Rope","Assault Bike","Stair Climber"],
-  core:     ["Plank","Ab Wheel","Hanging Leg Raises","Cable Crunch","Russian Twists","Bicycle Crunches"],
-  recovery: ["Dead Bug","Bird Dog","Pallof Press","Hyperextensions","Farmer's Walk"],
-};
-
 const MACRO_COACH_KEY = "sfc_macro_coach";
 
 const DAILY_MESSAGES = [
@@ -2204,7 +2192,6 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [deletingId, setDeletingId] = useState(null);
-  const [typeLoadPending, setTypeLoadPending] = useState(null); // { typeId, doLoad }
   const [templates, setTemplates] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sfc_templates") || "[]"); } catch { return []; }
   });
@@ -2299,30 +2286,6 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
     localStorage.setItem("sfc_templates", JSON.stringify(next));
   };
 
-  const loadSessionType = (typeId) => {
-    const names = SESSION_TYPE_EXERCISES[typeId] || [];
-    if (!names.length) return;
-    const hasContent = exs.some(e => e.name.trim());
-    const doLoad = () => {
-      let nextId = 1;
-      setExs(names.map(name => {
-        const last = getLastExercisePerformance(name, sessions);
-        const sets = last?.sets?.length
-          ? last.sets.map(s => ({ r: String(s.r), w: String(progressWeight(s.w)), type: "working" }))
-          : [{ r:"", w:"", type:"working" }];
-        return { id: nextId++, name, sets, rest:60, q:name, sugg:false };
-      }));
-      nextIdRef.current = names.length + 1;
-      showToast(`✓ ${SESSION_TYPES.find(t=>t.id===typeId)?.label} exercises loaded!`);
-    };
-    if (hasContent) {
-      // Already has exercises — ask via a confirm-style inline flag
-      setTypeLoadPending({ typeId, doLoad });
-    } else {
-      doLoad();
-    }
-  };
-
   const selectExercise = (exId, name) => {
     const last = getLastExercisePerformance(name, sessions);
     if (last && last.sets.length > 0) {
@@ -2406,25 +2369,10 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
               {SESSION_TYPES.map(t => {
                 const active = sessTag === t.id;
                 return (
-                  <button key={t.id} onClick={() => {
-                    const wasActive = active;
-                    setSessTag(wasActive ? null : t.id);
-                    if (!wasActive) loadSessionType(t.id);
-                  }} style={{ background: active ? t.color : "rgba(0,0,0,0.35)", border:`1px solid ${active ? t.color : G.borderB}`, borderRadius:20, padding:"5px 12px", color: active ? "#0A0810" : G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, cursor:"pointer", fontWeight: active ? 700 : 400, transition:"all 0.15s", boxShadow: active ? `0 0 8px ${t.color}66` : "none" }}>{t.label}</button>
+                  <button key={t.id} onClick={() => setSessTag(active ? null : t.id)} style={{ background: active ? t.color : "rgba(0,0,0,0.35)", border:`1px solid ${active ? t.color : G.borderB}`, borderRadius:20, padding:"5px 12px", color: active ? "#0A0810" : G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, cursor:"pointer", fontWeight: active ? 700 : 400, transition:"all 0.15s", boxShadow: active ? `0 0 8px ${t.color}66` : "none" }}>{t.label}</button>
                 );
               })}
             </div>
-
-            {/* Confirm banner when exercises already exist */}
-            {typeLoadPending && (
-              <div style={{ marginTop:10, background:`rgba(253,185,39,0.1)`, border:`1px solid ${G.gold}55`, borderRadius:8, padding:"10px 12px", display:"flex", alignItems:"center", gap:10 }}>
-                <div style={{ flex:1, fontFamily:FONT.body, fontSize:11, color:G.gold, letterSpacing:1 }}>
-                  Replace current exercises with {SESSION_TYPES.find(t=>t.id===typeLoadPending.typeId)?.label} workout?
-                </div>
-                <button onClick={() => { typeLoadPending.doLoad(); setTypeLoadPending(null); }} style={{ background:G.gold, border:"none", borderRadius:6, padding:"5px 10px", color:"#0A0810", fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, cursor:"pointer", flexShrink:0 }}>YES</button>
-                <button onClick={() => setTypeLoadPending(null)} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"5px 10px", color:G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, cursor:"pointer", flexShrink:0 }}>KEEP</button>
-              </div>
-            )}
           </div>
 
           {!restWarnDismissed && overloadedMuscles.length > 0 && (
