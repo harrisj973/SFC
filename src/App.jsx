@@ -4830,16 +4830,16 @@ function NutritionScreen({ showToast }) {
     {/* ── FOOD SERVING PICKER SHEET ── */}
     {addingFood && (() => {
       const FRACS = [
-        { label:"¼",   val:0.25  },
-        { label:"⅓",   val:0.333 },
-        { label:"½",   val:0.5   },
-        { label:"⅔",   val:0.667 },
-        { label:"¾",   val:0.75  },
-        { label:"1",   val:1     },
-        { label:"1¼",  val:1.25  },
-        { label:"1½",  val:1.5   },
-        { label:"2",   val:2     },
-        { label:"3",   val:3     },
+        { label:"1/4",  val:0.25  },
+        { label:"1/3",  val:0.333 },
+        { label:"1/2",  val:0.5   },
+        { label:"2/3",  val:0.667 },
+        { label:"3/4",  val:0.75  },
+        { label:"1",    val:1     },
+        { label:"1 1/4",val:1.25  },
+        { label:"1 1/2",val:1.5   },
+        { label:"2",    val:2     },
+        { label:"3",    val:3     },
       ];
       const frac = parseFloat(foodQty) || 1;
       const cnt  = Math.max(1, parseInt(foodCount) || 1);
@@ -4849,7 +4849,7 @@ function NutritionScreen({ showToast }) {
       const scaledCarb = Math.round((addingFood.carb || 0) * q * 10) / 10;
       const scaledFat  = Math.round((addingFood.fat  || 0) * q * 10) / 10;
       return (
-        <div style={{ position:"fixed", inset:0, zIndex:910, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+        <div style={{ position:"fixed", inset:0, zIndex:1100, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
           {/* Backdrop — preventDefault on touchmove stops iOS Safari from scrolling the page behind */}
           <div onClick={()=>setAddingFood(null)} onTouchMove={e=>e.preventDefault()} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.65)" }}/>
           {/* Sheet panel — flex column so header + scrollable body + sticky button never overflow */}
@@ -4907,7 +4907,7 @@ function NutritionScreen({ showToast }) {
                   const active = Math.abs(foodQty - f.val) < 0.001;
                   return (
                     <button key={f.label} onClick={()=>setFoodQty(f.val)}
-                      style={{ flexShrink:0, minWidth:44, padding:"8px 6px", borderRadius:8, border:`1px solid ${active ? G.gold : G.borderB}`, background: active ? `${G.gold}22` : "rgba(0,0,0,0.3)", color: active ? G.gold : G.textMid, fontFamily:FONT.display, fontSize:15, letterSpacing:1, cursor:"pointer", textAlign:"center", boxShadow: active ? `0 0 8px ${G.gold}44` : "none" }}>
+                      style={{ flexShrink:0, minWidth:44, padding:"8px 7px", borderRadius:8, border:`1px solid ${active ? G.gold : G.borderB}`, background: active ? `${G.gold}22` : "rgba(0,0,0,0.3)", color: active ? G.gold : G.textMid, fontFamily:FONT.body, fontSize:13, letterSpacing:0.5, cursor:"pointer", textAlign:"center", boxShadow: active ? `0 0 8px ${G.gold}44` : "none", whiteSpace:"nowrap" }}>
                       {f.label}
                     </button>
                   );

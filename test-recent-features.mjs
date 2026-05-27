@@ -83,7 +83,7 @@ await check("Sheet QUANTITY label visible", async () => {
 });
 await check("Sheet fraction chips visible (½)", async () => {
   // Two ½ buttons will now exist (fraction + possible elsewhere); just need at least one
-  const found = await page.locator("button", { hasText: "½" }).count();
+  const found = await page.locator("button", { hasText: "1/2" }).count();
   if (found < 1) throw new Error("No ½ button found");
 });
 await check("Sheet macro preview shows CAL", async () => {
@@ -131,7 +131,7 @@ await check("Open sheet from SEARCH results", async () => {
 });
 await check("Select ½ fraction chip", async () => {
   // .first() gets the first matching ½ button in the open sheet
-  await page.locator("button", { hasText: "½" }).first().click();
+  await page.locator("button", { hasText: "1/2" }).first().click();
   await page.waitForTimeout(200);
   // Custom input should reflect 0.5
   const val = await page.locator("input[type='number'][inputmode='decimal']").inputValue().catch(() => "");
