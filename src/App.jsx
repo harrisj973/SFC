@@ -3944,7 +3944,8 @@ function NutritionScreen({ showToast }) {
   const [apiLoading, setApiLoading] = useState(false);
   const [apiSearched, setApiSearched] = useState(false);
   const [addingFood, setAddingFood] = useState(null);   // food item being quantity-picked
-  const [foodQty, setFoodQty] = useState(1);            // multiplier (e.g. 0.5, 1, 2)
+  const [foodQty, setFoodQty] = useState(1);            // fraction/amount per unit (e.g. 0.5, 1, 2)
+  const [foodCount, setFoodCount] = useState(1);        // whole-number quantity (e.g. 2 eggs)
   const [foodUnit, setFoodUnit] = useState("serving");  // "serving" | "cup"
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -4103,10 +4104,15 @@ function NutritionScreen({ showToast }) {
   const resetScan = () => { stopCamera(); setScanMode("idle"); setScanResult(null); setBarcodeInput(""); setScanProgress(0); setManualEntry({ name:"", cal:"", pro:"", carb:"", fat:"" }); setScanTarget("food"); };
 
   // Open the serving-size sheet for any food item
-  const openFoodAdd = (food) => { setAddingFood(food); setFoodQty(1); setFoodUnit("serving"); };
+  const openFoodAdd = (food) => { setAddingFood(food); setFoodQty(1); setFoodCount(1); setFoodUnit("serving"); };
   const confirmFoodAdd = () => {
     if (!addingFood) return;
-    const q = parseFloat(foodQty) || 1;
+    const frac = parseFloat(foodQty) || 1;
+    const cnt  = Math.max(1, parseInt(foodCount) || 1);
+    const q = frac * cnt;
+    const fracLabel = frac === 1 ? "" : `${frac} `;
+    const unitLabel = foodUnit === "cup" ? "cup" : "serving";
+    const qtyLabel  = cnt > 1 ? `${cnt} × ${fracLabel}${unitLabel}` : `${fracLabel}${unitLabel}`;
     const scaled = {
       ...addingFood,
       id: Date.now(),
@@ -4115,7 +4121,7 @@ function NutritionScreen({ showToast }) {
       pro:  Math.round((addingFood.pro  || 0) * q * 10) / 10,
       carb: Math.round((addingFood.carb || 0) * q * 10) / 10,
       fat:  Math.round((addingFood.fat  || 0) * q * 10) / 10,
-      servingLabel: `${q % 1 === 0 ? q : q} ${foodUnit}${q !== 1 ? "s" : ""}`,
+      servingLabel: qtyLabel,
     };
     setLog(p => [...p, scaled]);
     showToast(`✓ ${addingFood.name} added to ${selMeal}`);
@@ -4790,7 +4796,9 @@ function NutritionScreen({ showToast }) {
         { label:"2",   val:2     },
         { label:"3",   val:3     },
       ];
-      const q = parseFloat(foodQty) || 1;
+      const frac = parseFloat(foodQty) || 1;
+      const cnt  = Math.max(1, parseInt(foodCount) || 1);
+      const q    = frac * cnt;
       const scaledCal  = Math.round((addingFood.cal  || 0) * q);
       const scaledPro  = Math.round((addingFood.pro  || 0) * q * 10) / 10;
       const scaledCarb = Math.round((addingFood.carb || 0) * q * 10) / 10;
@@ -4809,6 +4817,21 @@ function NutritionScreen({ showToast }) {
               <button onClick={()=>setAddingFood(null)} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:20, lineHeight:1 }}>✕</button>
             </div>
 
+            {/* ── QUANTITY row ── */}
+            <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>QUANTITY</div>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+              <button onClick={()=>setFoodCount(c=>Math.max(1,c-1))} style={{ width:36, height:36, borderRadius:8, border:`1px solid ${G.borderB}`, background:"rgba(0,0,0,0.4)", color:"#fff", fontSize:22, lineHeight:1, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>−</button>
+              <div style={{ flex:1, display:"flex", gap:6, overflowX:"auto", scrollbarWidth:"none" }}>
+                {[1,2,3,4,5,6,8,10].map(n => (
+                  <button key={n} onClick={()=>setFoodCount(n)}
+                    style={{ flexShrink:0, minWidth:38, padding:"7px 4px", borderRadius:8, border:`1px solid ${foodCount===n ? G.purpleLight : G.borderB}`, background: foodCount===n ? `${G.purple}30` : "rgba(0,0,0,0.3)", color: foodCount===n ? G.purpleLight : G.textMid, fontFamily:FONT.display, fontSize:15, letterSpacing:1, cursor:"pointer", textAlign:"center", boxShadow: foodCount===n ? `0 0 8px ${G.purple}55` : "none" }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <button onClick={()=>setFoodCount(c=>c+1)} style={{ width:36, height:36, borderRadius:8, border:`1px solid ${G.borderB}`, background:"rgba(0,0,0,0.4)", color:"#fff", fontSize:22, lineHeight:1, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>+</button>
+            </div>
+
             {/* Unit toggle */}
             <div style={{ display:"flex", gap:6, marginBottom:12 }}>
               {["serving","cup"].map(u => (
@@ -4820,7 +4843,7 @@ function NutritionScreen({ showToast }) {
 
             {/* Fraction chips */}
             <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:7 }}>
-              AMOUNT — {foodUnit === "cup" ? "CUPS" : "SERVINGS"}
+              {foodUnit === "cup" ? "CUP SIZE" : "SERVING SIZE"}
             </div>
             <div style={{ display:"flex", gap:6, overflowX:"auto", scrollbarWidth:"none", paddingBottom:4, marginBottom:14 }}>
               {FRACS.map(f => {
@@ -4842,8 +4865,15 @@ function NutritionScreen({ showToast }) {
                 value={foodQty} onChange={e=>setFoodQty(parseFloat(e.target.value)||1)}
                 style={{ background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"6px 10px", color:"#fff", fontSize:14, fontFamily:FONT.body, letterSpacing:1, width:70, outline:"none", textAlign:"center" }}
               />
-              <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1 }}>{foodUnit}{q !== 1 ? "s" : ""}</div>
+              <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1 }}>{foodUnit}{frac !== 1 ? "s" : ""}</div>
             </div>
+
+            {/* Total summary line */}
+            {(cnt > 1 || frac !== 1) && (
+              <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1, marginBottom:10, textAlign:"center" }}>
+                {cnt > 1 && frac !== 1 ? `${cnt} × ${frac} ${foodUnit} = ${Math.round(q*100)/100} ${foodUnit}s total` : cnt > 1 ? `${cnt} ${foodUnit}s total` : `${frac} ${foodUnit}`}
+              </div>
+            )}
 
             {/* Live macro preview */}
             <div style={{ background:`${G.gold}0C`, border:`1px solid ${G.gold}33`, borderRadius:10, padding:"10px 14px", marginBottom:16, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
