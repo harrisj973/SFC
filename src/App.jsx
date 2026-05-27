@@ -4948,7 +4948,7 @@ function NutritionScreen({ showToast }) {
             </div>{/* end scrollable body */}
 
             {/* ── Sticky ADD button (never scrolls) ── */}
-            <div style={{ flexShrink:0, padding:`12px 18px calc(env(safe-area-inset-bottom,0px) + 18px)`, background:"#0F0E22" }}>
+            <div style={{ flexShrink:0, padding:`12px 18px calc(env(safe-area-inset-bottom,0px) + 100px)`, background:"#0F0E22" }}>
               <button onClick={confirmFoodAdd} style={{ width:"100%", padding:"14px 0", borderRadius:10, background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", color:"#0A0810", fontFamily:FONT.display, fontSize:15, letterSpacing:3, cursor:"pointer", textTransform:"uppercase", fontWeight:700 }}>
                 ADD TO {selMeal} ◆
               </button>
