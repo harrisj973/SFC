@@ -3943,6 +3943,9 @@ function NutritionScreen({ showToast }) {
   const [apiResults, setApiResults] = useState([]);
   const [apiLoading, setApiLoading] = useState(false);
   const [apiSearched, setApiSearched] = useState(false);
+  const [addingFood, setAddingFood] = useState(null);   // food item being quantity-picked
+  const [foodQty, setFoodQty] = useState(1);            // multiplier (e.g. 0.5, 1, 2)
+  const [foodUnit, setFoodUnit] = useState("serving");  // "serving" | "cup"
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const scanAnimRef = useRef(null);
@@ -4098,6 +4101,26 @@ function NutritionScreen({ showToast }) {
   };
 
   const resetScan = () => { stopCamera(); setScanMode("idle"); setScanResult(null); setBarcodeInput(""); setScanProgress(0); setManualEntry({ name:"", cal:"", pro:"", carb:"", fat:"" }); setScanTarget("food"); };
+
+  // Open the serving-size sheet for any food item
+  const openFoodAdd = (food) => { setAddingFood(food); setFoodQty(1); setFoodUnit("serving"); };
+  const confirmFoodAdd = () => {
+    if (!addingFood) return;
+    const q = parseFloat(foodQty) || 1;
+    const scaled = {
+      ...addingFood,
+      id: Date.now(),
+      meal: selMeal,
+      cal:  Math.round((addingFood.cal  || 0) * q),
+      pro:  Math.round((addingFood.pro  || 0) * q * 10) / 10,
+      carb: Math.round((addingFood.carb || 0) * q * 10) / 10,
+      fat:  Math.round((addingFood.fat  || 0) * q * 10) / 10,
+      servingLabel: `${q % 1 === 0 ? q : q} ${foodUnit}${q !== 1 ? "s" : ""}`,
+    };
+    setLog(p => [...p, scaled]);
+    showToast(`✓ ${addingFood.name} added to ${selMeal}`);
+    setAddingFood(null);
+  };
   const addScanResult = () => {
     if (!scanResult) return;
     if (scanTarget === "supplement") {
@@ -4105,9 +4128,8 @@ function NutritionScreen({ showToast }) {
       resetScan(); setView("supps");
       showToast(`✓ ${scanResult.name} added to supplements`);
     } else {
-      setLog(p=>[...p,{...scanResult,id:Date.now(),meal:selMeal}]);
-      resetScan(); setView("log");
-      showToast(`✓ ${scanResult.name} added to ${selMeal}`);
+      openFoodAdd(scanResult);
+      resetScan(); setView("search");
     }
   };
   const addManualEntry = () => {
@@ -4172,6 +4194,7 @@ function NutritionScreen({ showToast }) {
   });
 
   return (
+    <>
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       <div style={{ marginBottom:16 }}>
         <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
@@ -4417,7 +4440,7 @@ function NutritionScreen({ showToast }) {
                 </div>
                 <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase" }}>{f.cal} CAL · P:{f.pro}G · C:{f.carb}G · F:{f.fat}G</div>
               </div>
-              <NeonBtn onClick={()=>{setLog(p=>[...p,{...f,id:Date.now(),meal:selMeal}]);showToast(`✓ Added to ${selMeal}`);}} small>+</NeonBtn>
+              <NeonBtn onClick={()=>openFoodAdd(f)} small>+</NeonBtn>
             </ChromeCard>
           ))}
 
@@ -4447,7 +4470,7 @@ function NutritionScreen({ showToast }) {
                         <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginBottom:2 }}>{f.name}</div>
                         <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase" }}>{f.cal} CAL · P:{f.pro}G · C:{f.carb}G · F:{f.fat}G</div>
                       </div>
-                      <NeonBtn onClick={() => { setLog(p=>[...p,{...f,id:Date.now(),meal:selMeal}]); showToast(`✓ ${f.name} added to ${selMeal}`); }} small>+</NeonBtn>
+                      <NeonBtn onClick={() => openFoodAdd(f)} small>+</NeonBtn>
                     </ChromeCard>
                   ))}
                   {!apiLoading && apiResults.length === 0 && (
@@ -4752,6 +4775,99 @@ function NutritionScreen({ showToast }) {
         );
       })()}
     </div>
+
+    {/* ── FOOD SERVING PICKER SHEET ── */}
+    {addingFood && (() => {
+      const FRACS = [
+        { label:"¼",   val:0.25  },
+        { label:"⅓",   val:0.333 },
+        { label:"½",   val:0.5   },
+        { label:"⅔",   val:0.667 },
+        { label:"¾",   val:0.75  },
+        { label:"1",   val:1     },
+        { label:"1¼",  val:1.25  },
+        { label:"1½",  val:1.5   },
+        { label:"2",   val:2     },
+        { label:"3",   val:3     },
+      ];
+      const q = parseFloat(foodQty) || 1;
+      const scaledCal  = Math.round((addingFood.cal  || 0) * q);
+      const scaledPro  = Math.round((addingFood.pro  || 0) * q * 10) / 10;
+      const scaledCarb = Math.round((addingFood.carb || 0) * q * 10) / 10;
+      const scaledFat  = Math.round((addingFood.fat  || 0) * q * 10) / 10;
+      return (
+        <div style={{ position:"fixed", inset:0, zIndex:910, display:"flex", flexDirection:"column", justifyContent:"flex-end" }} onTouchStart={e=>e.stopPropagation()}>
+          <div onClick={()=>setAddingFood(null)} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.65)" }}/>
+          <div style={{ position:"relative", background:"#0F0E22", borderRadius:"18px 18px 0 0", border:`1px solid ${G.borderB}`, borderBottom:"none", padding:"18px 18px calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
+
+            {/* Header */}
+            <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:14 }}>
+              <div>
+                <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:"#fff", textTransform:"uppercase", marginBottom:2 }}>{addingFood.name}</div>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:1.5, textTransform:"uppercase" }}>Adding to {selMeal}</div>
+              </div>
+              <button onClick={()=>setAddingFood(null)} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:20, lineHeight:1 }}>✕</button>
+            </div>
+
+            {/* Unit toggle */}
+            <div style={{ display:"flex", gap:6, marginBottom:12 }}>
+              {["serving","cup"].map(u => (
+                <button key={u} onClick={()=>setFoodUnit(u)} style={{ flex:1, padding:"7px 0", borderRadius:8, border:`1px solid ${foodUnit===u ? G.gold : G.borderB}`, background: foodUnit===u ? `${G.gold}18` : "transparent", color: foodUnit===u ? G.gold : G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>
+                  {u === "cup" ? "🥄 CUP" : "📋 SERVING"}
+                </button>
+              ))}
+            </div>
+
+            {/* Fraction chips */}
+            <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:7 }}>
+              AMOUNT — {foodUnit === "cup" ? "CUPS" : "SERVINGS"}
+            </div>
+            <div style={{ display:"flex", gap:6, overflowX:"auto", scrollbarWidth:"none", paddingBottom:4, marginBottom:14 }}>
+              {FRACS.map(f => {
+                const active = Math.abs(foodQty - f.val) < 0.001;
+                return (
+                  <button key={f.label} onClick={()=>setFoodQty(f.val)}
+                    style={{ flexShrink:0, minWidth:44, padding:"8px 6px", borderRadius:8, border:`1px solid ${active ? G.gold : G.borderB}`, background: active ? `${G.gold}22` : "rgba(0,0,0,0.3)", color: active ? G.gold : G.textMid, fontFamily:FONT.display, fontSize:15, letterSpacing:1, cursor:"pointer", textAlign:"center", boxShadow: active ? `0 0 8px ${G.gold}44` : "none" }}>
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom amount input */}
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
+              <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", flexShrink:0 }}>CUSTOM</div>
+              <input
+                type="number" inputMode="decimal" min="0.1" step="0.1"
+                value={foodQty} onChange={e=>setFoodQty(parseFloat(e.target.value)||1)}
+                style={{ background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"6px 10px", color:"#fff", fontSize:14, fontFamily:FONT.body, letterSpacing:1, width:70, outline:"none", textAlign:"center" }}
+              />
+              <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1 }}>{foodUnit}{q !== 1 ? "s" : ""}</div>
+            </div>
+
+            {/* Live macro preview */}
+            <div style={{ background:`${G.gold}0C`, border:`1px solid ${G.gold}33`, borderRadius:10, padding:"10px 14px", marginBottom:16, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontFamily:FONT.display, fontSize:18, color:G.gold, letterSpacing:1 }}>{scaledCal}</div>
+                <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>CAL</div>
+              </div>
+              {[["P", scaledPro, G.purpleLight], ["C", scaledCarb, "#4DA6FF"], ["F", scaledFat, "#FF6B00"]].map(([lbl, val, col]) => (
+                <div key={lbl} style={{ textAlign:"center" }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:16, color:col, letterSpacing:1 }}>{val}g</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>{lbl}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Add button */}
+            <button onClick={confirmFoodAdd} style={{ width:"100%", padding:"14px 0", borderRadius:10, background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", color:"#0A0810", fontFamily:FONT.display, fontSize:15, letterSpacing:3, cursor:"pointer", textTransform:"uppercase", fontWeight:700 }}>
+              ADD TO {selMeal} ◆
+            </button>
+          </div>
+        </div>
+      );
+    })()}
+    </>
   );
 }
 
