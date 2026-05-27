@@ -4588,6 +4588,42 @@ function NutritionScreen({ showToast }) {
         </div>
       )}
 
+      {view==="log" && (() => {
+        // Derive recent foods from nutrition history (last 14 days, excl. today)
+        const recentMap = {};
+        nutritionHistory.filter(e => e.date !== today).slice(0, 14).forEach(day => {
+          (day.items || []).forEach(f => {
+            if (!f.name) return;
+            const key = f.name.trim().toUpperCase();
+            if (!recentMap[key]) recentMap[key] = { food: { name: f.name, cal: f.cal || 0, pro: f.pro || 0, carb: f.carb || 0, fat: f.fat || 0, brand: f.brand }, count: 0 };
+            recentMap[key].count++;
+            // Keep the most-recent macro snapshot
+            recentMap[key].food = { name: f.name, cal: f.cal || 0, pro: f.pro || 0, carb: f.carb || 0, fat: f.fat || 0, brand: f.brand };
+          });
+        });
+        const recentFoods = Object.values(recentMap).sort((a, b) => b.count - a.count).slice(0, 20).map(r => r.food);
+        if (!recentFoods.length) return null;
+        return (
+          <div style={{ marginBottom:16 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+              <div style={{ width:3, height:18, background:G.purple, boxShadow:`0 0 8px ${G.purple}88`, borderRadius:1 }}/>
+              <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:3, color:G.purpleLight, textTransform:"uppercase" }}>RECENT FOODS</div>
+              <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>→ {selMeal}</div>
+            </div>
+            <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:6, WebkitOverflowScrolling:"touch" }}>
+              {recentFoods.map((f, i) => (
+                <div key={i} style={{ flexShrink:0, background:`${G.purple}0C`, border:`1px solid ${G.purple}30`, borderRadius:10, padding:"11px 12px", minWidth:130, maxWidth:160 }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, color:"#fff", textTransform:"uppercase", marginBottom:2, lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.name}</div>
+                  {f.brand && <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textDim, letterSpacing:1, marginBottom:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textTransform:"uppercase" }}>{f.brand}</div>}
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginBottom:9 }}>{f.cal} kcal · P:{f.pro}g</div>
+                  <button onClick={() => openFoodAdd(f)} style={{ width:"100%", background:`linear-gradient(135deg,${G.purple},${G.purpleBright})`, border:"none", borderRadius:6, padding:"6px 0", color:"#fff", fontFamily:FONT.display, fontSize:11, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>+ ADD</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {view==="log" && mealTemplates.length > 0 && (
         <div style={{ marginBottom:16 }}>
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
