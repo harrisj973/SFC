@@ -15,11 +15,12 @@ No test suite is configured. **Smoke tests** can be run against the dev server w
 
 ```bash
 npm run dev          # start dev server first
-node test-bugcheck.mjs   # 53-check headless browser sweep (uses ?demo=1 mode)
-node deep_test.mjs       # 43-check interactive flow test covering all screens end-to-end
+node test-bugcheck.mjs        # 53-check headless browser sweep (uses ?demo=1 mode)
+node deep_test.mjs            # 43-check interactive flow test covering all screens end-to-end
+node test-recent-features.mjs # 33-check targeted test for nutrition, train, and supplement features
 ```
 
-Both scripts pre-set `sfc_onboarded`, `sfc_profile_setup_done`, `sfc_tour_done`, and `sfc_daily_motiv` in localStorage via `ctx.addInitScript()` before navigation. Without `sfc_onboarded`/`sfc_profile_setup_done`, `OnboardingModal` and `ProfileSetupModal` block all interaction in a fresh headless session.
+All three scripts pre-set `sfc_onboarded`, `sfc_profile_setup_done`, `sfc_tour_done`, and `sfc_daily_motiv` in localStorage via `ctx.addInitScript()` before navigation. Without `sfc_onboarded`/`sfc_profile_setup_done`, `OnboardingModal` and `ProfileSetupModal` block all interaction in a fresh headless session.
 
 **Critical Playwright gotchas in this environment:**
 - `ctx.addInitScript(fn, params)` — the two-argument form silently fails (params are not serialized). Always compute dynamic values like `today`/`yesterday` **inside** the callback: `ctx.addInitScript(() => { const today = new Date().toISOString().slice(0,10); ... })`.
@@ -31,6 +32,8 @@ Both scripts pre-set `sfc_onboarded`, `sfc_profile_setup_done`, `sfc_tour_done`,
 - GoalsModal inputs are only visible **after** clicking the "✏️ EDIT TARGET" button (edit mode is off by default).
 - PAST DAYS in the FUEL LOG tab: `"PAST DAYS"` is a plain non-clickable `<div>` label. The individual day rows below it are `<button>` elements; clicking them toggles expansion.
 - Session name input placeholder is `"e.g. PUSH DAY · CHEST FOCUS"` — not "SESSION NAME".
+- The Recent Foods strip (`RECENT FOODS` header) and Meal Templates strip (`MY TEMPLATES` header) are only visible in the LOG tab when history/templates exist. The `+ ADD` buttons on Recent Foods cards are standard `<button>` elements — use `page.locator("button", { hasText: "+ ADD" }).first()` (Chicken Breast, ranked by frequency, is always first in demo data).
+- `FoodAddSheet` (the serving/quantity picker) renders as a `position:fixed` bottom sheet at `zIndex:910`. The "ADD TO [MEAL] ◆" confirm button may require `{ force: true }` in Playwright if it falls below the safe-area padding boundary. Close via ✕ button or backdrop click — there is no "CANCEL" button.
 
 **Primary deployment target is Vercel** — production branch is `main`; Vite is auto-detected (`npm run build` → `dist/`). `vercel.json` sets `Service-Worker-Allowed: /` and `Cache-Control: no-cache` on `/sw.js`. The custom domain is `socialfitclub26.com` (purchased on Vercel, auto-configured DNS). After any new Vercel domain is added, update **Supabase → Authentication → URL Configuration** (Site URL + Redirect URLs) or auth email links will redirect to the wrong origin.
 
@@ -274,6 +277,8 @@ Four sub-tabs: `TRACK`, `HISTORY`, `PRs`, `PROGRAMS`.
 
 **PRs drill-down** — tapping a PR card opens a detail view with: gold PR badge, since-first gain, SVG 1RM trend chart (area fill + polyline + labeled endpoints), session-by-session history list, "TRAIN THIS EXERCISE" button.
 
+**Repeat session (🔄)** — each HISTORY card has a purple 🔄 button. `repeatSession(s)` filters warmup sets, calls `progressWeight(+5 lbs)` on every weight, pre-fills `sessName`/`sessTag`, and switches to the TRACK sub-tab. A toast confirms `"🔄 [name] loaded — weights set +5 lbs!"`. This is distinct from Programs (which load unweighted exercise names) — repeat loads actual past weights.
+
 ### ProgressScreen internal tabs
 
 Three tabs via `activeTab` state:
@@ -402,7 +407,11 @@ The feed is fully **Supabase-backed** — posts, likes, and comments are all sto
 
 **Calorie budget ring** — the summary card is centred on a `RingMeter` (size 140, strokeW 10). Ring color: gold when <85% of daily budget, orange at 85–99%, red when over. Shows calories remaining (or over) inside the ring; "consumed / target KCAL" label below. Uses `getActiveMacroTargets()` for the budget, showing an `⚡ ADAPTIVE` badge when Macro Coach is active.
 
-**Meal templates** — `mealTemplates` state (from `sfc_meal_templates`). A horizontally scrollable MY TEMPLATES strip appears above the meal log sections when at least one template is saved. Each card shows the template name, item count, total kcal, protein, and a LOG ◆ button that adds all items to the currently selected meal. A 💾 button in each meal header opens an inline name-input; pressing Enter saves current meal items as a new template. Templates can be deleted with a ✕ button on the card.
+**Recent Foods strip** — a `RECENT FOODS` section appears at the top of the LOG tab (above meal templates) when there are past food entries. Derived each render from `nutritionHistory` (last 14 days, excluding today): all food items are deduplicated by name, sorted by frequency (most-logged first), limited to 20. Each purple card shows name, brand (if any), kcal, protein, and a `+ ADD` button that calls `openFoodAdd(f)`. Designed for meal preppers who eat the same foods daily.
+
+**Meal templates** — `mealTemplates` state (from `sfc_meal_templates`). A horizontally scrollable MY TEMPLATES strip appears below the Recent Foods strip (above the meal sections) when at least one template is saved. Each card shows the template name, item count, total kcal, protein, and a LOG ◆ button that adds all items to the currently selected meal. A 💾 button in each meal header opens an inline name-input; pressing Enter saves current meal items as a new template. Templates can be deleted with a ✕ button on the card.
+
+**`FoodAddSheet`** — a `position:fixed` bottom sheet (`zIndex:910`) opened by `openFoodAdd(food)`. State: `addingFood` (the food object or null), `foodQty` (fraction: 0.25–3), `foodCount` (integer: 1–10+), `foodUnit` (`"serving"` | `"cup"`). Layout: QUANTITY row (chips 1–10 + −/+ stepper), unit toggle (📋 SERVING | 🥄 CUP), SERVING SIZE / CUP SIZE fraction chips (¼ ⅓ ½ ⅔ ¾ 1 1¼ 1½ 2 3 + custom input), optional summary line when qty>1 or frac≠1, live macro preview (CAL/P/C/F), and a gold ADD TO [MEAL] ◆ button that calls `confirmFoodAdd()`. Close via ✕ header button or backdrop click. `confirmFoodAdd` scales macros by `frac × count`, stores `servingLabel` on the logged item, appends to `log`, and sets `addingFood(null)`.
 
 ### NutritionScreen — external integrations
 
@@ -416,7 +425,7 @@ Four tabs: `📋 LOG` (food by meal), `📷 SCAN` (camera AI + barcode), `🔍 S
 
 The LOG tab shows today's meals and a **PAST DAYS** collapsible section below them. Each past day row displays date, item count, and daily kcal; tapping expands it to show per-item rows and a macro breakdown footer. `pastFoodDays` is derived from the `nutritionHistory` IIFE on mount (last 7 days excluding today). `expandedFoodDay` state tracks which day is open.
 
-The `scanTarget` state (`"food"` | `"supplement"`) controls where scan results are routed. When `"supplement"`, only the barcode button is shown (no meal photo scan), and results go to `suppLog` / `sfc_supplement_log`. `SUPPLEMENTS_DB` has 25 entries.
+The `scanTarget` state (`"food"` | `"supplement"`) controls where scan results are routed. When `"supplement"`, only the barcode button is shown (no meal photo scan), and results go to `suppLog` / `sfc_supplement_log`. `SUPPLEMENTS_DB` has **98 entries** across 12 categories (`SUPP_TYPES`): PROTEIN, CREATINE, PRE-WORKOUT, AMINO ACIDS, VITAMINS, OMEGA-3, PROBIOTICS, WEIGHT GAINERS, RECOVERY, ELECTROLYTES, COLLAGEN, GREENS.
 
 ### PWA / Icons
 
@@ -499,7 +508,7 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 
 `ChromeCard` accepts an optional `onClick` prop which is forwarded to the root div. Always pass `onClick` directly to `ChromeCard` — do not wrap it in another div to handle clicks, as `ChromeCard` now supports this natively.
 
-`ExercisePicker` is a bottom-sheet modal used in `TrainScreen`. It receives `{ onSelect, onClose }` and renders: a search bar, two chip rows (gold muscle-group chips from `EXERCISE_CATS` + purple equipment chips from `EQUIPMENT_CATS`), an optional FOCUS sub-row when LEGS is selected (QUADS / HAMSTRINGS from `EXERCISE_SUBCATS`), and a filtered exercise list with muscle label and category badge. Opens via the purple **⊞ BROWSE** pill button next to each exercise name input.
+`ExercisePicker` is a bottom-sheet modal used in `TrainScreen`. It receives `{ onSelect, onClose }` and renders: a search bar, two chip rows (gold muscle-group chips from `EXERCISE_CATS` + purple equipment chips from `EQUIPMENT_CATS`), an optional FOCUS sub-row when LEGS or BACK is selected (from `EXERCISE_SUBCATS`), and a filtered exercise list with muscle label and category badge. Opens via the purple **⊞ BROWSE** pill button next to each exercise name input. The sheet uses `maxHeight:"92vh"` with `flexShrink:0` on fixed rows and `onTouchStart={e=>e.stopPropagation()}` to prevent iOS scroll-steal.
 
 `PlateCalculatorModal` is a standalone modal (not a MoreScreen tile). Opened from the TrainScreen header ⚖️ PLATES button. Accepts `{ onClose, initialWeight }`.
 
@@ -509,7 +518,7 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 
 `EXERCISE_CATS` is an object keyed by muscle group (`CHEST`, `BACK`, `ARMS`, `LEGS`, `SHOULDERS`, `CORE`, `CARDIO`, `KETTLEBELL`) with 145 exercises total. `EXERCISES = Object.values(EXERCISE_CATS).flat()`. `EX_CAT_LOOKUP` maps each exercise name → its muscle-group category (auto-built from `EXERCISE_CATS`). Adding a new exercise: put it in the right `EXERCISE_CATS` array — `EX_CAT_LOOKUP` and `EXERCISES` are derived automatically.
 
-`EXERCISE_SUBCATS` provides sub-filters within a category: `{ LEGS: { QUADS: [...], HAMSTRINGS: [...] } }`. Used by `ExercisePicker` to show a FOCUS chip row when LEGS is selected.
+`EXERCISE_SUBCATS` provides sub-filters within a category: `{ LEGS: { QUADS: [...], HAMSTRINGS: [...] }, BACK: { LATS: [...], "MID BACK": [...] } }`. Used by `ExercisePicker` to show a FOCUS chip row when LEGS or BACK is selected.
 
 `EQUIPMENT_CATS` is a parallel cross-category lookup for equipment filters: `{ CABLES: [...23 exercises...], DUMBBELLS: [...29 exercises...] }`. `ExercisePicker` checks `EQUIPMENT_CATS[cat]` first before falling back to `EX_CAT_LOOKUP` — this lets equipment chips filter across muscle groups without moving exercises out of their canonical category.
 
