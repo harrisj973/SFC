@@ -5382,7 +5382,6 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
     if (image_url) insertData.image_url = image_url;
     const { error: postErr } = await supabase.from("posts").insert(insertData);
     if (postErr) {
-      console.error("submitPost error:", postErr);
       // If image_url column missing, retry without it
       if (postErr.code === "42703" && image_url) {
         delete insertData.image_url;
@@ -7150,7 +7149,7 @@ function ProfileSetupModal({ userId, onDone }) {
     if (location.trim()) updates.location = location.trim();
     if (Object.keys(updates).length > 0 && userId) {
       const { error: saveErr } = await supabase.from("profiles").update(updates).eq("id", userId);
-      if (saveErr) console.error("ProfileSetup save error:", saveErr);
+      // saveErr is non-fatal here — profile can be updated later via MoreScreen
     }
     setSaving(false);
     onDone(Object.keys(updates).length > 0 ? updates : null);
@@ -7708,7 +7707,7 @@ function SocialFitClubInner() {
       .select("id, username, avatar_initials, avatar_url, points, sessions_count, streak")
       .order("points", { ascending: false })
       .limit(20);
-    if (lbErr) { console.error("loadLeaderboard error:", lbErr); return; }
+    if (lbErr) return;
     if (data) {
       setLeaderboard(data.map((p, i) => ({
         rank: i + 1,
@@ -7736,10 +7735,7 @@ function SocialFitClubInner() {
         const unique = (base || "ATHLETE").slice(0, 16) + suffix;
         const uInitials = unique.split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2) || "ME";
         const { data: retryData, error: retryErr } = await supabase.from("profiles").insert({ id: u.id, username: unique, avatar_initials: uInitials, points: 0, streak: 0, sessions_count: 0 }).select().single();
-        if (retryErr) console.error("ensureProfile retry error:", retryErr);
         data = retryData;
-      } else if (insErr) {
-        console.error("ensureProfile insert error:", insErr);
       }
       if (data) setProfile(data);
     }
@@ -7844,8 +7840,8 @@ function SocialFitClubInner() {
 
     // Optimistic local update (tag with timestamp so rollback can find it)
     const optimisticAt = new Date().toISOString();
-    sess._optimisticAt = optimisticAt;
-    setSessions(p => [{ ...sess, createdAt: optimisticAt }, ...p]);
+    const sessWithTs = { ...sess, _optimisticAt: optimisticAt };
+    setSessions(p => [{ ...sessWithTs, createdAt: optimisticAt }, ...p]);
     const newPts = (profile?.points || 0) + sess.pts;
     const newSessionsCount = (profile?.sessions_count || 0) + 1;
     setProfile(p => ({ ...p, points: newPts, sessions_count: newSessionsCount, streak: newStreak }));
@@ -7869,7 +7865,7 @@ function SocialFitClubInner() {
     ]);
     if (sErr || pErr) {
       // Roll back optimistic update so nothing is lost on reload
-      setSessions(p => p.filter(s => s.createdAt !== sess._optimisticAt));
+      setSessions(p => p.filter(s => s.createdAt !== sessWithTs._optimisticAt));
       setProfile(p => ({ ...p, points: profile?.points || 0, sessions_count: profile?.sessions_count || 0, streak: profile?.streak || 0 }));
       showToast("❌ SAVE FAILED — CHECK YOUR CONNECTION AND TRY AGAIN");
       return false;
@@ -7882,7 +7878,7 @@ function SocialFitClubInner() {
       } catch { /* ignore */ }
     }
     // Replace the optimistic placeholder with the real Supabase id
-    setSessions(p => p.map(s => s.createdAt === sess._optimisticAt ? { ...s, id: sData.id } : s));
+    setSessions(p => p.map(s => s.createdAt === sessWithTs._optimisticAt ? { ...s, id: sData.id } : s));
     showToast(`🏆 SESSION SAVED · +${sess.pts} POINTS`);
     return true;
   };
