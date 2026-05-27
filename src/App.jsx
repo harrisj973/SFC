@@ -106,6 +106,19 @@ const EX_CAT_LOOKUP = {};
 Object.entries(EXERCISE_CATS).forEach(([cat, arr]) => arr.forEach(n => { EX_CAT_LOOKUP[n] = cat; }));
 
 const EXERCISE_SUBCATS = {
+  "BACK": {
+    "LATS": [
+      "Lat Pulldown","Close-Grip Lat Pulldown","Pull-Ups","Chin-Ups",
+      "Straight-Arm Pulldown","Barbell Row","Dumbbell Row","Single-Arm Cable Row",
+      "Renegade Row",
+    ],
+    "MID BACK": [
+      "Barbell Row","Pendlay Row","T-Bar Row","Chest-Supported Row",
+      "Seated Cable Row","Wide-Grip Seated Cable Row","Single-Arm Cable Row",
+      "Barbell Deadlift","Trap Bar Deadlift","Rack Pull","Hyperextensions",
+      "Dumbbell Deadlift","Dumbbell Good Mornings",
+    ],
+  },
   "LEGS": {
     "QUADS": [
       "Barbell Squat","Front Squat","Hack Squat","Goblet Squat","Box Squat",
