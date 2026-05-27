@@ -2296,6 +2296,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   const [plateCalcOpen, setPlateCalcOpen] = useState(false);
   const [plateCalcWeight, setPlateCalcWeight] = useState("");
   const [selectedProgram, setSelectedProgram] = useState(null);
+  const [progFilter, setProgFilter] = useState("ALL");
   const nextIdRef = useRef(2);
 
   useEffect(() => {
@@ -2873,7 +2874,16 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
             </>
           )}
           <SectionLabel>Training Programs</SectionLabel>
-          {PROGRAMS_DATA.map((p,i) => (
+          {/* Category filter chips */}
+          <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:10, WebkitOverflowScrolling:"touch", marginBottom:6 }}>
+            {["ALL","BODYBUILDING","POWERLIFTING","HYPERTROPHY","CALISTHENICS","FUNCTIONAL","ATHLETICS","SPORTS","CORRECTIVE","WEIGHT LOSS"].map(cat => (
+              <button key={cat} onClick={()=>setProgFilter(cat)}
+                style={{ flexShrink:0, padding:"5px 12px", borderRadius:20, border:`1px solid ${progFilter===cat ? G.purple : G.borderB}`, background:progFilter===cat ? `linear-gradient(135deg,${G.purple},${G.purpleBright})` : "transparent", color:progFilter===cat ? "#fff" : G.textMid, fontFamily:FONT.display, fontSize:10, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}>
+                {cat}
+              </button>
+            ))}
+          </div>
+          {PROGRAMS_DATA.filter(p => progFilter==="ALL" || p.type===progFilter).map((p,i) => (
             <ChromeCard key={i} onClick={()=>setSelectedProgram(p)} style={{ padding:"14px", marginBottom:11, cursor:"pointer" }}>
               <div style={{ display:"flex", gap:12, alignItems:"center" }}>
                 <div style={{ width:48, height:48, borderRadius:10, background:`${p.col}18`, border:`1px solid ${p.col}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, flexShrink:0 }}>{p.ico}</div>
@@ -3036,6 +3046,346 @@ const PROGRAMS_DATA = [
         { name:"Box Jumps", sets:4, reps:"10" },
         { name:"Jump Rope", sets:4, reps:"60s" },
         { name:"Plank", sets:3, reps:"60s" },
+      ]},
+    ],
+  },
+
+  // ── ADDITIONAL PROGRAMS ─────────────────────────────────────────
+  {
+    id:"push-pull-legs", name:"PUSH PULL LEGS (PPL)", type:"HYPERTROPHY", level:"INTERMEDIATE",
+    weeks:10, daysPerWeek:6, ico:"💪", col:"#6C5CE7",
+    desc:"Train each muscle group twice a week for maximum growth.",
+    goal:"Hit every muscle group with double-frequency volume using the most proven hypertrophy split. Six training days, full recovery built in.",
+    equipment:["Barbell","Dumbbells","Cable Machine","Pull-Up Bar","Bench"],
+    schedule:["Push","Pull","Legs","Push","Pull","Legs","Rest"],
+    days:[
+      { name:"PUSH DAY", tag:"push", exs:[
+        { name:"Barbell Bench Press", sets:4, reps:"8–12" },
+        { name:"Incline Dumbbell Press", sets:4, reps:"10–12" },
+        { name:"Cable Flyes", sets:3, reps:"12–15" },
+        { name:"Barbell Overhead Press", sets:3, reps:"8–10" },
+        { name:"Lateral Raises", sets:3, reps:"15–20" },
+        { name:"Tricep Pushdown", sets:3, reps:"12–15" },
+      ]},
+      { name:"PULL DAY", tag:"pull", exs:[
+        { name:"Barbell Deadlift", sets:3, reps:"5" },
+        { name:"Pull-Ups", sets:4, reps:"6–10" },
+        { name:"Barbell Row", sets:4, reps:"8–10" },
+        { name:"Lat Pulldown", sets:3, reps:"10–12" },
+        { name:"Barbell Curl", sets:3, reps:"12" },
+        { name:"Hammer Curl", sets:3, reps:"12" },
+      ]},
+      { name:"LEG DAY", tag:"legs", exs:[
+        { name:"Barbell Squat", sets:4, reps:"8–12" },
+        { name:"Romanian Deadlift", sets:3, reps:"10–12" },
+        { name:"Leg Press", sets:3, reps:"12–15" },
+        { name:"Leg Curl", sets:3, reps:"12–15" },
+        { name:"Calf Raise", sets:4, reps:"20" },
+        { name:"Ab Wheel", sets:3, reps:"12" },
+      ]},
+    ],
+  },
+  {
+    id:"kettlebell-warrior", name:"KETTLEBELL WARRIOR", type:"FUNCTIONAL", level:"BEGINNER",
+    weeks:8, daysPerWeek:3, ico:"🔔", col:"#FDCB6E",
+    desc:"Total-body strength and conditioning with just a kettlebell.",
+    goal:"Build functional strength, explosive power, and full-body conditioning using the most versatile training tool on earth — a single kettlebell.",
+    equipment:["Kettlebell"],
+    schedule:["Strength", "Rest", "Power", "Rest", "Conditioning", "Rest", "Rest"],
+    days:[
+      { name:"STRENGTH", tag:"full", exs:[
+        { name:"Kettlebell Swing", sets:5, reps:"20" },
+        { name:"Kettlebell Goblet Squat", sets:4, reps:"12" },
+        { name:"Kettlebell Press", sets:4, reps:"8 each" },
+        { name:"Kettlebell Row", sets:4, reps:"10 each" },
+        { name:"Kettlebell Turkish Get-Up", sets:3, reps:"3 each" },
+      ]},
+      { name:"POWER", tag:"full", exs:[
+        { name:"Kettlebell Clean and Press", sets:4, reps:"5 each" },
+        { name:"Kettlebell Snatch", sets:4, reps:"8 each" },
+        { name:"Kettlebell Front Squat", sets:4, reps:"10" },
+        { name:"Kettlebell Swing", sets:4, reps:"15" },
+        { name:"Kettlebell Windmill", sets:3, reps:"5 each" },
+      ]},
+      { name:"CONDITIONING", tag:"full", exs:[
+        { name:"Kettlebell Swing", sets:6, reps:"15" },
+        { name:"Kettlebell Clean", sets:4, reps:"8 each" },
+        { name:"Kettlebell Lunge", sets:3, reps:"10 each" },
+        { name:"Kettlebell Halo", sets:3, reps:"8 each way" },
+        { name:"Plank", sets:3, reps:"60s" },
+      ]},
+    ],
+  },
+  {
+    id:"calisthenics-mastery", name:"CALISTHENICS MASTERY", type:"CALISTHENICS", level:"BEGINNER",
+    weeks:10, daysPerWeek:4, ico:"🤸", col:"#00B894",
+    desc:"Master bodyweight movement. Zero equipment required.",
+    goal:"Build real-world strength, body control, and endurance using only your bodyweight — anywhere, anytime, no gym needed.",
+    equipment:["Pull-Up Bar (optional)","None"],
+    schedule:["Upper Push", "Lower Body", "Upper Pull", "Full Body", "Rest", "Rest", "Rest"],
+    days:[
+      { name:"UPPER PUSH", tag:"push", exs:[
+        { name:"Push-Ups", sets:4, reps:"15–20" },
+        { name:"Chest Dip", sets:4, reps:"8–12" },
+        { name:"Dips", sets:3, reps:"10–15" },
+        { name:"Plank", sets:3, reps:"60s" },
+        { name:"Mountain Climbers", sets:3, reps:"30s" },
+      ]},
+      { name:"LOWER BODY", tag:"legs", exs:[
+        { name:"Walking Lunges", sets:4, reps:"20 steps" },
+        { name:"Bulgarian Split Squat", sets:3, reps:"10 each" },
+        { name:"Glute Bridge", sets:4, reps:"20" },
+        { name:"Step-Ups", sets:3, reps:"12 each" },
+        { name:"Calf Raise", sets:4, reps:"25" },
+      ]},
+      { name:"UPPER PULL", tag:"pull", exs:[
+        { name:"Pull-Ups", sets:4, reps:"6–10" },
+        { name:"Chin-Ups", sets:3, reps:"8" },
+        { name:"Hanging Leg Raises", sets:3, reps:"15" },
+        { name:"Dead Bug", sets:3, reps:"10 each" },
+        { name:"Bicycle Crunches", sets:3, reps:"20" },
+      ]},
+      { name:"FULL BODY POWER", tag:"full", exs:[
+        { name:"Burpees", sets:4, reps:"10" },
+        { name:"Jump Squats", sets:4, reps:"15" },
+        { name:"Push-Ups", sets:3, reps:"15" },
+        { name:"Pull-Ups", sets:3, reps:"8" },
+        { name:"Bear Crawl", sets:3, reps:"20m" },
+      ]},
+    ],
+  },
+
+  // ── CORRECTIVE PROGRAMS ─────────────────────────────────────────
+  {
+    id:"posture-reset", name:"POSTURE RESET", type:"CORRECTIVE", level:"BEGINNER",
+    weeks:6, daysPerWeek:3, ico:"🧘", col:"#55EFC4",
+    desc:"Fix desk posture, rounded shoulders, and tight hips.",
+    goal:"Rebalance chronic postural imbalances — forward head, rounded shoulders, anterior pelvic tilt — through targeted corrective movements and activation drills.",
+    equipment:["Cable Machine","Dumbbells","Resistance Band (optional)"],
+    schedule:["Upper Posture", "Hip & Spine", "Full Reset", "Rest", "Upper Posture", "Hip & Spine", "Rest"],
+    days:[
+      { name:"UPPER POSTURE", tag:"pull", exs:[
+        { name:"Cable Face Pulls", sets:4, reps:"20–25" },
+        { name:"Rear Delt Flyes", sets:4, reps:"20" },
+        { name:"Dead Bug", sets:3, reps:"10 each" },
+        { name:"Lateral Raises", sets:3, reps:"15" },
+        { name:"Pallof Press", sets:3, reps:"15 each" },
+        { name:"Plank", sets:4, reps:"45s" },
+      ]},
+      { name:"HIP & SPINE", tag:"legs", exs:[
+        { name:"Glute Bridge", sets:4, reps:"20" },
+        { name:"Hip Thrust", sets:4, reps:"15" },
+        { name:"Cable Pull-Through", sets:4, reps:"15" },
+        { name:"Hyperextensions", sets:3, reps:"15" },
+        { name:"Cable Hip Abduction", sets:3, reps:"15 each" },
+        { name:"Side Plank", sets:3, reps:"30s each" },
+      ]},
+      { name:"FULL RESET", tag:"full", exs:[
+        { name:"Cable Face Pulls", sets:3, reps:"20" },
+        { name:"Dead Bug", sets:3, reps:"10 each" },
+        { name:"Glute Bridge", sets:3, reps:"20" },
+        { name:"Hip Thrust", sets:3, reps:"15" },
+        { name:"Pallof Press", sets:3, reps:"12 each" },
+        { name:"Plank", sets:3, reps:"60s" },
+      ]},
+    ],
+  },
+  {
+    id:"shoulder-prehab", name:"SHOULDER HEALTH & PREHAB", type:"CORRECTIVE", level:"BEGINNER",
+    weeks:6, daysPerWeek:3, ico:"🩺", col:"#81ECEC",
+    desc:"Rebuild shoulder stability and prevent injury. Great for all lifters.",
+    goal:"Restore shoulder stability, fix rotator cuff imbalances, and build the foundational strength to press and pull pain-free for life.",
+    equipment:["Dumbbells","Cable Machine"],
+    schedule:["Stability Focus", "Strength Building", "Recovery Circuit", "Rest", "Stability Focus", "Strength Building", "Rest"],
+    days:[
+      { name:"STABILITY FOCUS", tag:"push", exs:[
+        { name:"Cable Face Pulls", sets:4, reps:"25" },
+        { name:"Rear Delt Flyes", sets:4, reps:"20" },
+        { name:"Machine Rear Delt Flyes", sets:3, reps:"20" },
+        { name:"Lateral Raises", sets:3, reps:"15" },
+        { name:"Dead Bug", sets:3, reps:"12 each" },
+        { name:"Side Plank", sets:3, reps:"30s each" },
+      ]},
+      { name:"STRENGTH BUILDING", tag:"push", exs:[
+        { name:"Seated Dumbbell Press", sets:4, reps:"10" },
+        { name:"Arnold Press", sets:3, reps:"12" },
+        { name:"Cable Lateral Raises", sets:3, reps:"15" },
+        { name:"Rear Delt Flyes", sets:3, reps:"15" },
+        { name:"Dumbbell Row", sets:3, reps:"12" },
+        { name:"Plank", sets:3, reps:"45s" },
+      ]},
+      { name:"RECOVERY CIRCUIT", tag:"full", exs:[
+        { name:"Cable Face Pulls", sets:3, reps:"20" },
+        { name:"Machine Rear Delt Flyes", sets:3, reps:"20" },
+        { name:"Lateral Raises", sets:3, reps:"15" },
+        { name:"Dead Bug", sets:3, reps:"10 each" },
+        { name:"Pallof Press", sets:3, reps:"12 each" },
+        { name:"Flutter Kicks", sets:3, reps:"20s" },
+      ]},
+    ],
+  },
+
+  // ── SPORTS PROGRAMS ─────────────────────────────────────────────
+  {
+    id:"basketball-performance", name:"BASKETBALL PERFORMANCE", type:"SPORTS", level:"INTERMEDIATE",
+    weeks:10, daysPerWeek:4, ico:"🏀", col:"#E17055",
+    desc:"Dominate the court — vertical, first-step speed, and endurance.",
+    goal:"Build the explosive vertical leap, lateral quickness, and relentless conditioning every basketball player needs to dominate on the court.",
+    equipment:["Barbell","Dumbbells","Box","Jump Rope","Assault Bike"],
+    schedule:["Lower Power", "Upper Strength", "Rest", "Speed & Agility", "Conditioning", "Rest", "Rest"],
+    days:[
+      { name:"LOWER POWER", tag:"legs", exs:[
+        { name:"Barbell Squat", sets:4, reps:"5" },
+        { name:"Box Jumps", sets:5, reps:"5" },
+        { name:"Bulgarian Split Squat", sets:3, reps:"8 each" },
+        { name:"Romanian Deadlift", sets:3, reps:"8" },
+        { name:"Jump Squats", sets:4, reps:"12" },
+        { name:"Calf Raise", sets:4, reps:"20" },
+      ]},
+      { name:"UPPER STRENGTH", tag:"upper", exs:[
+        { name:"Barbell Bench Press", sets:4, reps:"8" },
+        { name:"Barbell Row", sets:4, reps:"8" },
+        { name:"Barbell Overhead Press", sets:3, reps:"8" },
+        { name:"Pull-Ups", sets:4, reps:"8" },
+        { name:"Cable Face Pulls", sets:3, reps:"20" },
+        { name:"Hanging Leg Raises", sets:3, reps:"15" },
+      ]},
+      { name:"SPEED & AGILITY", tag:"cardio", exs:[
+        { name:"Jump Rope", sets:5, reps:"60s" },
+        { name:"Box Jumps", sets:5, reps:"5" },
+        { name:"Jump Squats", sets:4, reps:"15" },
+        { name:"High Knees", sets:4, reps:"30s" },
+        { name:"Bear Crawl", sets:4, reps:"20m" },
+        { name:"Mountain Climbers", sets:4, reps:"30s" },
+      ]},
+      { name:"CONDITIONING", tag:"cardio", exs:[
+        { name:"Assault Bike", sets:6, reps:"30s on / 30s off" },
+        { name:"Battle Ropes", sets:5, reps:"30s" },
+        { name:"Jump Rope", sets:5, reps:"60s" },
+        { name:"Burpees", sets:4, reps:"12" },
+        { name:"Russian Twists", sets:3, reps:"20" },
+      ]},
+    ],
+  },
+  {
+    id:"football-power", name:"FOOTBALL POWER PROGRAM", type:"SPORTS", level:"ADVANCED",
+    weeks:12, daysPerWeek:4, ico:"🏈", col:"#D63031",
+    desc:"Size, strength, and explosive power for the field.",
+    goal:"Develop the raw strength, power output, and physicality that separates great football players — mass, explosiveness, and relentless conditioning.",
+    equipment:["Barbell","Power Rack","Box","Sled","Battle Ropes"],
+    schedule:["Lower Power", "Upper Power", "Rest", "Dynamic Effort", "Conditioning", "Rest", "Rest"],
+    days:[
+      { name:"LOWER POWER", tag:"legs", exs:[
+        { name:"Barbell Squat", sets:5, reps:"5" },
+        { name:"Barbell Deadlift", sets:4, reps:"3" },
+        { name:"Romanian Deadlift", sets:4, reps:"6" },
+        { name:"Hip Thrust", sets:4, reps:"10" },
+        { name:"Box Jumps", sets:4, reps:"5" },
+        { name:"Calf Raise", sets:4, reps:"15" },
+      ]},
+      { name:"UPPER POWER", tag:"upper", exs:[
+        { name:"Barbell Bench Press", sets:5, reps:"5" },
+        { name:"Barbell Row", sets:5, reps:"5" },
+        { name:"Push Press", sets:4, reps:"5" },
+        { name:"Pull-Ups", sets:4, reps:"6" },
+        { name:"Barbell Overhead Press", sets:3, reps:"8" },
+        { name:"Dips", sets:3, reps:"10" },
+      ]},
+      { name:"DYNAMIC EFFORT", tag:"full", exs:[
+        { name:"Box Jumps", sets:5, reps:"5" },
+        { name:"Sled Push", sets:6, reps:"20m" },
+        { name:"Kettlebell Swing", sets:5, reps:"15" },
+        { name:"Jump Squats", sets:4, reps:"10" },
+        { name:"Battle Ropes", sets:4, reps:"30s" },
+        { name:"Farmer's Walk", sets:4, reps:"30m" },
+      ]},
+      { name:"CONDITIONING", tag:"cardio", exs:[
+        { name:"Assault Bike", sets:5, reps:"60s on / 60s off" },
+        { name:"Sled Push", sets:5, reps:"30m" },
+        { name:"Battle Ropes", sets:4, reps:"45s" },
+        { name:"Burpees", sets:3, reps:"15" },
+        { name:"Rowing Machine", sets:3, reps:"500m" },
+      ]},
+    ],
+  },
+  {
+    id:"combat-sports", name:"COMBAT SPORTS CONDITIONING", type:"SPORTS", level:"ADVANCED",
+    weeks:10, daysPerWeek:5, ico:"🥊", col:"#B2BEC3",
+    desc:"Build a fighter's body — power, endurance, and mental toughness.",
+    goal:"Forge the conditioning, explosive power, and full-body strength demanded by MMA, boxing, wrestling, and all combat sports.",
+    equipment:["Barbell","Dumbbells","Kettlebell","Battle Ropes","Jump Rope","Rowing Machine"],
+    schedule:["Strength", "Conditioning", "Strength", "Cardio", "Full Circuit", "Rest", "Rest"],
+    days:[
+      { name:"STRENGTH", tag:"full", exs:[
+        { name:"Barbell Deadlift", sets:4, reps:"5" },
+        { name:"Barbell Bench Press", sets:4, reps:"6" },
+        { name:"Barbell Row", sets:4, reps:"6" },
+        { name:"Barbell Overhead Press", sets:3, reps:"8" },
+        { name:"Pull-Ups", sets:4, reps:"8" },
+        { name:"Farmer's Walk", sets:3, reps:"30m" },
+      ]},
+      { name:"CONDITIONING", tag:"cardio", exs:[
+        { name:"Assault Bike", sets:8, reps:"30s on / 30s off" },
+        { name:"Battle Ropes", sets:6, reps:"30s" },
+        { name:"Burpees", sets:5, reps:"15" },
+        { name:"Jump Rope", sets:5, reps:"90s" },
+        { name:"Mountain Climbers", sets:4, reps:"45s" },
+      ]},
+      { name:"CARDIO BASE", tag:"cardio", exs:[
+        { name:"Rowing Machine", sets:5, reps:"2 min" },
+        { name:"Jump Rope", sets:6, reps:"90s" },
+        { name:"High Knees", sets:5, reps:"30s" },
+        { name:"Stair Climber", sets:4, reps:"3 min" },
+        { name:"Bear Crawl", sets:4, reps:"30m" },
+      ]},
+      { name:"FULL CIRCUIT", tag:"full", exs:[
+        { name:"Kettlebell Swing", sets:4, reps:"20" },
+        { name:"Box Jumps", sets:4, reps:"8" },
+        { name:"Barbell Deadlift", sets:3, reps:"5" },
+        { name:"Battle Ropes", sets:4, reps:"30s" },
+        { name:"Burpees", sets:4, reps:"12" },
+        { name:"Plank", sets:3, reps:"60s" },
+      ]},
+    ],
+  },
+  {
+    id:"soccer-performance", name:"SOCCER PERFORMANCE", type:"SPORTS", level:"INTERMEDIATE",
+    weeks:8, daysPerWeek:4, ico:"⚽", col:"#74B9FF",
+    desc:"Endurance, sprint speed, and lower-body power for the pitch.",
+    goal:"Develop the aerobic base, explosive sprint speed, and leg strength that separates good soccer players from great ones.",
+    equipment:["Barbell","Dumbbells","Jump Rope","Treadmill","Assault Bike"],
+    schedule:["Lower Strength", "Conditioning", "Rest", "Upper Strength", "Speed & Power", "Rest", "Rest"],
+    days:[
+      { name:"LOWER STRENGTH", tag:"legs", exs:[
+        { name:"Barbell Squat", sets:4, reps:"8" },
+        { name:"Romanian Deadlift", sets:3, reps:"10" },
+        { name:"Bulgarian Split Squat", sets:3, reps:"10 each" },
+        { name:"Hip Thrust", sets:3, reps:"15" },
+        { name:"Nordic Hamstring Curl", sets:3, reps:"8" },
+        { name:"Calf Raise", sets:4, reps:"20" },
+      ]},
+      { name:"CONDITIONING", tag:"cardio", exs:[
+        { name:"Treadmill Run", sets:3, reps:"10 min" },
+        { name:"Jump Rope", sets:4, reps:"2 min" },
+        { name:"High Knees", sets:4, reps:"45s" },
+        { name:"Assault Bike", sets:4, reps:"60s" },
+        { name:"Step-Ups", sets:3, reps:"12 each" },
+      ]},
+      { name:"UPPER STRENGTH", tag:"upper", exs:[
+        { name:"Barbell Bench Press", sets:3, reps:"10" },
+        { name:"Barbell Row", sets:3, reps:"10" },
+        { name:"Barbell Overhead Press", sets:3, reps:"10" },
+        { name:"Pull-Ups", sets:3, reps:"8" },
+        { name:"Cable Face Pulls", sets:3, reps:"15" },
+        { name:"Plank", sets:3, reps:"60s" },
+      ]},
+      { name:"SPEED & POWER", tag:"full", exs:[
+        { name:"Box Jumps", sets:5, reps:"5" },
+        { name:"Jump Squats", sets:4, reps:"15" },
+        { name:"Jump Rope", sets:5, reps:"60s" },
+        { name:"Battle Ropes", sets:4, reps:"30s" },
+        { name:"Barbell Squat", sets:3, reps:"5" },
+        { name:"Walking Lunges", sets:3, reps:"20 steps" },
       ]},
     ],
   },
