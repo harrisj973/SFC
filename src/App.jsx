@@ -1284,6 +1284,110 @@ function progressWeight(w) {
   return Math.round((base + 5) / 2.5) * 2.5;
 }
 
+// MET values (Metabolic Equivalents) for active set time.
+// Sources: Compendium of Physical Activities (Ainsworth et al. 2011) + ACSM resistance training data.
+const EXERCISE_MET = {
+  // Heavy compound lifts — ~6 MET
+  "Barbell Squat":6.0,"Front Squat":6.0,"Hack Squat":5.5,"Sumo Deadlift":6.0,
+  "Deadlift":6.0,"Romanian Deadlift":5.5,"Trap Bar Deadlift":6.0,
+  "Bench Press":5.5,"Incline Bench Press":5.5,"Decline Bench Press":5.5,
+  "Barbell Row":5.5,"Pendlay Row":5.5,"Barbell Good Mornings":5.0,
+  "Overhead Press":5.5,"Push Press":6.0,
+  // Moderate compound — ~5 MET
+  "Bulgarian Split Squat":5.0,"Leg Press":4.5,"Lunge":4.5,"Walking Lunges":5.0,
+  "Step-Ups":5.0,"Leg Curl":3.5,"Leg Extension":3.5,"Hip Thrust":4.5,
+  "Glute Bridge":3.5,"Nordic Curl":4.5,"Seated Leg Curl":3.5,
+  "Dumbbell Press":4.5,"Incline Dumbbell Press":4.5,"Decline Dumbbell Press":4.5,
+  "Dumbbell Row":4.5,"Chest-Supported Row":4.5,"Seated Cable Row":4.0,
+  "T-Bar Row":5.0,"Landmine Row":4.5,"Meadows Row":4.5,
+  "Arnold Press":4.5,"Dumbbell Shoulder Press":4.5,"Military Press":5.0,
+  "Pull-Ups":5.0,"Chin-Ups":5.0,"Lat Pulldown":4.0,"Assisted Pull-Ups":4.0,
+  "Cable Row":4.0,"Machine Row":3.5,
+  "Dips":4.5,"Chest Dip":4.5,"Push-Ups":4.0,
+  "Romanian Deadlift (Dumbbell)":5.0,"Single-Leg RDL":4.5,
+  "Goblet Squat":4.5,"Dumbbell Squat":4.5,"Dumbbell Lunge":4.5,
+  "Sumo Squat":4.5,"Box Step-Ups":5.0,
+  // Isolation — ~3.5 MET
+  "Bicep Curl":3.5,"Barbell Curl":3.5,"Hammer Curl":3.5,"Preacher Curl":3.5,
+  "Concentration Curl":3.0,"Cable Curl":3.5,"EZ-Bar Curl":3.5,
+  "Incline Dumbbell Curl":3.5,"Spider Curl":3.5,"Cross-Body Hammer Curl":3.0,
+  "Overhead Cable Curl":3.5,
+  "Tricep Pushdown":3.5,"Overhead Tricep Extension":3.5,"Skull Crushers":3.5,
+  "Tricep Dips":4.0,"Close-Grip Bench Press":4.5,"Diamond Push-Ups":4.0,
+  "Tricep Kickback":3.0,
+  "Lateral Raise":3.0,"Front Raise":3.0,"Rear Delt Fly":3.0,
+  "Cable Lateral Raise":3.0,"Face Pulls":3.5,"Upright Row":4.0,
+  "Shrugs":3.5,"Cable Y-Raise":3.0,"Bradford Press":4.0,
+  "Landmine Press":4.5,"Landmine Lateral Raise":3.5,
+  "Chest Fly":3.5,"Dumbbell Fly":3.5,"Cable Fly":3.5,"Cable Crossover":3.5,
+  "Pec Deck Machine":3.5,"Incline Cable Flyes":3.5,"Svend Press":3.0,
+  "Barbell Floor Press":4.5,"Dumbbell Floor Press":4.5,
+  "Calf Raises":3.0,"Seated Calf Raises":3.0,"Single-Leg Calf Raise":3.0,
+  "Hip Abductor Machine":3.0,"Reverse Hypers":3.5,
+  "Landmine Squat":5.0,"Landmine Split Squat":4.5,"Pistol Squat":5.0,
+  "Sissy Squat":4.0,
+  // Core — 3.5-4 MET
+  "Plank":3.5,"Side Plank":3.5,"Ab Wheel":4.5,"Hanging Leg Raises":4.5,
+  "Leg Raises":4.0,"Russian Twists":4.0,"Bicycle Crunches":4.5,"Crunch":3.5,
+  "Decline Crunches":4.0,"Sit-Ups":4.0,"Cable Crunch":3.5,"V-Ups":4.5,
+  "Dragon Flag":5.0,"Dead Bug":3.5,"Pallof Press":3.5,
+  "Flutter Kicks":4.0,"Mountain Climbers":8.0,"Cable Woodchop":4.0,
+  "Landmine Rotation":4.0,"Hollow Body Hold":3.5,"Toes-to-Bar":5.0,
+  "Windshield Wipers":5.0,"Suitcase Carry":5.0,
+  // Cardio — MET during active time
+  "Jump Rope":12.0,"Assault Bike":10.0,"Box Jumps":10.0,"Burpees":10.0,
+  "Battle Ropes":10.0,"Sled Push":9.0,"Rowing Machine":7.0,
+  "Treadmill Run":9.0,"Stair Climber":8.0,"Jump Squats":7.5,
+  "High Knees":8.0,"Bear Crawl":7.0,"Farmer's Walk":5.5,
+  "Ski Erg":8.5,"Sled Drag":8.0,"Prowler Push":9.0,"Sprint Intervals":12.0,
+  // Kettlebell — 6-8 MET
+  "Kettlebell Swing":8.0,"Kettlebell Clean":8.0,"Kettlebell Press":6.0,
+  "Kettlebell Snatch":9.5,"Kettlebell Turkish Get-Up":6.5,"Kettlebell Goblet Squat":6.5,
+  "Kettlebell Deadlift":6.0,"Kettlebell Row":6.0,"Kettlebell Windmill":6.0,
+  "Kettlebell Halo":5.5,"Kettlebell Clean and Press":8.0,"Kettlebell Front Squat":6.5,
+  "Kettlebell Lunge":6.5,"Kettlebell Figure Eight":7.0,"Kettlebell Thruster":9.0,
+  "Kettlebell Renegade Row":7.0,
+};
+const DEFAULT_MET = 4.5; // fallback for unlisted exercises
+const SECS_PER_REP = 3.5; // avg time-under-tension per rep (resistance training)
+const REST_MET = 1.3;     // seated rest between sets
+
+// Returns estimated kcal for a completed exercise (all sets), given body weight in lbs.
+// Formula: Calories = MET × weight_kg × duration_hours
+function calcExerciseCalories(sets, exerciseName, bodyWeightLbs) {
+  if (!bodyWeightLbs || bodyWeightLbs <= 0) return 0;
+  const bwKg = bodyWeightLbs * 0.453592;
+  const met = EXERCISE_MET[exerciseName] ?? DEFAULT_MET;
+  const isCardio = !!CARDIO_SET_CONFIG[exerciseName];
+  let totalActiveSecs = 0;
+  let totalRestSecs = 0;
+  sets.forEach((set, i) => {
+    if (set.type === "warmup") return;
+    if (isCardio) {
+      // For cardio, `r` field holds time in minutes (TIME label)
+      const mins = parseFloat(set.r) || 0;
+      totalActiveSecs += mins * 60;
+    } else {
+      const reps = parseInt(set.r) || 0;
+      totalActiveSecs += reps * SECS_PER_REP;
+    }
+    // Add rest period after each set (except the last)
+    if (i < sets.length - 1) totalRestSecs += 90;
+  });
+  const activeHrs = totalActiveSecs / 3600;
+  const restHrs = totalRestSecs / 3600;
+  return Math.round(met * bwKg * activeHrs + REST_MET * bwKg * restHrs);
+}
+
+// Returns total estimated kcal for a full session's exercise array.
+function calcSessionCalories(exs, bodyWeightLbs) {
+  if (!bodyWeightLbs || !exs) return 0;
+  return exs.reduce((sum, ex) => {
+    const workingSets = (ex.sets || []).filter(s => s.r && s.type !== "warmup");
+    return sum + calcExerciseCalories(workingSets, ex.name, bodyWeightLbs);
+  }, 0);
+}
+
 function getExerciseHistory(exName, sessions) {
   const out = [];
   const chrono = [...sessions].reverse();
@@ -2395,6 +2499,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
     if (!conf || conf.a.unit !== "MIN") return a;
     return a + e.sets.filter(s=>s.type!=="warmup").reduce((b,s) => b+(parseFloat(s.r)||0),0);
   },0);
+  const totKcal = calcSessionCalories(exs, getLoggedBodyWeight());
   const pts = totSets * 10 + Math.floor(totVol / 100) * 5;
   const prs = calcPRs(sessions);
   const overloadedMuscles = (() => {
@@ -2565,9 +2670,14 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
 
           {totSets > 0 && (
             <ChromeCard gold style={{ padding:"11px 14px", marginBottom:16, display:"flex" }}>
-              {[{l:"SETS",v:totSets},{l:"VOLUME",v:`${totVol.toLocaleString()} LBS`},{l:"PTS",v:`+${pts}`}].map((s,i) => (
-                <div key={s.l} style={{ flex:1, textAlign:"center", borderRight: i<2 ? `1px solid ${G.borderB}` : "none" }}>
-                  <div style={{ fontFamily:FONT.display, fontSize:20, color:G.gold, letterSpacing:1 }}>{s.v}</div>
+              {[
+                {l:"SETS",v:String(totSets)},
+                {l:"VOLUME",v:`${totVol.toLocaleString()} LBS`},
+                {l:"PTS",v:`+${pts}`},
+                ...(totKcal > 0 ? [{l:"KCAL 🔥",v:`~${totKcal}`}] : []),
+              ].map((s,i,arr) => (
+                <div key={s.l} style={{ flex:1, textAlign:"center", borderRight: i<arr.length-1 ? `1px solid ${G.borderB}` : "none" }}>
+                  <div style={{ fontFamily:FONT.display, fontSize:totKcal > 0 ? 17 : 20, color:G.gold, letterSpacing:1 }}>{s.v}</div>
                   <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>{s.l}</div>
                 </div>
               ))}
@@ -2730,7 +2840,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
               <div>
                 <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>Save Session</div>
-                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{totSets} sets{totVol > 0 ? ` · ${totVol.toLocaleString()} lbs` : ""}{totCardioMin > 0 ? ` · ${totCardioMin} min cardio` : ""}</div>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{totSets} sets{totVol > 0 ? ` · ${totVol.toLocaleString()} lbs` : ""}{totCardioMin > 0 ? ` · ${totCardioMin} min cardio` : ""}{totKcal > 0 ? ` · ~${totKcal} kcal` : ""}</div>
               </div>
               <div style={{ textAlign:"right" }}>
                 <div style={{ fontFamily:FONT.display, fontSize:28, color:G.gold, textShadow:G.goldGlow2, letterSpacing:1 }}>+{pts}</div>
@@ -2796,7 +2906,10 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                           {s.tag && (() => { const t = SESSION_TYPES.find(x=>x.id===s.tag); return t ? <span style={{ background:`${t.color}22`, border:`1px solid ${t.color}66`, borderRadius:20, padding:"1px 8px", fontFamily:FONT.display, fontSize:9, letterSpacing:1.5, color:t.color, flexShrink:0 }}>{t.label}</span> : null; })()}
                         </div>
                       )}
-                      <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{s.date} · {s.sets} sets · {(s.vol||0).toLocaleString()} lbs</div>
+                      <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>
+                        {s.date} · {s.sets} sets · {(s.vol||0).toLocaleString()} lbs
+                        {(() => { const k = calcSessionCalories(s.exs, getLoggedBodyWeight()); return k > 0 ? ` · 🔥 ~${k} kcal` : ""; })()}
+                      </div>
                     </div>
                     <div style={{ textAlign:"right", flexShrink:0 }}>
                       <div style={{ fontFamily:FONT.display, fontSize:16, color:G.gold, letterSpacing:1 }}>+{s.pts}</div>
