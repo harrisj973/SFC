@@ -1260,6 +1260,25 @@ function getLastExercisePerformance(exName, sessions) {
   return null;
 }
 
+const BODYWEIGHT_EXERCISES = new Set([
+  // Upper body pulling
+  "Pull-Ups", "Chin-Ups",
+  // Upper body pushing
+  "Push-Ups", "Chest Dip", "Dips",
+  // Core — no equipment needed
+  "Plank", "Side Plank", "Ab Wheel", "Hanging Leg Raises", "Leg Raises",
+  "Russian Twists", "Bicycle Crunches", "Crunch", "Decline Crunches", "Sit-Ups",
+  "V-Ups", "Dragon Flag", "Dead Bug", "Flutter Kicks", "Mountain Climbers",
+  "Hollow Body Hold", "Toes-to-Bar", "Windshield Wipers",
+]);
+function getLoggedBodyWeight() {
+  try {
+    const log = JSON.parse(localStorage.getItem("sfc_body_log") || "[]");
+    const w = parseFloat(log[0]?.weight);
+    return isNaN(w) ? null : w;
+  } catch { return null; }
+}
+
 function progressWeight(w) {
   const base = parseFloat(w) || 0;
   return Math.round((base + 5) / 2.5) * 2.5;
@@ -2442,6 +2461,12 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
       const progressed = last.sets.map(s => ({ r: String(s.r), w: String(progressWeight(s.w)) }));
       setExs(p => p.map(e => e.id !== exId ? e : { ...e, name, q: name, sugg: false, sets: progressed }));
       showToast(`⚡ Loaded with +5 lbs progression from ${last.date}`);
+    } else if (BODYWEIGHT_EXERCISES.has(name)) {
+      const bw = getLoggedBodyWeight();
+      const defaultSets = [{ r: "", w: bw ? String(bw) : "", type: "working" }];
+      setExs(p => p.map(e => e.id !== exId ? e : { ...e, name, q: name, sugg: false, sets: defaultSets }));
+      if (bw) showToast(`⚖️ Body weight (${bw} lbs) auto-filled`);
+      else showToast("💡 Log your weight in STATS → body check-in to auto-fill");
     } else {
       updEx(exId, "name", name); updEx(exId, "q", name); updEx(exId, "sugg", false);
     }
@@ -2619,10 +2644,34 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                   ) : null;
                 })()}
 
+                {BODYWEIGHT_EXERCISES.has(ex.name) && (() => {
+                  const bw = getLoggedBodyWeight();
+                  const fillBW = () => {
+                    if (!bw) { showToast("💡 Log your weight in STATS → body check-in first"); return; }
+                    setExs(p => p.map(e => e.id !== ex.id ? e : { ...e, sets: e.sets.map(s => ({ ...s, w: String(bw) })) }));
+                    showToast(`⚖️ All sets filled with ${bw} lbs`);
+                  };
+                  return (
+                    <div style={{ margin:"0 12px 6px", background:"rgba(85,239,196,0.07)", border:"1px solid rgba(85,239,196,0.25)", borderRadius:8, padding:"7px 12px", display:"flex", alignItems:"center", gap:10 }}>
+                      <span style={{ fontSize:14 }}>⚖️</span>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:"#55EFC4", textTransform:"uppercase" }}>BODYWEIGHT EXERCISE</div>
+                        {bw
+                          ? <div style={{ fontFamily:FONT.display, fontSize:12, color:"#55EFC4", letterSpacing:1, marginTop:1 }}>YOUR WEIGHT: {bw} LBS</div>
+                          : <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, marginTop:1 }}>Log weight in STATS to auto-fill</div>
+                        }
+                      </div>
+                      {bw && (
+                        <button onClick={fillBW} style={{ background:"rgba(85,239,196,0.15)", border:"1px solid rgba(85,239,196,0.4)", borderRadius:6, padding:"5px 10px", color:"#55EFC4", fontFamily:FONT.display, fontSize:10, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase", flexShrink:0 }}>USE BW</button>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {(() => {
                   const cardioConf = CARDIO_SET_CONFIG[ex.name];
                   const hA = cardioConf ? `${cardioConf.a.label}${cardioConf.a.unit ? ` (${cardioConf.a.unit})` : ""}` : "REPS";
-                  const hB = cardioConf ? `${cardioConf.b.label}${cardioConf.b.unit ? ` (${cardioConf.b.unit})` : ""}` : "WEIGHT (LBS)";
+                  const hB = cardioConf ? `${cardioConf.b.label}${cardioConf.b.unit ? ` (${cardioConf.b.unit})` : ""}` : (BODYWEIGHT_EXERCISES.has(ex.name) ? "WEIGHT (LBS) ⚖️" : "WEIGHT (LBS)");
                   return (
                     <div style={{ display:"grid", gridTemplateColumns:"30px 1fr 1fr 30px", gap:6, padding:"6px 12px 3px", alignItems:"center" }}>
                       {["TYPE", hA, hB, ""].map((h,i)=>(
@@ -2650,7 +2699,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                       <div style={{ display:"grid", gridTemplateColumns:"30px 1fr 1fr 30px", gap:6, padding:"3px 12px", alignItems:"center" }}>
                         <button onClick={()=>updSet(ex.id,si,"type",nextType)} title={`Tap to change: ${nextType}`} style={{ width:24, height:24, borderRadius:4, background:badgeCfg.bg, border:`1px solid ${badgeCfg.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT.display, fontSize:11, color:badgeCfg.color, cursor:"pointer", padding:0 }}>{badgeCfg.label}</button>
                         <input type="number" inputMode={cardioConf ? cardioConf.a.mode : "numeric"} placeholder={cardioConf ? "0" : (prevSet ? String(prevSet.r) : "—")} value={set.r} onChange={e=>updSet(ex.id,si,"r",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color:inputColor }}/>
-                        <input type="number" inputMode={cardioConf ? cardioConf.b.mode : "decimal"} placeholder={cardioConf ? "0" : (prevSet ? String(progressWeight(prevSet.w)) : "—")} value={set.w} onChange={e=>updSet(ex.id,si,"w",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color:inputColor }}/>
+                        <input type="number" inputMode={cardioConf ? cardioConf.b.mode : "decimal"} placeholder={cardioConf ? "0" : (prevSet ? String(progressWeight(prevSet.w)) : (BODYWEIGHT_EXERCISES.has(ex.name) ? String(getLoggedBodyWeight() || "BW") : "—"))} value={set.w} onChange={e=>updSet(ex.id,si,"w",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color:inputColor }}/>
                         <button onClick={()=>{if(ex.sets.length>1)setExs(p=>p.map(e=>e.id!==ex.id?e:{...e,sets:e.sets.filter((_,j)=>j!==si)}));}} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:13 }}>✕</button>
                       </div>
                       {!cardioConf && setType==="warmup" && <div style={{ paddingLeft:48, paddingBottom:1, fontFamily:FONT.body, fontSize:9, color:"#74B9FF", letterSpacing:1.5, textTransform:"uppercase" }}>warm-up · not counted in volume</div>}
