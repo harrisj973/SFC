@@ -1,0 +1,84 @@
+{
+  "id": "/",
+  "name": "Social Fit Club",
+  "short_name": "SFC",
+  "description": "Track workouts, hit PRs, log nutrition, and compete with your squad. Your all-in-one fitness community.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#06060E",
+  "theme_color": "#06060E",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/home.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Home — stats, leaderboard & quick start"
+    },
+    {
+      "src": "/screenshots/train.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Train — track sessions & exercises"
+    },
+    {
+      "src": "/screenshots/stats.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Stats — progress, streaks & muscle heatmap"
+    },
+    {
+      "src": "/screenshots/fuel.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Fuel — nutrition log & macro tracking"
+    },
+    {
+      "src": "/screenshots/squad.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Squad — social feed & challenges"
+    },
+    {
+      "src": "/screenshots/more.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "More — AI Coach, Goals & tools"
+    }
+  ],
+  "categories": ["fitness", "health", "sports"],
+  "lang": "en",
+  "dir": "ltr"
+}
