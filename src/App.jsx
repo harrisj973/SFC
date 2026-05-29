@@ -48,6 +48,7 @@ const EXERCISE_CATS = {
     "Incline Dumbbell Press","Decline Dumbbell Press","Cable Flyes","Dumbbell Flyes",
     "Incline Cable Flyes","Pec Deck Machine","Push-Ups","Chest Dip",
     "Machine Chest Press","Low Cable Crossover","Cable Chest Press","Dumbbell Pullover",
+    "Barbell Floor Press","Dumbbell Floor Press","Svend Press",
   ],
   "BACK": [
     "Barbell Deadlift","Romanian Deadlift","Trap Bar Deadlift","Rack Pull",
@@ -56,6 +57,7 @@ const EXERCISE_CATS = {
     "Lat Pulldown","Close-Grip Lat Pulldown","Pull-Ups","Chin-Ups",
     "Straight-Arm Pulldown","Hyperextensions",
     "Renegade Row","Dumbbell Deadlift","Dumbbell Good Mornings",
+    "Barbell Good Mornings","Sumo Deadlift","Landmine Row","Landmine Romanian Deadlift","Meadows Row",
   ],
   "LEGS": [
     "Barbell Squat","Front Squat","Hack Squat","Goblet Squat","Box Squat",
@@ -65,6 +67,7 @@ const EXERCISE_CATS = {
     "Hip Thrust","Glute Bridge","Calf Raise","Seated Calf Raise",
     "Cable Pull-Through","Cable Glute Kickback","Cable Hip Abduction","Cable Romanian Deadlift",
     "Dumbbell Romanian Deadlift","Dumbbell Hip Thrust","Dumbbell Sumo Squat","Dumbbell Calf Raise",
+    "Landmine Squat","Landmine Split Squat","Pistol Squat","Sissy Squat","Reverse Hypers","Hip Abductor Machine",
   ],
   "SHOULDERS": [
     "Barbell Overhead Press","Seated Dumbbell Press","Machine Shoulder Press",
@@ -73,6 +76,7 @@ const EXERCISE_CATS = {
     "Rear Delt Flyes","Machine Rear Delt Flyes","Cable Face Pulls",
     "Upright Row","Barbell Shrugs","Dumbbell Shrugs",
     "Cable Upright Row","Dumbbell Upright Row",
+    "Landmine Press","Landmine Lateral Raise","Bradford Press","Cable Y-Raise",
   ],
   "ARMS": [
     "Barbell Curl","Dumbbell Curl","Hammer Curl","Preacher Curl",
@@ -82,23 +86,27 @@ const EXERCISE_CATS = {
     "Tricep Overhead Extension","Cable Overhead Tricep Extension",
     "Tricep Kickback","Dips",
     "Dumbbell Skull Crushers","Dumbbell Overhead Tricep Extension",
+    "Spider Curl","Cross-Body Hammer Curl","Overhead Cable Curl",
   ],
   "CORE": [
     "Plank","Side Plank","Ab Wheel","Hanging Leg Raises","Leg Raises",
     "Russian Twists","Bicycle Crunches","Crunch","Decline Crunches","Sit-Ups",
     "Cable Crunch","V-Ups","Dragon Flag","Dead Bug","Pallof Press",
     "Flutter Kicks","Mountain Climbers","Cable Woodchop",
+    "Landmine Rotation","Hollow Body Hold","Toes-to-Bar","Windshield Wipers","Suitcase Carry",
   ],
   "CARDIO": [
     "Jump Rope","Assault Bike","Box Jumps","Burpees","Battle Ropes",
     "Sled Push","Rowing Machine","Treadmill Run","Stair Climber",
     "Jump Squats","High Knees","Bear Crawl","Farmer's Walk",
+    "Ski Erg","Sled Drag","Prowler Push","Sprint Intervals",
   ],
   "KETTLEBELL": [
     "Kettlebell Swing","Kettlebell Clean","Kettlebell Press","Kettlebell Snatch",
     "Kettlebell Turkish Get-Up","Kettlebell Goblet Squat","Kettlebell Deadlift",
     "Kettlebell Row","Kettlebell Windmill","Kettlebell Halo",
     "Kettlebell Clean and Press","Kettlebell Front Squat","Kettlebell Lunge",
+    "Kettlebell Figure Eight","Kettlebell Thruster","Kettlebell Renegade Row",
   ],
 };
 const EXERCISES = Object.values(EXERCISE_CATS).flat();
@@ -156,6 +164,12 @@ const EQUIPMENT_CATS = {
     // CORE
     "Cable Crunch","Pallof Press","Cable Woodchop",
   ],
+  "LANDMINE": [
+    "Landmine Press","Landmine Lateral Raise",
+    "Landmine Row","Landmine Romanian Deadlift",
+    "Landmine Squat","Landmine Split Squat",
+    "Landmine Rotation",
+  ],
   "DUMBBELLS": [
     // CHEST
     "Dumbbell Bench Press","Incline Dumbbell Press","Decline Dumbbell Press",
@@ -192,6 +206,11 @@ const CARDIO_SET_CONFIG = {
   "High Knees":     { a:{ label:"TIME",    unit:"SEC",  mode:"numeric"  }, b:{ label:"ROUNDS",  unit:"",    mode:"numeric"  } },
   "Bear Crawl":     { a:{ label:"TIME",    unit:"SEC",  mode:"numeric"  }, b:{ label:"ROUNDS",  unit:"",    mode:"numeric"  } },
   "Farmer's Walk":  { a:{ label:"DIST",    unit:"YDS",  mode:"numeric"  }, b:{ label:"WEIGHT",  unit:"LBS", mode:"decimal" } },
+  "Ski Erg":        { a:{ label:"TIME",    unit:"MIN",  mode:"decimal"  }, b:{ label:"DIST",    unit:"M",   mode:"numeric"  } },
+  "Sled Drag":      { a:{ label:"DIST",    unit:"YDS",  mode:"numeric"  }, b:{ label:"WEIGHT",  unit:"LBS", mode:"decimal" } },
+  "Prowler Push":   { a:{ label:"DIST",    unit:"YDS",  mode:"numeric"  }, b:{ label:"WEIGHT",  unit:"LBS", mode:"decimal" } },
+  "Sprint Intervals":{ a:{ label:"TIME",   unit:"SEC",  mode:"numeric"  }, b:{ label:"ROUNDS",  unit:"",    mode:"numeric"  } },
+  "Suitcase Carry": { a:{ label:"DIST",    unit:"YDS",  mode:"numeric"  }, b:{ label:"WEIGHT",  unit:"LBS", mode:"decimal" } },
 };
 
 const MACROS_GOAL = { cal:2200, pro:180, carb:220, fat:65 };
@@ -1090,11 +1109,25 @@ const EXERCISE_MUSCLE_MAP = {
   // CHEST additions
   "Cable Chest Press":             { chest:0.95, front_delt:0.4, tricep:0.35 },
   "Dumbbell Pullover":             { chest:0.7, lat:0.8, tricep:0.3 },
+  "Barbell Floor Press":           { chest:0.9, tricep:0.7, front_delt:0.35 },
+  "Dumbbell Floor Press":          { chest:0.85, tricep:0.65, front_delt:0.3 },
+  "Svend Press":                   { chest:1.0, front_delt:0.2 },
   // BACK additions
   "Renegade Row":                  { lat:0.8, mid_back:0.7, bicep:0.45, upper_abs:0.5 },
   "Dumbbell Deadlift":             { lower_back:0.75, glute:0.7, hamstring:0.6, quad:0.5 },
   "Dumbbell Good Mornings":        { lower_back:0.9, hamstring:0.7, glute:0.5 },
+  "Barbell Good Mornings":         { lower_back:0.95, hamstring:0.75, glute:0.5 },
+  "Sumo Deadlift":                 { glute:0.95, quad:0.8, hamstring:0.65, lower_back:0.6, trap:0.4 },
+  "Landmine Row":                  { lat:0.9, mid_back:0.85, rear_delt:0.55, bicep:0.5 },
+  "Landmine Romanian Deadlift":    { hamstring:0.95, glute:0.9, lower_back:0.65 },
+  "Meadows Row":                   { lat:0.95, mid_back:0.8, rear_delt:0.5, bicep:0.55 },
   // LEGS additions
+  "Landmine Squat":                { quad:0.9, glute:0.8, lower_back:0.3 },
+  "Landmine Split Squat":          { quad:0.9, glute:0.85, hamstring:0.45 },
+  "Pistol Squat":                  { quad:1.0, glute:0.8, hamstring:0.4, hip_flexor:0.5 },
+  "Sissy Squat":                   { quad:1.0, hip_flexor:0.5 },
+  "Reverse Hypers":                { glute:0.9, hamstring:0.7, lower_back:0.65 },
+  "Hip Abductor Machine":          { glute:0.9, hip_flexor:0.5 },
   "Cable Pull-Through":            { glute:0.9, hamstring:0.65, lower_back:0.5 },
   "Cable Glute Kickback":          { glute:1.0, hamstring:0.3 },
   "Cable Hip Abduction":           { glute:0.85, hip_flexor:0.4 },
@@ -1106,11 +1139,23 @@ const EXERCISE_MUSCLE_MAP = {
   // SHOULDERS additions
   "Cable Upright Row":             { mid_delt:0.85, trap:0.8, front_delt:0.35, bicep:0.3 },
   "Dumbbell Upright Row":          { mid_delt:0.8, trap:0.75, front_delt:0.3, bicep:0.3 },
+  "Landmine Press":                { front_delt:0.85, mid_delt:0.55, chest:0.4, tricep:0.45 },
+  "Landmine Lateral Raise":        { mid_delt:0.95, rear_delt:0.3, trap:0.2 },
+  "Bradford Press":                { front_delt:0.9, mid_delt:0.75, trap:0.4, tricep:0.35 },
+  "Cable Y-Raise":                 { rear_delt:0.85, mid_back:0.55, trap:0.4 },
   // ARMS additions
   "Dumbbell Skull Crushers":       { tricep:1.0 },
   "Dumbbell Overhead Tricep Extension": { tricep:1.0 },
+  "Spider Curl":                   { bicep:1.0, forearm:0.3 },
+  "Cross-Body Hammer Curl":        { bicep:0.85, forearm:0.85 },
+  "Overhead Cable Curl":           { bicep:1.0, forearm:0.25 },
   // CORE additions
   "Cable Woodchop":                { oblique:1.0, upper_abs:0.7, lower_back:0.3 },
+  "Landmine Rotation":             { oblique:1.0, upper_abs:0.65, lower_back:0.35 },
+  "Hollow Body Hold":              { upper_abs:0.9, lower_abs:0.95, hip_flexor:0.6 },
+  "Toes-to-Bar":                   { lower_abs:1.0, hip_flexor:0.9, upper_abs:0.5 },
+  "Windshield Wipers":             { oblique:1.0, lower_abs:0.85, hip_flexor:0.6 },
+  "Suitcase Carry":                { oblique:0.9, lower_back:0.65, trap:0.75, forearm:0.7 },
   // KETTLEBELL
   "Kettlebell Clean":              { glute:0.8, hamstring:0.6, lat:0.5, trap:0.6, bicep:0.4 },
   "Kettlebell Press":              { front_delt:0.9, mid_delt:0.6, tricep:0.5, trap:0.3 },
@@ -1124,6 +1169,14 @@ const EXERCISE_MUSCLE_MAP = {
   "Kettlebell Clean and Press":    { glute:0.75, hamstring:0.5, front_delt:0.85, mid_delt:0.55, tricep:0.45, trap:0.55 },
   "Kettlebell Front Squat":        { quad:0.95, glute:0.65, lower_back:0.3 },
   "Kettlebell Lunge":              { quad:0.8, glute:0.85, hamstring:0.4 },
+  "Kettlebell Figure Eight":       { oblique:0.7, lower_back:0.5, hip_flexor:0.55, glute:0.5 },
+  "Kettlebell Thruster":           { quad:0.9, glute:0.8, front_delt:0.75, tricep:0.5, lower_back:0.35 },
+  "Kettlebell Renegade Row":       { lat:0.85, mid_back:0.7, upper_abs:0.6, bicep:0.45 },
+  // CARDIO additions
+  "Ski Erg":                       { lat:0.8, front_delt:0.6, upper_abs:0.55, quad:0.4 },
+  "Sled Drag":                     { quad:0.85, hamstring:0.7, glute:0.65, calf:0.5 },
+  "Prowler Push":                  { quad:0.9, glute:0.75, lower_back:0.45, front_delt:0.4 },
+  "Sprint Intervals":              { quad:0.85, hamstring:0.7, glute:0.65, calf:0.8 },
 };
 
 const MUSCLE_LABELS = {
