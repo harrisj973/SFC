@@ -2193,6 +2193,8 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile, o
   })();
   const [lbExpanded, setLbExpanded] = useState(false);
   const [qsExpanded, setQsExpanded] = useState(true);
+  const [badgesOpen, setBadgesOpen] = useState(false);
+  const unlockedBadges = getUnlockedBadges(sessions, profile);
 
   const WORKOUTS = [
     { name:"PUSH DAY", ico:"⊞", iconBg:"#4A2BE2", sub:"Chest · Shoulders · Tris", exs:["Barbell Bench Press","Incline Dumbbell Press","Lateral Raises","Tricep Pushdown"] },
@@ -2307,6 +2309,39 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile, o
           </div>
         </div>
       </div>
+
+      {/* ── Badges ── */}
+      <div onClick={() => setBadgesOpen(true)} style={{ margin:"0 16px 12px", background:"rgba(20,18,40,0.95)", border:`1px solid ${G.gold}33`, borderRadius:14, padding:"14px 16px", cursor:"pointer" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom: unlockedBadges.size > 0 ? 12 : 0 }}>
+          <div style={{ width:36, height:36, borderRadius:9, background:`${G.gold}20`, border:`1px solid ${G.gold}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>🏆</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>MY BADGES</div>
+            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1 }}>{unlockedBadges.size} of {ACHIEVEMENTS.length} unlocked</div>
+          </div>
+          <div style={{ fontFamily:FONT.mono, fontSize:18, color:G.textDim }}>›</div>
+        </div>
+        {unlockedBadges.size > 0 && (
+          <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
+            {ACHIEVEMENTS.filter(a => unlockedBadges.has(a.id)).slice(0, 9).map(a => (
+              <div key={a.id} style={{ width:36, height:36, borderRadius:9, background:`${G.gold}15`, border:`1px solid ${G.gold}33`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, boxShadow:`0 0 8px ${G.gold}22` }}>{a.ico}</div>
+            ))}
+            {unlockedBadges.size > 9 && (
+              <div style={{ width:36, height:36, borderRadius:9, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT.display, fontSize:10, color:G.textMid, letterSpacing:0.5 }}>+{unlockedBadges.size - 9}</div>
+            )}
+          </div>
+        )}
+        {unlockedBadges.size === 0 && (
+          <div style={{ display:"flex", gap:7 }}>
+            {[0,1,2,3,4].map(i => (
+              <div key={i} style={{ width:36, height:36, borderRadius:9, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, opacity:0.4 }}>🔒</div>
+            ))}
+            <div style={{ flex:1, display:"flex", alignItems:"center", paddingLeft:4 }}>
+              <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1 }}>Log your first session to unlock!</div>
+            </div>
+          </div>
+        )}
+      </div>
+      {badgesOpen && <AchievementsModal sessions={sessions} profile={profile} onClose={() => setBadgesOpen(false)}/>}
 
       {/* ── Leaderboard row ── */}
       <div style={{ margin:"0 16px 8px" }}>
