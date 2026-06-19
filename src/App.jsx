@@ -8615,8 +8615,10 @@ function SocialFitClubInner() {
         localStorage.setItem("sfc_session_tags", JSON.stringify(tagMap));
       } catch { /* ignore */ }
     }
-    // Replace the optimistic placeholder with the real Supabase id
-    setSessions(p => p.map(s => s.createdAt === sessWithTs._optimisticAt ? { ...s, id: sData.id } : s));
+    // Sync from DB — replaces the optimistic entry with the real row (including id).
+    // This also guards against the visibility-change handler racing loadSessions
+    // during the insert and wiping the optimistic state before the insert completes.
+    await loadSessions(user.id);
     showToast(`🏆 SESSION SAVED · +${sess.pts} POINTS`);
     return true;
   };
