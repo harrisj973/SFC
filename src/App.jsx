@@ -2747,7 +2747,7 @@ function DeloadModal({ onClose, onConfirm }) {
   );
 }
 
-function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQuickStart, sessions = [], onShareSession, unit = "lbs" }) {
+function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQuickStart, sessions = [], onShareSession, unit = "lbs", onShareTemplate }) {
   const [subTab, setSubTab] = useState("track");
   const [sessName, setSessName] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sfc_wip_session") || "{}").name || ""; } catch { return ""; }
@@ -3454,6 +3454,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                     </div>
                     <div style={{ display:"flex", gap:6, flexShrink:0 }}>
                       <button onClick={()=>loadTemplate(tmpl)} style={{ background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", borderRadius:5, padding:"6px 12px", color:"#0A0810", fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>LOAD</button>
+                      {onShareTemplate && <button onClick={()=>onShareTemplate(tmpl)} style={{ background:`${G.purple}22`, border:`1px solid ${G.purple}55`, borderRadius:5, padding:"6px 9px", color:G.purpleLight, fontFamily:FONT.body, fontSize:13, cursor:"pointer" }} title="Share to Squad">📤</button>}
                       <button onClick={()=>deleteTemplate(tmpl.id)} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:5, padding:"6px 8px", color:G.textDim, fontFamily:FONT.body, fontSize:11, cursor:"pointer" }}>✕</button>
                     </div>
                   </div>
@@ -7051,11 +7052,12 @@ function FeedScreen({ showToast, profile, sessions = [], userId, sharedSession, 
   };
 
   const typeConfig = {
-    pr:        { color: G.gold,      ico: "🏆", label: "PR ALERT" },
+    pr:        { color: G.gold,        ico: "🏆", label: "PR ALERT" },
     milestone: { color: G.purpleLight, ico: "⭐", label: "MILESTONE" },
-    post:      { color: G.textMid,   ico: null, label: null },
-    challenge: { color: "#00D4FF",   ico: "⚔️", label: "CHALLENGE" },
-    workout:   { color: G.purple,    ico: "💪", label: "WORKOUT" },
+    post:      { color: G.textMid,     ico: null, label: null },
+    challenge: { color: "#00D4FF",     ico: "⚔️", label: "CHALLENGE" },
+    workout:   { color: G.purple,      ico: "💪", label: "WORKOUT" },
+    template:  { color: "#4ADE80",     ico: "📋", label: "TEMPLATE" },
   };
 
   const inp = { background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:8, padding:"11px 14px", color:"#fff", fontSize:14, outline:"none", fontFamily:FONT.body, letterSpacing:0.5, width:"100%", boxSizing:"border-box" };
@@ -7147,8 +7149,36 @@ function FeedScreen({ showToast, profile, sessions = [], userId, sharedSession, 
                 </div>
               )}
 
-              {/* Text */}
-              {post.txt && <div style={{ padding:"0 16px 14px", fontFamily:FONT.body, fontSize:14, color:G.text, lineHeight:1.65, letterSpacing:0.3 }}>{post.txt}</div>}
+              {/* Template card */}
+              {post.type === "template" && (() => {
+                let tmplData = null;
+                try { tmplData = JSON.parse(post.txt); } catch {}
+                if (!tmplData) return null;
+                const exNames = (tmplData.exs || []).map(e => e.name || e).filter(Boolean);
+                const importTemplate = () => {
+                  try {
+                    const existing = JSON.parse(localStorage.getItem("sfc_templates") || "[]");
+                    const newTmpl = { id: Date.now().toString(), name: tmplData.name, exs: tmplData.exs || [], tag: tmplData.tag || null };
+                    localStorage.setItem("sfc_templates", JSON.stringify([newTmpl, ...existing]));
+                    showToast(`📥 "${tmplData.name}" imported to your templates!`);
+                  } catch { showToast("Failed to import template"); }
+                };
+                return (
+                  <div style={{ margin:"0 16px 14px", background:"rgba(74,222,128,0.06)", border:"1px solid rgba(74,222,128,0.2)", borderRadius:10, padding:"12px 14px" }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:"#4ADE80", marginBottom:6, textTransform:"uppercase" }}>{tmplData.name}</div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:10 }}>
+                      {exNames.slice(0, 6).map((n, i) => (
+                        <div key={i} style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, background:"rgba(255,255,255,0.06)", borderRadius:4, padding:"2px 8px", letterSpacing:1, textTransform:"uppercase" }}>{n}</div>
+                      ))}
+                      {exNames.length > 6 && <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, padding:"2px 4px", letterSpacing:1 }}>+{exNames.length - 6} more</div>}
+                    </div>
+                    <button onClick={importTemplate} style={{ background:"rgba(74,222,128,0.15)", border:"1px solid rgba(74,222,128,0.35)", borderRadius:7, padding:"7px 14px", color:"#4ADE80", fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>📥 IMPORT TO MY TEMPLATES</button>
+                  </div>
+                );
+              })()}
+
+              {/* Text (non-template posts only) */}
+              {post.type !== "template" && post.txt && <div style={{ padding:"0 16px 14px", fontFamily:FONT.body, fontSize:14, color:G.text, lineHeight:1.65, letterSpacing:0.3 }}>{post.txt}</div>}
 
               {/* Image */}
               {post.image_url && (
@@ -9259,6 +9289,15 @@ function SocialFitClubInner() {
   const [viewingUser, setViewingUser] = useState(null);
   const [feedShareText, setFeedShareText] = useState(null);
   const [unit, setUnit] = useState(() => localStorage.getItem("sfc_unit") || "lbs");
+
+  const handleShareTemplate = async (tmpl) => {
+    if (!user?.id) return;
+    const txt = JSON.stringify({ name: tmpl.name, exs: tmpl.exs, tag: tmpl.tag || null });
+    const { error } = await supabase.from("posts").insert({ user_id: user.id, type: "template", txt, tag: tmpl.name.toUpperCase(), likes: 0, comment_count: 0 });
+    if (error) { showToast("Failed to share — check connection"); return; }
+    setTab("feed");
+    showToast("📤 Template shared with your squad!");
+  };
   const profileSetupChecked = useRef(false);
   const toastTimer = useRef(null);
 
@@ -9581,7 +9620,7 @@ function SocialFitClubInner() {
 
       <main style={{ paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 82px)", position:"relative", zIndex:2, minHeight:"100vh" }}>
         {tab==="home" && (user?.email?.toLowerCase()===ADMIN_EMAIL ? <AdminHomeScreen/> : <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile} onViewProfile={u => setViewingUser({ ...u, isMe: false })}/>)}
-        {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions} onShareSession={(text) => { setFeedShareText(text); setTab("feed"); }} unit={unit}/>}
+        {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions} onShareSession={(text) => { setFeedShareText(text); setTab("feed"); }} unit={unit} onShareTemplate={handleShareTemplate}/>}
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile} unit={unit}/>}
         {tab==="nutrition" && <NutritionScreen showToast={showToast} sessions={sessions}/>}
         {tab==="feed" && <FeedScreen showToast={showToast} profile={profile} sessions={sessions} userId={user?.id} sharedSession={feedShareText} onClearSharedSession={() => setFeedShareText(null)}/>}
