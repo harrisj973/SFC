@@ -8664,6 +8664,39 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
         <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.textMid, textTransform:"uppercase" }}>HELP & SUPPORT</div>
         <span style={{ color:G.textDim, fontSize:13 }}>›</span>
       </div>
+      <div onClick={() => {
+        try {
+          const safeJSON = key => { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch { return null; } };
+          const exportData = {
+            exportedAt: new Date().toISOString(),
+            profile: profile ? { username: profile.username, points: profile.points, streak: profile.streak, sessions_count: profile.sessions_count } : null,
+            sessions: sessions || [],
+            nutritionLog: safeJSON("sfc_nutrition_log"),
+            supplementLog: safeJSON("sfc_supplement_log"),
+            bodyLog: safeJSON("sfc_body_log"),
+            waterLog: safeJSON("sfc_water_log"),
+            goals: safeJSON("sfc_goals"),
+            challenges: safeJSON("sfc_challenges"),
+            templates: safeJSON("sfc_templates"),
+            mealTemplates: safeJSON("sfc_meal_templates"),
+            macroCoach: safeJSON("sfc_macro_coach"),
+          };
+          const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `sfc-data-${new Date().toISOString().slice(0,10)}.json`;
+          document.body.appendChild(a); a.click();
+          document.body.removeChild(a); URL.revokeObjectURL(url);
+          showToast("📦 Data exported!");
+        } catch { showToast("Export failed — try again"); }
+      }} style={{ background:"rgba(255,255,255,0.04)", border:`1px solid ${G.borderB}`, borderRadius:10, padding:"13px 14px", marginTop:4, marginBottom:7, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
+        <span style={{ fontSize:18, flexShrink:0 }}>📦</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.textMid, textTransform:"uppercase" }}>EXPORT MY DATA</div>
+          <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>Sessions · Nutrition · Body log · Templates</div>
+        </div>
+        <span style={{ color:G.textDim, fontSize:13 }}>↓</span>
+      </div>
       <div onClick={onSignOut} style={{ background:"rgba(255,61,90,0.07)", border:`1px solid ${G.red}33`, borderRadius:10, padding:"13px 14px", marginTop:4, display:"flex", alignItems:"center", gap:11, cursor:"pointer" }}>
         <span style={{ fontSize:18, flexShrink:0 }}>🚪</span>
         <div style={{ flex:1, fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:G.red, textTransform:"uppercase" }}>SIGN OUT</div>
