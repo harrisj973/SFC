@@ -9997,7 +9997,7 @@ function SocialFitClubInner() {
   if (!profile) return <div style={{ minHeight:"100vh", background:G.bg }}/>;
 
   return (
-    <div style={{ minHeight:"100vh", background:G.bg, color:G.text, fontFamily:FONT.body, maxWidth:480, margin:"0 auto", position:"relative", userSelect:"none" }}>
+    <div style={{ height:"100dvh", background:G.bg, color:G.text, fontFamily:FONT.body, maxWidth:480, margin:"0 auto", position:"relative", userSelect:"none", display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <GridBg/>
 
       {toast && (
@@ -10027,7 +10027,7 @@ function SocialFitClubInner() {
 
       {viewingUser && <UserProfileModal user={viewingUser} currentUserId={user?.id} onClose={() => setViewingUser(null)}/>}
 
-      <main style={{ paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 82px)", position:"relative", zIndex:2, minHeight:"100vh" }}>
+      <main style={{ flex:1, overflowY:"auto", overflowX:"hidden", WebkitOverflowScrolling:"touch", position:"relative", zIndex:2, paddingBottom:24 }}>
         {tab==="home" && (user?.email?.toLowerCase()===ADMIN_EMAIL ? <AdminHomeScreen/> : <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile} onViewProfile={u => setViewingUser({ ...u, isMe: false })}/>)}
         {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions} onShareSession={(text) => { setFeedShareText(text); setTab("feed"); }} unit={unit} onShareTemplate={handleShareTemplate}/>}
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile} unit={unit}/>}
@@ -10036,7 +10036,7 @@ function SocialFitClubInner() {
         {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut} onProfileUpdate={p => setProfile(p)} userId={user?.id} sessions={sessions} muscleScores={calcMuscleScores(sessions)} isAdmin={user?.email?.toLowerCase()===ADMIN_EMAIL} unit={unit} onUnitToggle={() => { const u = unit === "lbs" ? "kg" : "lbs"; setUnit(u); localStorage.setItem("sfc_unit", u); }}/>}
       </main>
 
-      <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, zIndex:50 }}>
+      <div style={{ flexShrink:0, zIndex:50 }}>
         <div style={{ height:1, background:`linear-gradient(90deg,transparent,${G.gold}66,${G.gold},${G.gold}66,transparent)`, boxShadow:`0 0 10px ${G.gold}55` }}/>
         <div data-tour="nav" style={{ background:`linear-gradient(180deg,rgba(6,6,14,0.97) 0%,rgba(8,8,16,1) 100%)`, backdropFilter:"blur(20px)", display:"flex", padding:`8px 0 calc(env(safe-area-inset-bottom, 0px) + 12px)` }}>
           {TABS.map(t => {
