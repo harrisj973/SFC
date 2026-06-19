@@ -6389,7 +6389,7 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
                   style={{ ...inp, resize:"none", lineHeight:1.6, marginBottom:12 }}
                 />
                 {/* Image picker */}
-                <input type="file" accept="image/*" capture="environment" ref={postFileInputRef} onChange={handleImagePick} style={{ display:"none" }}/>
+                <input type="file" accept="image/*" ref={postFileInputRef} onChange={handleImagePick} style={{ display:"none" }}/>
                 <div style={{ marginBottom:14 }}>
                   {postImagePreview ? (
                     <div style={{ position:"relative" }}>
