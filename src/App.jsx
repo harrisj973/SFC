@@ -5013,40 +5013,52 @@ function ProgressScreen({ showToast, sessions = [], profile, unit = "lbs" }) {
               <button onClick={saveBodyEntry} style={{ width:"100%", background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", borderRadius:6, padding:"10px", color:"#0A0810", fontFamily:FONT.display, fontSize:14, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>SAVE</button>
             </ChromeCard>
           )}
-          {bodyLog.length >= 3 && (() => {
+          {bodyLog.length >= 2 && (() => {
             const pts2 = [...bodyLog].reverse();
             const weights = pts2.map(e => e.weight);
             const minW = Math.min(...weights);
             const maxW = Math.max(...weights);
             const range = maxW - minW || 1;
-            const W = 280; const H = 52;
+            const W = 280; const H = 64;
+            const PAD = 8;
             const coords = pts2.map((e, i) => ({
-              x: (i / (pts2.length - 1)) * W,
-              y: H - ((e.weight - minW) / range) * (H - 10) - 5,
+              x: PAD + (i / Math.max(pts2.length - 1, 1)) * (W - PAD * 2),
+              y: H - ((e.weight - minW) / range) * (H - 16) - 8,
             }));
             const polyPts = coords.map(c => `${c.x},${c.y}`).join(" ");
+            const delta = pts2[pts2.length - 1].weight - pts2[0].weight;
+            const absDelta = Math.abs(delta).toFixed(1);
+            const trendUp = delta > 0;
+            const trendColor = delta === 0 ? G.textMid : trendUp ? G.purpleLight : "#4ADE80";
+            const trendLabel = delta === 0 ? "NO CHANGE" : `${trendUp ? "+" : "−"}${absDelta} LBS`;
+            const fmtDate = d => { try { const [,m,day] = d.split("-"); return `${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][+m-1]} ${+day}`; } catch { return d; } };
             return (
               <ChromeCard style={{ padding:"14px", marginBottom:12 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                   <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>WEIGHT TREND</div>
-                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>{bodyLog.length} entries</div>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:1, color:trendColor }}>{delta > 0 ? "↑" : delta < 0 ? "↓" : "→"} {trendLabel}</div>
+                    <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>{bodyLog.length} entries</div>
+                  </div>
                 </div>
                 <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow:"visible", display:"block" }}>
                   <defs>
                     <linearGradient id="wGrad" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0%" stopColor={G.gold} stopOpacity="0.25"/>
+                      <stop offset="0%" stopColor={G.gold} stopOpacity="0.2"/>
                       <stop offset="100%" stopColor={G.gold} stopOpacity="0"/>
                     </linearGradient>
                   </defs>
-                  <polygon points={`0,${H} ${polyPts} ${W},${H}`} fill="url(#wGrad)"/>
+                  <polygon points={`${coords[0].x},${H} ${polyPts} ${coords[coords.length-1].x},${H}`} fill="url(#wGrad)"/>
                   <polyline points={polyPts} fill="none" stroke={G.gold} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ filter:`drop-shadow(0 0 3px ${G.gold})` }}/>
                   {coords.map((c, i) => (
-                    <circle key={i} cx={c.x} cy={c.y} r={i===coords.length-1?4:2.5} fill={i===coords.length-1?G.gold:"#0A0810"} stroke={G.gold} strokeWidth="1.5"/>
+                    <circle key={i} cx={c.x} cy={c.y} r={i===0||i===coords.length-1?4:2} fill={i===coords.length-1?G.gold:"#0A0810"} stroke={G.gold} strokeWidth="1.5"/>
                   ))}
+                  <text x={coords[0].x} y={coords[0].y - 6} textAnchor="middle" fill={G.textDim} fontSize="7" fontFamily="sans-serif">{pts2[0].weight}</text>
+                  <text x={coords[coords.length-1].x} y={coords[coords.length-1].y - 6} textAnchor="middle" fill={G.gold} fontSize="8" fontFamily="sans-serif" fontWeight="bold">{pts2[pts2.length-1].weight}</text>
                 </svg>
-                <div style={{ display:"flex", justifyContent:"space-between", marginTop:5 }}>
-                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>{pts2[0]?.date}</div>
-                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>{pts2[pts2.length-1]?.date}</div>
+                <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1 }}>{fmtDate(pts2[0]?.date)}</div>
+                  <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:1 }}>{fmtDate(pts2[pts2.length-1]?.date)}</div>
                 </div>
               </ChromeCard>
             );
