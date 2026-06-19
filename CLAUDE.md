@@ -15,15 +15,17 @@ No test suite is configured. **Smoke tests** can be run against the dev server w
 
 ```bash
 npm run dev          # start dev server first
+node verify_sweep.mjs         # 31-check sweep covering all screens and recent features (canonical)
 node test-bugcheck.mjs        # 53-check headless browser sweep (uses ?demo=1 mode)
 node deep_test.mjs            # 43-check interactive flow test covering all screens end-to-end
 node test-recent-features.mjs # 33-check targeted test for nutrition, train, and supplement features
 ```
 
-All three scripts pre-set `sfc_onboarded`, `sfc_profile_setup_done`, `sfc_tour_done`, and `sfc_daily_motiv` in localStorage via `ctx.addInitScript()` before navigation. Without `sfc_onboarded`/`sfc_profile_setup_done`, `OnboardingModal` and `ProfileSetupModal` block all interaction in a fresh headless session.
+All scripts pre-set `sfc_onboarded`, `sfc_profile_setup_done`, `sfc_tour_done`, and `sfc_daily_motiv` in localStorage via `ctx.addInitScript()` before navigation. Without `sfc_onboarded`/`sfc_profile_setup_done`, `OnboardingModal` and `ProfileSetupModal` block all interaction in a fresh headless session.
 
 **Critical Playwright gotchas in this environment:**
 - `ctx.addInitScript(fn, params)` — the two-argument form silently fails (params are not serialized). Always compute dynamic values like `today`/`yesterday` **inside** the callback: `ctx.addInitScript(() => { const today = new Date().toISOString().slice(0,10); ... })`.
+- **Nav tab buttons** — use `page.locator("[data-tour='tab-train']")` etc. (not text-based selectors). Each nav button has two child spans (emoji + label), so `innerText.trim()` returns `"🏋️\nTRAIN"` — hasText matchers fail. Use the `data-tour` attribute.
 - Sub-tab clicks in `ProgressScreen` must use `page.locator("button", { hasText: /^LABEL$/i })` — `page.click("text=LABEL")` hits the screen tagline div first because CSS `text-transform: uppercase` makes it match before the actual button.
 - Exercise picker item clicks require `page.evaluate()` JS dispatch — the picker's scroll-container backdrop intercepts pointer events and causes Playwright's `locator.click()` to time out: `await page.evaluate(() => { const el = [...document.querySelectorAll("div")].find(d => d.textContent.trim() === "Exercise Name"); el?.click(); })`.
 - Water quick-add buttons (`+8`, `+12`, `+16`, `+20 oz`) are in **NutritionScreen (FUEL)**, not ProgressScreen (STATS). STATS only shows a "TODAY'S WATER" stat pill.
@@ -259,7 +261,7 @@ Note: `sfc_feed` is a legacy key from the old localStorage-backed feed. The curr
 - **`getLoggedBodyWeight()`** → reads `sfc_body_log[0].weight` from localStorage, returns a number or `null`. Used by `TrainScreen` to pre-fill weights for bodyweight exercises and by `calcSessionCalories`.
 - **`calcExerciseCalories(sets, exerciseName, bodyWeightLbs)`** → estimated kcal for one exercise using `EXERCISE_MET[name]` (falls back to `DEFAULT_MET = 4.5`). Active set time estimated at `SECS_PER_REP = 3.5s` per rep for strength; for cardio exercises (`CARDIO_SET_CONFIG` match) the `r` field is treated as minutes. Inter-set rest (90 s, `REST_MET = 1.3`) is added between sets. Formula: `MET × bwKg × activeHrs + REST_MET × bwKg × restHrs`.
 - **`calcSessionCalories(exs, bodyWeightLbs)`** → sum of `calcExerciseCalories` across all working sets in a session. Returns `0` when no body weight is provided — used to conditionally show/hide the kcal display.
-- **`getExerciseHistory(exName, sessions)`** → chronological array of `{ date, weight, reps, est1rm }` (best non-warmup set per session). Powers the PRs drill-down strength chart.
+- **`getExerciseHistory(exName, sessions)`** → chronological array of `{ date, weight, reps, est1rm }` (best non-warmup set per session). Powers the PRs drill-down chart and the CHARTS tab in ProgressScreen.
 - **`compressImage(file)`** → Promise resolving to base64 JPEG (max 800px, 65% quality). Rejects on `onerror`. Used by ProgressScreen progress photo capture and FeedScreen post image upload.
 - **`extractFrames(videoFile)`** → Promise resolving to `string[]` — three base64 JPEG frames sampled at 20%, 50%, 80% of video duration (max 640px), extracted via off-screen `<video>` + `<canvas>`. Rejects on video load error. Used by `FormCheckModal`.
 - **`calcTDEE(sex, age, heightIn, weightLbs, activity)`** → Mifflin-St Jeor TDEE. Used by `MacroCoachModal`.
@@ -309,10 +311,11 @@ Four sub-tabs: `TRACK`, `HISTORY`, `PRs`, `PROGRAMS`.
 
 ### ProgressScreen internal tabs
 
-Three tabs via `activeTab` state:
+Four tabs via `activeTab` state:
 - **`stats`**: real computed stats + today's water (`sfc_water_log`) + body composition.
 - **`streak`**: streak counter, freeze mechanic (`sfc_streak_freezes`), milestone road.
-- **`heatmap`**: `MuscleHeatMap` SVG component (`viewBox="0 0 200 440"`).
+- **`charts`**: per-exercise analytics — exercise selector pills (exercises with ≥2 logged sessions), then three SVG charts: BEST SET WEIGHT (purple), ESTIMATED 1RM TREND (gold), TOTAL SESSION VOLUME (green). Powered by `getExerciseHistory(exName, sessions)` for weight/1RM and inline `volHistory` computation for volume. Charts only appear after an exercise pill is selected; shows "LOG SESSIONS TO SEE CHARTS" when no exercises qualify.
+- **`heatmap`** (nav label: `MAP`): `MuscleHeatMap` SVG component (`viewBox="0 0 200 440"`).
 
 **Body composition** — `sfc_body_log` entries are `{ date, weight, bf?, photo? }`. The check-in form includes an optional photo capture (`<input type="file" accept="image/*" capture="environment">`), compressed via `compressImage`. Thumbnails shown in history; tap opens a full-screen lightbox. When ≥2 entries have photos, a BEFORE / AFTER comparison card appears.
 
@@ -326,8 +329,9 @@ The HomeScreen was redesigned with a purple-dominant theme. Layout (top to botto
 2. **Tagline** — purple dot + "Strength in Community".
 3. **Stats card** — avatar, "YOUR STATS", session count, points (purple); three mini stat tiles: RANK, DAY STREAK, THIS WEEK.
 4. **Weekly volume** — SVG line chart with dots (purple), day labels below. Today's dot is highlighted and larger.
-5. **Leaderboard row** — tappable, expands (`lbExpanded` state) to show top-5 ranked users inline. Non-self rows are tappable and call `onViewProfile(u)` to open `UserProfileModal` via `SocialFitClubInner`.
-6. **Quick Start row** — tappable, expands (`qsExpanded` state, default open) to reveal a 2×2 grid of workout cards.
+5. **MY BADGES card** — tappable `ChromeCard` showing unlock count ("X of 29 unlocked") and up to 9 unlocked badge emoji tiles (or 5 locked placeholders for new users). Tapping opens `AchievementsModal`. State: `badgesOpen` + `unlockedBadges` (computed from `getUnlockedBadges(sessions, profile)` each render).
+6. **Leaderboard row** — tappable, expands (`lbExpanded` state) to show top-5 ranked users inline. Non-self rows are tappable and call `onViewProfile(u)` to open `UserProfileModal` via `SocialFitClubInner`.
+7. **Quick Start row** — tappable, expands (`qsExpanded` state, default open) to reveal a 2×2 grid of workout cards.
 
 ### Onboarding Flow
 
@@ -587,7 +591,8 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 - **Body scroll lock**: `useScrollLock()` is a module-level hook called at the top of every modal component. It sets `document.body.style.overflow = "hidden"` on mount and restores the previous value on unmount, preventing iOS Safari background scroll bleed-through.
 - **Screen top padding**: Every screen root div uses `padding: "calc(env(safe-area-inset-top, 0px) + Xpx) 18px 0"` to clear the iOS status bar. Never use a fixed pixel top padding on screen containers.
 - **Bottom sheet modals**: All bottom sheet containers use `maxHeight: "80vh"` and `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 72px)"` with `overflowY: "auto"`. The 80vh (not 93vh) is intentional — mobile Safari measures `vh` against the full screen including its own chrome, so 80vh gives enough clearance when running as a website (not a PWA).
-- **Main content bottom padding**: The main scrollable content wrapper (a `<main>` element) uses `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 82px)"` to clear the fixed bottom nav bar plus iOS home indicator. `LoginScreen` and all its conditional render paths (`awaitingConfirm`, `forgotSent`) also use `<main>` as their root element for accessibility landmark compliance.
+- **Scroll-container layout**: The outer app div uses `height:100dvh, display:flex, flexDirection:column, overflow:hidden`. `<main>` is `flex:1, overflowY:auto, paddingBottom:24` — it is the scroll container, not the body. The bottom nav bar is a `flexShrink:0` sibling below `<main>`, **not** `position:fixed`. This prevents iOS Safari's URL-bar-resize from causing fixed elements to jump during scroll. Do not revert the nav to `position:fixed` or restore `minHeight:100vh` on the outer div — both break scroll on mobile Safari.
+- **Main content bottom padding**: The `<main>` scroll container uses `paddingBottom:24` (not 82px) since the nav bar is a flex sibling below it, not a fixed overlay. `LoginScreen` and all its conditional render paths also use `<main>` as the root element for accessibility landmark compliance.
 - **Blob URL lifecycle in `FormCheckModal`**: uses `previewUrlRef` to revoke the previous object URL both when a new file is picked and on unmount, preventing memory leaks.
 - **Blob URL lifecycle in FeedScreen compose**: `postImgUrlRef` tracks the current post image object URL. `clearImage()` revokes it. The backdrop `onClick` calls `clearImage()` before closing the compose sheet. The URL is also revoked when a new file replaces the previous one in `handleImagePick`, and a `useEffect` cleanup revokes it when `FeedScreen` unmounts (prevents leak when user navigates away mid-compose).
 - **Challenge auto-complete**: the `useEffect` in `FeedScreen` that watches `sessions` compares current progress against targets and only fires the completion logic once (checks `!ch.completed` before updating). Do not add `challenges` to the dependency array or it will loop.
