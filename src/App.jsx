@@ -5171,7 +5171,7 @@ function ProgressScreen({ showToast, sessions = [], profile, unit = "lbs" }) {
   );
 }
 
-function NutritionScreen({ showToast }) {
+function NutritionScreen({ showToast, sessions = [] }) {
   const [view, setView] = useState("log");
   const today = new Date().toISOString().slice(0, 10);
   const nutritionHistory = (() => {
@@ -5585,8 +5585,12 @@ function NutritionScreen({ showToast }) {
           </div>
         </div>
         {(() => {
-          const calPct = Math.min(100, Math.round((totals.cal / macroTargets.cal) * 100));
-          const calRemaining = macroTargets.cal - totals.cal;
+          const bw = getLoggedBodyWeight();
+          const todayWorkoutKcal = bw ? sessions.filter(s => (s.createdAt||"").slice(0,10) === today).reduce((sum, s) => sum + calcSessionCalories(s.exs, bw), 0) : 0;
+          const adjustedBudget = macroTargets.cal + Math.round(todayWorkoutKcal);
+          const budget = todayWorkoutKcal > 0 ? adjustedBudget : macroTargets.cal;
+          const calPct = Math.min(100, Math.round((totals.cal / budget) * 100));
+          const calRemaining = budget - totals.cal;
           const over = calRemaining < 0;
           const ringColor = calPct >= 100 ? "#FF3D5A" : calPct >= 85 ? "#FF6B00" : G.gold;
           return (
@@ -5594,9 +5598,17 @@ function NutritionScreen({ showToast }) {
               <div style={{ position:"relative" }}>
                 <RingMeter pct={calPct} size={140} strokeW={10} color={ringColor} value={Math.abs(calRemaining).toLocaleString()} label={over ? "CAL OVER" : "CAL LEFT"}/>
                 <div style={{ position:"absolute", bottom:-4, left:"50%", transform:"translateX(-50%)", whiteSpace:"nowrap", fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>
-                  {totals.cal.toLocaleString()} / {macroTargets.cal.toLocaleString()} KCAL
+                  {totals.cal.toLocaleString()} / {budget.toLocaleString()} KCAL
                 </div>
               </div>
+              {todayWorkoutKcal > 0 && (
+                <div style={{ marginTop:16, background:`rgba(255,61,90,0.1)`, border:`1px solid rgba(255,61,90,0.25)`, borderRadius:8, padding:"6px 14px", display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:14 }}>🔥</span>
+                  <div style={{ fontFamily:FONT.body, fontSize:10, color:"#FF6B6B", letterSpacing:1.5, textTransform:"uppercase" }}>
+                    Workout burned ~{Math.round(todayWorkoutKcal)} kcal · Budget adjusted to {adjustedBudget.toLocaleString()}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}
@@ -9375,7 +9387,7 @@ function SocialFitClubInner() {
         {tab==="home" && (user?.email?.toLowerCase()===ADMIN_EMAIL ? <AdminHomeScreen/> : <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile} onViewProfile={u => setViewingUser({ ...u, isMe: false })}/>)}
         {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions} onShareSession={(text) => { setFeedShareText(text); setTab("feed"); }} unit={unit}/>}
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile} unit={unit}/>}
-        {tab==="nutrition" && <NutritionScreen showToast={showToast}/>}
+        {tab==="nutrition" && <NutritionScreen showToast={showToast} sessions={sessions}/>}
         {tab==="feed" && <FeedScreen showToast={showToast} profile={profile} sessions={sessions} userId={user?.id} sharedSession={feedShareText} onClearSharedSession={() => setFeedShareText(null)}/>}
         {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut} onProfileUpdate={p => setProfile(p)} userId={user?.id} sessions={sessions} muscleScores={calcMuscleScores(sessions)} isAdmin={user?.email?.toLowerCase()===ADMIN_EMAIL} unit={unit} onUnitToggle={() => { const u = unit === "lbs" ? "kg" : "lbs"; setUnit(u); localStorage.setItem("sfc_unit", u); }}/>}
       </main>
