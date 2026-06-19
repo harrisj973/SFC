@@ -1452,6 +1452,43 @@ const EXERCISE_MET = {
   "Elliptical":6.0,"Stationary Bike":7.0,"Incline Walk":5.0,"Echo Bike":10.0,"Cycling":8.0,"Versa Climber":9.0,
   "Kettlebell Farmers Carry":5.5,"Bottoms-Up Press":5.0,"Kettlebell Sumo Deadlift":6.0,"Kettlebell Jump Squat":8.0,
 };
+const EXERCISE_TIPS = {
+  "Barbell Bench Press":     { cues:["Retract and depress shoulder blades into the bench","Bar touches lower chest — not your neck","Drive feet into the floor; press bar in a slight arc back toward the rack"], err:"Elbows flared 90°, bouncing bar off chest, lifting hips" },
+  "Incline Barbell Bench Press":{ cues:["Set bench 30–45°; steeper angles shift load to front delts","Grip slightly narrower than flat bench","Controlled descent; touch upper chest, not collarbone"], err:"Bench too steep (>45°), bar drifting toward neck" },
+  "Dumbbell Bench Press":    { cues:["Let elbows flare naturally — not pinned to sides","Squeeze at the top but keep a slight bend in elbows","Control the descent; don't let shoulders roll forward"], err:"Dumbbells dropping too fast, excessive arch" },
+  "Incline Dumbbell Press":  { cues:["30–45° incline; keep upper back tight","Neutral or slightly pronated grip at the top","Full stretch at the bottom — feel the pec stretch"], err:"Excessive elbow flare, rushing the eccentric" },
+  "Cable Fly":               { cues:["Slight forward lean; think hugging a tree","Keep a soft bend in the elbows throughout","Lead with your elbows, not your hands"], err:"Arms going straight (turns it into a press), too much weight" },
+  "Dumbbell Flyes":          { cues:["Wide arc down; elbows stay slightly bent","Feel a full stretch at the bottom without pain","Squeeze pecs at the top — don't clink the weights"], err:"Locking elbows out, going too heavy" },
+  "Push-Ups":                { cues:["Hands slightly wider than shoulders; fingers forward","Brace core and glutes — body stays rigid","Chest touches the floor; elbows at ~45° to torso"], err:"Hips sagging, elbows flaring 90°, partial range" },
+  "Barbell Deadlift":        { cues:["Bar over mid-foot; hinge at hips to grip","Brace hard — 360° core tension before the pull","Push the floor away; hips and chest rise together"], err:"Bar drifting forward, rounding lower back, jerking the bar" },
+  "Romanian Deadlift":       { cues:["Soft knee bend; hinge until you feel hamstring tension","Bar stays in contact with thighs the whole way down","Drive hips forward to return, squeeze glutes at top"], err:"Squatting the weight down, rounding lower back, knees caving" },
+  "Barbell Squat":           { cues:["Bar on upper traps; brace your core hard before descent","Knees track over toes; don't cave inward","Drive hips up and back out of the hole"], err:"Knees caving, forward lean, half reps" },
+  "Front Squat":             { cues:["High elbow position (parallel to floor) to keep bar in place","Stay upright; torso more vertical than back squat","Knees out; don't let elbows drop at the bottom"], err:"Elbows dropping, excessive forward lean, wrist pain from poor rack position" },
+  "Bulgarian Split Squat":   { cues:["Front foot far enough forward so shin stays vertical at bottom","Back knee drives toward the floor, not behind you","Push through the heel of the front foot"], err:"Front foot too close, knee caving inward, leaning excessively forward" },
+  "Hip Thrust":              { cues:["Bench at mid-scapula height; feet flat, hip-width apart","Drive through heels; squeeze glutes hard at the top","Full range — all the way down, chin tucked"], err:"Hyperextending the lower back at lockout, neck craning upward" },
+  "Leg Press":               { cues:["Foot position controls emphasis: high = glutes/hams, low = quads","Lower until quads are at 90° without hips tucking under","Don't lock knees out at the top — keep slight tension"], err:"Lower back peeling off the pad, knees caving, locking out" },
+  "Lunges":                  { cues:["Take a stride big enough so front shin stays vertical","Rear knee just above the floor without slamming down","Push through front heel to drive up"], err:"Front knee shooting past toes, torso leaning forward" },
+  "Barbell Row":             { cues:["Hinge until torso is 45–70° from floor","Bar starts under the shoulder blades — pull to lower chest/navel","Squeeze shoulder blades together at the top"], err:"Too upright (turns it into a shrug), not retracting scapula, jerking" },
+  "Dumbbell Row":            { cues:["Brace the hand on a bench; torso parallel to floor","Pull elbow straight back past the hip","Retract the shoulder blade at the top; full stretch at the bottom"], err:"Rotating torso (using momentum), not reaching the full stretch" },
+  "Pull-Ups":                { cues:["Dead hang with shoulder blades slightly retracted before pulling","Drive elbows to hips, not back","Chin clears the bar; lower under control — don't drop"], err:"Kipping without a base of strength, partial range, shrugging shoulders" },
+  "Chin-Ups":                { cues:["Supinated (underhand) grip; shoulder-width","Biceps and lats work together — feel both", "Full dead hang at the bottom; don't short the range"], err:"Using momentum, not reaching full extension at the bottom" },
+  "Lat Pulldown":            { cues:["Lean back slightly; drive elbows to your sides","Bar to upper chest — don't pull to neck","Slow the eccentric — feel the lats stretch"], err:"Leaning back too far (turns it into a row), pulling bar behind the head" },
+  "Seated Cable Row":        { cues:["Sit tall; hinge slightly forward on the stretch","Pull handle to lower abdomen — elbows past torso","Squeeze shoulder blades together; slow the eccentric"], err:"Rounding forward excessively, using lower back momentum" },
+  "Barbell Overhead Press":  { cues:["Bar starts just below chin on collarbones","Press in a vertical line; tuck chin as bar passes face","Lock out overhead; glutes and abs braced"], err:"Bar pressing forward instead of straight up, lower back hyperextension" },
+  "Dumbbell Shoulder Press": { cues:["Dumbbells at ear level; neutral or pronated grip","Press overhead and slightly together — don't slam at top","Control the descent back to ear level"], err:"Arching lower back, elbows too far forward" },
+  "Lateral Raise":           { cues:["Slight bend in elbows; lead with elbows, not hands","Raise to shoulder height — no higher","Slow the eccentric — 2-3 sec down"], err:"Swinging the weight up, shrugging, raising too high" },
+  "Face Pull":               { cues:["Rope at upper-chest/forehead height; pull to face","External rotate at the end — hands end beside ears","Keep elbows high throughout the pull"], err:"Pulling too low, losing elbow height, going too heavy" },
+  "Barbell Curl":            { cues:["Elbows pinned to sides; don't let them drift forward","Full supination at the top — rotate the pinky up","Slow the eccentric — feel the stretch at the bottom"], err:"Swinging the torso, elbows drifting forward, partial range" },
+  "Dumbbell Curl":           { cues:["Supinate as you curl — palm faces ceiling at top","Keep upper arm still; only the forearm moves","Full extension at the bottom every rep"], err:"Using momentum, not fully extending, not supinating" },
+  "Hammer Curl":             { cues:["Neutral (thumbs up) grip throughout","Elbows stay at sides; forearm does all the work","Slow, controlled descent — no swinging"], err:"Swinging torso, elbows moving forward" },
+  "Skull Crushers":          { cues:["Bar lowers to ABOVE the forehead — not to it","Elbows stay pointed at the ceiling throughout","Slow eccentric; explode up"], err:"Elbows flaring wide, lowering to forehead (risk of injury)" },
+  "Tricep Pushdown":         { cues:["Elbows pinned to sides; only forearms move","Full extension at the bottom — squeeze triceps","Slow the return — don't let the stack pull your arms up"], err:"Elbows drifting forward or flaring, partial range at the bottom" },
+  "Dips":                    { cues:["Lean slightly forward for chest; stay upright for triceps","Lower until upper arm is parallel to floor","Press through palms to return; don't lock out aggressively"], err:"Going too deep with shoulder pain, full lock-out repeatedly" },
+  "Plank":                   { cues:["Forearms flat; elbows under shoulders","Squeeze everything: core, glutes, quads","Neutral spine — don't let hips sag or pike"], err:"Hips sagging, head drooping, holding breath" },
+  "Ab Wheel":                { cues:["Start from knees; roll out until back is flat (not arched)","Squeeze abs hard before rolling back in","Only go as far as you can maintain a hollow-body position"], err:"Hyperextending lower back on the roll-out, going too far too soon" },
+  "Hip Thrust (Bodyweight)": { cues:["Bench at mid-scapula; feet flat hip-width apart","Full range of motion — all the way down","Squeeze glutes hard at the top; chin tucked"], err:"Hyperextending lower back at lockout" },
+};
+
 const DEFAULT_MET = 4.5; // fallback for unlisted exercises
 const SECS_PER_REP = 3.5; // avg time-under-tension per rep (resistance training)
 const REST_MET = 1.3;     // seated rest between sets
@@ -2334,10 +2371,63 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile, o
   );
 }
 
+function ExerciseDemoModal({ name, onClose }) {
+  useScrollLock();
+  const tips = EXERCISE_TIPS[name];
+  const cat = EX_CAT_LOOKUP[name];
+  const primaryMuscle = Object.entries(EXERCISE_MUSCLE_MAP[name] || {}).sort((a,b)=>b[1]-a[1])[0];
+  const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(name + " proper form technique")}`;
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:950, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.72)" }}/>
+      <div style={{ position:"relative", background:"#0F0E22", borderRadius:"18px 18px 0 0", border:`1px solid ${G.borderB}`, borderBottom:"none", maxHeight:"80vh", display:"flex", flexDirection:"column" }}>
+        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", padding:"18px 18px 12px" }}>
+          <div>
+            <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:2, color:"#fff", textTransform:"uppercase", marginBottom:3 }}>{name}</div>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              {cat && <span style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, color:G.purple, background:`${G.purple}22`, border:`1px solid ${G.purple}44`, borderRadius:4, padding:"2px 7px", textTransform:"uppercase" }}>{cat}</span>}
+              {primaryMuscle && <span style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, color:G.textDim, background:`rgba(255,255,255,0.06)`, borderRadius:4, padding:"2px 7px", textTransform:"uppercase" }}>{MUSCLE_LABELS[primaryMuscle[0]]}</span>}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:20, lineHeight:1, padding:"2px 4px", flexShrink:0 }}>✕</button>
+        </div>
+        <div style={{ overflowY:"auto", flex:1, padding:"0 18px 24px", WebkitOverflowScrolling:"touch" }}>
+          {tips ? (
+            <>
+              <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:10 }}>FORM CUES</div>
+              {tips.cues.map((cue, i) => (
+                <div key={i} style={{ display:"flex", gap:10, alignItems:"flex-start", marginBottom:10 }}>
+                  <div style={{ width:20, height:20, borderRadius:"50%", background:`${G.gold}22`, border:`1px solid ${G.gold}55`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
+                    <div style={{ fontFamily:FONT.display, fontSize:10, color:G.gold }}>{i+1}</div>
+                  </div>
+                  <div style={{ fontFamily:FONT.body, fontSize:13, color:"#fff", letterSpacing:0.5, lineHeight:1.5 }}>{cue}</div>
+                </div>
+              ))}
+              <div style={{ marginTop:14, background:"rgba(255,107,0,0.08)", border:"1px solid rgba(255,107,0,0.25)", borderRadius:8, padding:"10px 12px" }}>
+                <div style={{ fontFamily:FONT.body, fontSize:8, letterSpacing:2, color:"#FF6B00", textTransform:"uppercase", marginBottom:4 }}>⚠ COMMON MISTAKES</div>
+                <div style={{ fontFamily:FONT.body, fontSize:12, color:"#FF9B55", lineHeight:1.5 }}>{tips.err}</div>
+              </div>
+            </>
+          ) : (
+            <div style={{ padding:"12px 0", fontFamily:FONT.body, fontSize:13, color:G.textMid, letterSpacing:1, lineHeight:1.6 }}>
+              No form guide available for this exercise yet. Search YouTube for a walkthrough:
+            </div>
+          )}
+          <a href={ytUrl} target="_blank" rel="noopener noreferrer" style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginTop:18, background:"rgba(255,0,0,0.12)", border:"1px solid rgba(255,0,0,0.3)", borderRadius:10, padding:"12px", textDecoration:"none" }}>
+            <span style={{ fontSize:18 }}>▶</span>
+            <span style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:2, color:"#FF4444", textTransform:"uppercase" }}>WATCH ON YOUTUBE</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ExercisePicker({ onSelect, onClose }) {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("ALL");
   const [subCat, setSubCat] = useState(null);
+  const [demoEx, setDemoEx] = useState(null);
   const muscleCats = ["ALL", ...Object.keys(EXERCISE_CATS)];
   const equipCats = Object.keys(EQUIPMENT_CATS);
   const subCats = cat !== "ALL" ? EXERCISE_SUBCATS[cat] : null;
@@ -2402,17 +2492,21 @@ function ExercisePicker({ onSelect, onClose }) {
             const exCat = EX_CAT_LOOKUP[e];
             const primaryMuscle = Object.entries(EXERCISE_MUSCLE_MAP[e] || {}).sort((a,b)=>b[1]-a[1])[0];
             return (
-              <div key={e} onClick={()=>{ onSelect(e); onClose(); }} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 18px", borderBottom:`1px solid ${G.borderB}`, cursor:"pointer", transition:"background 0.15s" }}
+              <div key={e} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 18px", borderBottom:`1px solid ${G.borderB}`, transition:"background 0.15s" }}
                 onMouseEnter={ev=>ev.currentTarget.style.background=`${G.gold}10`}
                 onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
-                <div>
+                <div onClick={()=>{ onSelect(e); onClose(); }} style={{ flex:1, cursor:"pointer", minWidth:0 }}>
                   <div style={{ fontFamily:FONT.body, fontSize:14, letterSpacing:1.5, color:"#fff", textTransform:"uppercase" }}>{e}</div>
                   {primaryMuscle && <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:1, color:G.textMid, marginTop:2 }}>{MUSCLE_LABELS[primaryMuscle[0]]}</div>}
                 </div>
-                {exCat && <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, color:G.purple, background:`${G.purple}22`, border:`1px solid ${G.purple}44`, borderRadius:4, padding:"3px 7px", textTransform:"uppercase", flexShrink:0 }}>{exCat}</div>}
+                <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                  <button onClick={ev=>{ ev.stopPropagation(); setDemoEx(e); }} style={{ background:`${G.gold}15`, border:`1px solid ${G.gold}33`, borderRadius:5, color:G.gold, cursor:"pointer", fontSize:11, fontFamily:FONT.body, letterSpacing:1, padding:"3px 7px", lineHeight:1 }}>📹</button>
+                  {exCat && <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, color:G.purple, background:`${G.purple}22`, border:`1px solid ${G.purple}44`, borderRadius:4, padding:"3px 7px", textTransform:"uppercase" }}>{exCat}</div>}
+                </div>
               </div>
             );
           })}
+          {demoEx && <ExerciseDemoModal name={demoEx} onClose={()=>setDemoEx(null)}/>}
         </div>
       </div>
     </div>
@@ -2641,6 +2735,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   const [progFilter, setProgFilter] = useState("ALL");
   const [autoRest, setAutoRest] = useState(() => localStorage.getItem("sfc_auto_rest") === "1");
   const [tmCalcOpen, setTmCalcOpen] = useState(false);
+  const [trainDemoEx, setTrainDemoEx] = useState(null);
   const nextIdRef = useRef(2);
 
   useEffect(() => {
@@ -2777,6 +2872,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   return (
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       {tmCalcOpen && <TrainingMaxModal onClose={()=>setTmCalcOpen(false)}/>}
+      {trainDemoEx && <ExerciseDemoModal name={trainDemoEx} onClose={()=>setTrainDemoEx(null)}/>}
       {pickerFor && <ExercisePicker onSelect={name=>{ selectExercise(pickerFor, name); }} onClose={()=>setPickerFor(null)}/>}
       {restSec && <RestTimer sec={restSec} onDone={() => { setRestSec(null); showToast("✓ REST COMPLETE"); }}/>}
       {plateCalcOpen && <PlateCalculatorModal initialWeight={plateCalcWeight} onClose={() => setPlateCalcOpen(false)}/>}
@@ -2889,6 +2985,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                   <div style={{ display:"flex", alignItems:"center", gap:9, marginBottom:6 }}>
                     <div style={{ width:22, height:22, borderRadius:4, background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT.display, fontSize:12, color:"#0A0810", flexShrink:0 }}>{xi+1}</div>
                     <input value={ex.q||ex.name} onChange={e=>{const v=e.target.value;updEx(ex.id,"q",v);updEx(ex.id,"name",v);updEx(ex.id,"sugg",v.length>=2);}} onBlur={()=>setTimeout(()=>updEx(ex.id,"sugg",false),160)} placeholder="EXERCISE NAME" style={{ ...inp, background:"transparent", border:"none", padding:"3px 0", fontFamily:FONT.display, fontSize:15, letterSpacing:2, flex:1, width:"auto", color:"#fff" }}/>
+                    {ex.name && <button onClick={()=>setTrainDemoEx(ex.name)} style={{ background:`${G.gold}15`, border:`1px solid ${G.gold}33`, borderRadius:6, color:G.gold, cursor:"pointer", fontSize:12, padding:"4px 7px", flexShrink:0, lineHeight:1 }} title="Form guide">📹</button>}
                     <button onClick={()=>setPickerFor(ex.id)} style={{ background:`linear-gradient(135deg,${G.purple}33,${G.purple}18)`, border:`1px solid ${G.purple}66`, borderRadius:6, color:G.purple, cursor:"pointer", fontSize:10, fontFamily:FONT.body, letterSpacing:1.5, padding:"4px 9px", flexShrink:0, lineHeight:1, display:"flex", alignItems:"center", gap:4 }}>⊞ BROWSE</button>
                     {exs.length > 1 && <button onClick={()=>setExs(p=>p.filter(e=>e.id!==ex.id))} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:16, padding:"2px 4px", flexShrink:0 }}>✕</button>}
                   </div>
