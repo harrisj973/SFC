@@ -2386,7 +2386,7 @@ function ExerciseDemoModal({ name, onClose }) {
             <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:2, color:"#fff", textTransform:"uppercase", marginBottom:3 }}>{name}</div>
             <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
               {cat && <span style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, color:G.purple, background:`${G.purple}22`, border:`1px solid ${G.purple}44`, borderRadius:4, padding:"2px 7px", textTransform:"uppercase" }}>{cat}</span>}
-              {primaryMuscle && <span style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, color:G.textDim, background:`rgba(255,255,255,0.06)`, borderRadius:4, padding:"2px 7px", textTransform:"uppercase" }}>{MUSCLE_LABELS[primaryMuscle[0]]}</span>}
+              {primaryMuscle && MUSCLE_LABELS[primaryMuscle[0]]?.toUpperCase() !== cat?.toUpperCase() && <span style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, color:G.textDim, background:`rgba(255,255,255,0.06)`, borderRadius:4, padding:"2px 7px", textTransform:"uppercase" }}>{MUSCLE_LABELS[primaryMuscle[0]]}</span>}
             </div>
           </div>
           <button onClick={onClose} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:20, lineHeight:1, padding:"2px 4px", flexShrink:0 }}>✕</button>
@@ -2557,7 +2557,7 @@ function PlateCalculatorModal({ onClose, initialWeight = "" }) {
         </div>
         </div>
 
-        <div style={{ overflowY:"auto", flex:1, padding:"0 18px", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 40px)" }}>
+        <div style={{ overflowY:"auto", flex:1, padding:"0 18px", paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 100px)" }}>
 
         <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textMid, textTransform:"uppercase", marginBottom:7 }}>BAR WEIGHT</div>
         <div style={{ display:"flex", gap:6, marginBottom:16 }}>
@@ -2653,7 +2653,7 @@ function TrainingMaxModal({ onClose }) {
   const pcts = [50,55,60,65,70,75,80,85,90,92,95];
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.92)", zIndex:700, display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
-      <div style={{ background:G.bg2, border:`1px solid ${G.borderB}`, borderRadius:"16px 16px 0 0", width:"100%", maxWidth:480, maxHeight:"85vh", overflowY:"auto", padding:"20px 18px", paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
+      <div style={{ background:G.bg2, border:`1px solid ${G.borderB}`, borderRadius:"16px 16px 0 0", width:"100%", maxWidth:480, maxHeight:"85vh", overflowY:"auto", padding:"20px 18px", paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 100px)" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
           <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:2, color:G.gold }}>⚡ TRAINING MAX CALC</div>
           <button onClick={onClose} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:6, color:G.textMid, cursor:"pointer", fontSize:14, padding:"4px 9px" }}>✕</button>
