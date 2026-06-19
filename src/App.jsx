@@ -10186,7 +10186,7 @@ function SocialFitClubInner() {
 
       {viewingUser && <UserProfileModal user={viewingUser} currentUserId={user?.id} onClose={() => setViewingUser(null)}/>}
 
-      <main style={{ flex:1, overflowY:"auto", overflowX:"hidden", WebkitOverflowScrolling:"touch", position:"relative", zIndex:2, paddingBottom:24 }}>
+      <main style={{ flex:1, overflowY:"auto", overflowX:"hidden", WebkitOverflowScrolling:"touch", paddingBottom:24 }}>
         {tab==="home" && (user?.email?.toLowerCase()===ADMIN_EMAIL ? <AdminHomeScreen/> : <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile} onViewProfile={u => setViewingUser({ ...u, isMe: false })}/>)}
         {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions} onShareSession={(text) => { setFeedShareText(text); setTab("feed"); }} unit={unit} onShareTemplate={handleShareTemplate}/>}
         {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile} unit={unit}/>}
@@ -10195,7 +10195,7 @@ function SocialFitClubInner() {
         {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut} onProfileUpdate={p => setProfile(p)} userId={user?.id} sessions={sessions} muscleScores={calcMuscleScores(sessions)} isAdmin={user?.email?.toLowerCase()===ADMIN_EMAIL} unit={unit} onUnitToggle={() => { const u = unit === "lbs" ? "kg" : "lbs"; setUnit(u); localStorage.setItem("sfc_unit", u); }}/>}
       </main>
 
-      <div style={{ flexShrink:0, zIndex:50 }}>
+      <div style={{ flexShrink:0, position:"relative", zIndex:1 }}>
         <div style={{ height:1, background:`linear-gradient(90deg,transparent,${G.gold}66,${G.gold},${G.gold}66,transparent)`, boxShadow:`0 0 10px ${G.gold}55` }}/>
         <div data-tour="nav" style={{ background:`linear-gradient(180deg,rgba(6,6,14,0.97) 0%,rgba(8,8,16,1) 100%)`, backdropFilter:"blur(20px)", display:"flex", padding:`8px 0 calc(env(safe-area-inset-bottom, 0px) + 12px)` }}>
           {TABS.map(t => {
