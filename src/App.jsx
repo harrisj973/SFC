@@ -2700,6 +2700,53 @@ function TrainingMaxModal({ onClose }) {
   );
 }
 
+function DeloadModal({ onClose, onConfirm }) {
+  useScrollLock();
+  const DELOAD_TIPS = [
+    { ico:"⚖️", title:"REDUCE WEIGHT", body:"Use 40–60% of your normal training weights. The goal is blood flow and technique practice, not stimulus." },
+    { ico:"📉", title:"CUT VOLUME IN HALF", body:"If you normally do 4 sets per exercise, do 2. Keep the same exercises — just less of everything." },
+    { ico:"🎯", title:"FOCUS ON FORM", body:"Use lighter loads to drill technique on your weakest movements. Film yourself. Fix the little things." },
+    { ico:"😴", title:"PRIORITIZE SLEEP", body:"This week is when adaptation actually happens. 8+ hours of sleep and active recovery (walks, stretching, foam rolling) are the workout." },
+    { ico:"🔋", title:"COME BACK STRONGER", body:"Studies show a planned deload every 4–6 weeks produces more long-term strength gains than grinding continuously. Trust the process." },
+  ];
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:950, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.75)" }}/>
+      <div style={{ position:"relative", background:"#0F0E22", borderRadius:"18px 18px 0 0", border:`1px solid ${G.purple}55`, borderBottom:"none", maxHeight:"85vh", display:"flex", flexDirection:"column" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 18px 4px" }}>
+          <div>
+            <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:G.purpleLight, textTransform:"uppercase" }}>🔄 DELOAD WEEK</div>
+            <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2, color:G.textDim, textTransform:"uppercase", marginTop:2 }}>Train smart · recover harder</div>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:20 }}>✕</button>
+        </div>
+        <div style={{ overflowY:"auto", flex:1, padding:"12px 18px", WebkitOverflowScrolling:"touch" }}>
+          <div style={{ background:`${G.purple}18`, border:`1px solid ${G.purple}33`, borderRadius:10, padding:"10px 14px", marginBottom:16 }}>
+            <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:0.5, lineHeight:1.5 }}>
+              You've trained hard for <span style={{ color:G.purpleLight, fontFamily:FONT.display }}>4+ consecutive weeks</span>. A deload lets your joints, tendons, and nervous system catch up — and you'll come back setting PRs.
+            </div>
+          </div>
+          {DELOAD_TIPS.map((t, i) => (
+            <div key={i} style={{ display:"flex", gap:12, alignItems:"flex-start", marginBottom:14 }}>
+              <div style={{ width:36, height:36, borderRadius:8, background:`${G.purple}22`, border:`1px solid ${G.purple}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>{t.ico}</div>
+              <div>
+                <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:"#fff", textTransform:"uppercase", marginBottom:3 }}>{t.title}</div>
+                <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:0.3, lineHeight:1.5 }}>{t.body}</div>
+              </div>
+            </div>
+          ))}
+          <button onClick={onConfirm} style={{ width:"100%", marginTop:8, background:`linear-gradient(135deg,${G.purple},${G.purpleBright})`, border:"none", borderRadius:10, padding:"14px", color:"#fff", fontFamily:FONT.display, fontSize:14, letterSpacing:2, cursor:"pointer", textTransform:"uppercase", boxShadow:`0 4px 20px ${G.purple}55` }}>
+            START DELOAD WEEK ◆
+          </button>
+          <button onClick={onClose} style={{ width:"100%", marginTop:10, marginBottom:8, background:"transparent", border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px", color:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>
+            NOT YET
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQuickStart, sessions = [], onShareSession, unit = "lbs" }) {
   const [subTab, setSubTab] = useState("track");
   const [sessName, setSessName] = useState(() => {
@@ -2736,6 +2783,33 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   const [autoRest, setAutoRest] = useState(() => localStorage.getItem("sfc_auto_rest") === "1");
   const [tmCalcOpen, setTmCalcOpen] = useState(false);
   const [trainDemoEx, setTrainDemoEx] = useState(null);
+  const [deloadOpen, setDeloadOpen] = useState(false);
+  const [deloadDismissed, setDeloadDismissed] = useState(() => {
+    try {
+      const d = localStorage.getItem("sfc_last_deload");
+      if (!d) return false;
+      return (Date.now() - new Date(d).getTime()) < 28 * 24 * 60 * 60 * 1000;
+    } catch { return false; }
+  });
+
+  const deloadNeeded = (() => {
+    if (deloadDismissed) return false;
+    const getWeekMonday = d => {
+      const day = new Date(d); const dow = day.getDay();
+      day.setDate(day.getDate() - (dow === 0 ? 6 : dow - 1));
+      return day.toISOString().slice(0, 10);
+    };
+    const today = new Date();
+    const weeksWithSessions = new Set(sessions.map(s => getWeekMonday(s.createdAt || s.date)));
+    let consecutive = 0;
+    for (let i = 1; i <= 5; i++) {
+      const d = new Date(today); d.setDate(d.getDate() - i * 7);
+      if (weeksWithSessions.has(getWeekMonday(d))) consecutive++;
+      else break;
+    }
+    return consecutive >= 4;
+  })();
+
   const nextIdRef = useRef(2);
 
   useEffect(() => {
@@ -2873,6 +2947,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       {tmCalcOpen && <TrainingMaxModal onClose={()=>setTmCalcOpen(false)}/>}
       {trainDemoEx && <ExerciseDemoModal name={trainDemoEx} onClose={()=>setTrainDemoEx(null)}/>}
+      {deloadOpen && <DeloadModal onClose={()=>setDeloadOpen(false)} onConfirm={() => { setDeloadOpen(false); setDeloadDismissed(true); try { localStorage.setItem("sfc_last_deload", new Date().toISOString()); } catch {} showToast("🔄 Deload week started — train light this week!"); }}/>}
       {pickerFor && <ExercisePicker onSelect={name=>{ selectExercise(pickerFor, name); }} onClose={()=>setPickerFor(null)}/>}
       {restSec && <RestTimer sec={restSec} onDone={() => { setRestSec(null); showToast("✓ REST COMPLETE"); }}/>}
       {plateCalcOpen && <PlateCalculatorModal initialWeight={plateCalcWeight} onClose={() => setPlateCalcOpen(false)}/>}
@@ -2940,6 +3015,18 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                 </div>
               </div>
               <button onClick={() => setRestWarnDismissed(true)} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:16, padding:"0 2px", flexShrink:0, lineHeight:1 }}>✕</button>
+            </div>
+          )}
+
+          {deloadNeeded && (
+            <div style={{ background:"linear-gradient(135deg,rgba(85,37,131,0.18),rgba(85,37,131,0.08))", border:`1px solid ${G.purple}55`, borderRadius:10, padding:"12px 14px", marginBottom:16, display:"flex", alignItems:"flex-start", gap:10 }}>
+              <span style={{ fontSize:18, flexShrink:0 }}>🔄</span>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:2, color:G.purpleLight, marginBottom:3, textTransform:"uppercase" }}>Deload Week Recommended</div>
+                <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:0.5, lineHeight:1.4, marginBottom:8 }}>You've trained consistently for 4+ weeks. A planned deload prevents burnout and lets your body supercompensate.</div>
+                <button onClick={() => setDeloadOpen(true)} style={{ background:`linear-gradient(135deg,${G.purple},${G.purpleBright})`, border:"none", borderRadius:6, padding:"6px 14px", color:"#fff", fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>VIEW DELOAD PLAN ◆</button>
+              </div>
+              <button onClick={() => { setDeloadDismissed(true); try { localStorage.setItem("sfc_last_deload", new Date().toISOString()); } catch {} }} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:16, padding:"0 2px", flexShrink:0, lineHeight:1 }}>✕</button>
             </div>
           )}
 
