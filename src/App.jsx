@@ -49,6 +49,8 @@ const EXERCISE_CATS = {
     "Incline Cable Flyes","Pec Deck Machine","Push-Ups","Chest Dip",
     "Machine Chest Press","Low Cable Crossover","Cable Chest Press","Dumbbell Pullover",
     "Barbell Floor Press","Dumbbell Floor Press","Svend Press",
+    "Smith Machine Bench Press","Smith Machine Incline Press",
+    "Wide-Grip Push-Ups","Diamond Push-Ups","Incline Push-Ups","Decline Push-Ups","Hex Press",
   ],
   "BACK": [
     "Barbell Deadlift","Romanian Deadlift","Trap Bar Deadlift","Rack Pull",
@@ -58,6 +60,7 @@ const EXERCISE_CATS = {
     "Straight-Arm Pulldown","Hyperextensions",
     "Renegade Row","Dumbbell Deadlift","Dumbbell Good Mornings",
     "Barbell Good Mornings","Sumo Deadlift","Landmine Row","Landmine Romanian Deadlift","Meadows Row",
+    "Inverted Row","Seal Row","Cable Pullover","Deficit Deadlift","Neutral Grip Pull-Ups","Single-Arm Lat Pulldown",
   ],
   "LEGS": [
     "Barbell Squat","Front Squat","Hack Squat","Goblet Squat","Box Squat",
@@ -68,6 +71,8 @@ const EXERCISE_CATS = {
     "Cable Pull-Through","Cable Glute Kickback","Cable Hip Abduction","Cable Romanian Deadlift",
     "Dumbbell Romanian Deadlift","Dumbbell Hip Thrust","Dumbbell Sumo Squat","Dumbbell Calf Raise",
     "Landmine Squat","Landmine Split Squat","Pistol Squat","Sissy Squat","Reverse Hypers","Hip Abductor Machine",
+    "Smith Machine Squat","Pause Squat","Zercher Squat","Lateral Lunge","Curtsy Lunge","Jump Lunge",
+    "Single-Leg Romanian Deadlift","Leg Adductor Machine","Donkey Calf Raise",
   ],
   "SHOULDERS": [
     "Barbell Overhead Press","Seated Dumbbell Press","Machine Shoulder Press",
@@ -77,6 +82,7 @@ const EXERCISE_CATS = {
     "Upright Row","Barbell Shrugs","Dumbbell Shrugs",
     "Cable Upright Row","Dumbbell Upright Row",
     "Landmine Press","Landmine Lateral Raise","Bradford Press","Cable Y-Raise",
+    "Pike Push-Ups","Handstand Push-Ups","Machine Lateral Raise","Plate Front Raise","Cable Front Raise","Dumbbell Y-Raise",
   ],
   "ARMS": [
     "Barbell Curl","Dumbbell Curl","Hammer Curl","Preacher Curl",
@@ -87,6 +93,8 @@ const EXERCISE_CATS = {
     "Tricep Kickback","Dips",
     "Dumbbell Skull Crushers","Dumbbell Overhead Tricep Extension",
     "Spider Curl","Cross-Body Hammer Curl","Overhead Cable Curl",
+    "Cable Hammer Curl","Drag Curl","Scott Curl","Wide-Grip Barbell Curl",
+    "JM Press","Tate Press","Reverse Grip Tricep Pushdown","Single-Arm Tricep Pushdown","Machine Tricep Press",
   ],
   "CORE": [
     "Plank","Side Plank","Ab Wheel","Hanging Leg Raises","Leg Raises",
@@ -94,12 +102,14 @@ const EXERCISE_CATS = {
     "Cable Crunch","V-Ups","Dragon Flag","Dead Bug","Pallof Press",
     "Flutter Kicks","Mountain Climbers","Cable Woodchop",
     "Landmine Rotation","Hollow Body Hold","Toes-to-Bar","Windshield Wipers","Suitcase Carry",
+    "Reverse Crunch","Toe Touches","Superman","Bird Dog","Copenhagen Plank","Medicine Ball Slam","Weighted Sit-Up",
   ],
   "CARDIO": [
     "Jump Rope","Assault Bike","Box Jumps","Burpees","Battle Ropes",
     "Sled Push","Rowing Machine","Treadmill Run","Stair Climber",
     "Jump Squats","High Knees","Bear Crawl","Farmer's Walk",
     "Ski Erg","Sled Drag","Prowler Push","Sprint Intervals",
+    "Elliptical","Stationary Bike","Incline Walk","Echo Bike","Cycling","Versa Climber",
   ],
   "KETTLEBELL": [
     "Kettlebell Swing","Kettlebell Clean","Kettlebell Press","Kettlebell Snatch",
@@ -107,6 +117,7 @@ const EXERCISE_CATS = {
     "Kettlebell Row","Kettlebell Windmill","Kettlebell Halo",
     "Kettlebell Clean and Press","Kettlebell Front Squat","Kettlebell Lunge",
     "Kettlebell Figure Eight","Kettlebell Thruster","Kettlebell Renegade Row",
+    "Kettlebell Farmers Carry","Bottoms-Up Press","Kettlebell Sumo Deadlift","Kettlebell Jump Squat",
   ],
 };
 const EXERCISES = Object.values(EXERCISE_CATS).flat();
@@ -119,12 +130,14 @@ const EXERCISE_SUBCATS = {
       "Lat Pulldown","Close-Grip Lat Pulldown","Pull-Ups","Chin-Ups",
       "Straight-Arm Pulldown","Barbell Row","Dumbbell Row","Single-Arm Cable Row",
       "Renegade Row",
+      "Neutral Grip Pull-Ups","Single-Arm Lat Pulldown","Cable Pullover","Inverted Row",
     ],
     "MID BACK": [
       "Barbell Row","Pendlay Row","T-Bar Row","Chest-Supported Row",
       "Seated Cable Row","Wide-Grip Seated Cable Row","Single-Arm Cable Row",
       "Barbell Deadlift","Trap Bar Deadlift","Rack Pull","Hyperextensions",
       "Dumbbell Deadlift","Dumbbell Good Mornings",
+      "Seal Row","Inverted Row",
     ],
   },
   "LEGS": {
@@ -134,6 +147,7 @@ const EXERCISE_SUBCATS = {
       "Walking Lunges","Reverse Lunges","Dumbbell Lunge","Step-Ups",
       "Leg Extension","Calf Raise","Seated Calf Raise",
       "Dumbbell Sumo Squat","Kettlebell Goblet Squat","Kettlebell Front Squat",
+      "Smith Machine Squat","Pause Squat","Zercher Squat","Lateral Lunge","Curtsy Lunge","Jump Lunge",
     ],
     "HAMSTRINGS": [
       "Romanian Deadlift","Leg Curl","Seated Leg Curl","Nordic Hamstring Curl",
@@ -141,6 +155,7 @@ const EXERCISE_SUBCATS = {
       "Cable Pull-Through","Cable Glute Kickback","Cable Romanian Deadlift",
       "Dumbbell Romanian Deadlift","Dumbbell Hip Thrust",
       "Kettlebell Swing",
+      "Single-Leg Romanian Deadlift",
     ],
   },
 };
@@ -163,6 +178,9 @@ const EQUIPMENT_CATS = {
     "Cable Curl","Rope Pushdown","Tricep Pushdown","Cable Overhead Tricep Extension",
     // CORE
     "Cable Crunch","Pallof Press","Cable Woodchop",
+    // New cable exercises
+    "Cable Pullover","Cable Front Raise","Single-Arm Lat Pulldown",
+    "Single-Arm Tricep Pushdown","Reverse Grip Tricep Pushdown",
   ],
   "LANDMINE": [
     "Landmine Press","Landmine Lateral Raise",
@@ -186,6 +204,8 @@ const EQUIPMENT_CATS = {
     "Dumbbell Curl","Hammer Curl","Concentration Curl","Incline Dumbbell Curl",
     "Zottman Curl","Reverse Curl","Tricep Kickback",
     "Dumbbell Skull Crushers","Dumbbell Overhead Tricep Extension",
+    // New dumbbell exercises
+    "Hex Press","Tate Press","Dumbbell Y-Raise",
   ],
 };
 
@@ -211,6 +231,12 @@ const CARDIO_SET_CONFIG = {
   "Prowler Push":   { a:{ label:"DIST",    unit:"YDS",  mode:"numeric"  }, b:{ label:"WEIGHT",  unit:"LBS", mode:"decimal" } },
   "Sprint Intervals":{ a:{ label:"TIME",   unit:"SEC",  mode:"numeric"  }, b:{ label:"ROUNDS",  unit:"",    mode:"numeric"  } },
   "Suitcase Carry": { a:{ label:"DIST",    unit:"YDS",  mode:"numeric"  }, b:{ label:"WEIGHT",  unit:"LBS", mode:"decimal" } },
+  "Elliptical":      { a:{ label:"TIME",    unit:"MIN",  mode:"decimal"  }, b:{ label:"RESISTANCE", unit:"LVL", mode:"numeric" } },
+  "Stationary Bike": { a:{ label:"TIME",    unit:"MIN",  mode:"decimal"  }, b:{ label:"RESISTANCE", unit:"LVL", mode:"numeric" } },
+  "Echo Bike":       { a:{ label:"TIME",    unit:"MIN",  mode:"decimal"  }, b:{ label:"LEVEL",      unit:"",    mode:"numeric" } },
+  "Incline Walk":    { a:{ label:"TIME",    unit:"MIN",  mode:"decimal"  }, b:{ label:"INCLINE",    unit:"%",   mode:"decimal" } },
+  "Cycling":         { a:{ label:"TIME",    unit:"MIN",  mode:"decimal"  }, b:{ label:"DIST",       unit:"MI",  mode:"decimal" } },
+  "Versa Climber":   { a:{ label:"TIME",    unit:"MIN",  mode:"decimal"  }, b:{ label:"DIST",       unit:"FT",  mode:"numeric" } },
 };
 
 const MACROS_GOAL = { cal:2200, pro:180, carb:220, fat:65 };
@@ -1177,6 +1203,68 @@ const EXERCISE_MUSCLE_MAP = {
   "Sled Drag":                     { quad:0.85, hamstring:0.7, glute:0.65, calf:0.5 },
   "Prowler Push":                  { quad:0.9, glute:0.75, lower_back:0.45, front_delt:0.4 },
   "Sprint Intervals":              { quad:0.85, hamstring:0.7, glute:0.65, calf:0.8 },
+  // CHEST new
+  "Smith Machine Bench Press":     { chest:0.95, front_delt:0.5, tricep:0.4 },
+  "Smith Machine Incline Press":   { chest:0.85, front_delt:0.65, tricep:0.35 },
+  "Wide-Grip Push-Ups":            { chest:0.85, front_delt:0.4, tricep:0.4 },
+  "Diamond Push-Ups":              { tricep:0.9, chest:0.6, front_delt:0.4 },
+  "Incline Push-Ups":              { chest:0.7, front_delt:0.6, tricep:0.45 },
+  "Decline Push-Ups":              { chest:0.9, front_delt:0.35, tricep:0.5 },
+  "Hex Press":                     { chest:1.0, front_delt:0.3, tricep:0.35 },
+  // BACK new
+  "Inverted Row":                  { lat:0.8, mid_back:0.85, rear_delt:0.55, bicep:0.5 },
+  "Seal Row":                      { mid_back:1.0, lat:0.6, rear_delt:0.65, bicep:0.45 },
+  "Cable Pullover":                { lat:0.95, mid_back:0.45, tricep:0.3 },
+  "Deficit Deadlift":              { lower_back:0.9, glute:0.8, hamstring:0.8, quad:0.5, trap:0.5 },
+  "Neutral Grip Pull-Ups":         { lat:0.95, mid_back:0.65, bicep:0.7, rear_delt:0.4 },
+  "Single-Arm Lat Pulldown":       { lat:0.9, mid_back:0.55, bicep:0.6, rear_delt:0.35 },
+  // LEGS new
+  "Smith Machine Squat":           { quad:0.95, glute:0.75, hamstring:0.45, lower_back:0.35 },
+  "Pause Squat":                   { quad:1.0, glute:0.85, hamstring:0.55, lower_back:0.45 },
+  "Zercher Squat":                 { quad:0.9, glute:0.8, upper_abs:0.5, lower_back:0.4 },
+  "Lateral Lunge":                 { quad:0.8, glute:0.85, hamstring:0.5 },
+  "Curtsy Lunge":                  { quad:0.75, glute:0.95, hamstring:0.45 },
+  "Jump Lunge":                    { quad:0.85, glute:0.85, hamstring:0.45, calf:0.5 },
+  "Single-Leg Romanian Deadlift":  { hamstring:1.0, glute:0.9, lower_back:0.6 },
+  "Leg Adductor Machine":          { glute:0.6, hip_flexor:0.4 },
+  "Donkey Calf Raise":             { calf:1.0 },
+  // SHOULDERS new
+  "Pike Push-Ups":                 { front_delt:0.9, mid_delt:0.6, tricep:0.5 },
+  "Handstand Push-Ups":            { front_delt:1.0, mid_delt:0.7, tricep:0.6, trap:0.4 },
+  "Machine Lateral Raise":         { mid_delt:0.95, rear_delt:0.2, trap:0.1 },
+  "Plate Front Raise":             { front_delt:1.0, mid_delt:0.25 },
+  "Cable Front Raise":             { front_delt:0.95, mid_delt:0.2 },
+  "Dumbbell Y-Raise":              { rear_delt:0.9, mid_back:0.6, trap:0.5 },
+  // ARMS new
+  "Cable Hammer Curl":             { bicep:0.85, forearm:0.85 },
+  "Drag Curl":                     { bicep:1.0, forearm:0.2 },
+  "Scott Curl":                    { bicep:1.0, forearm:0.3 },
+  "Wide-Grip Barbell Curl":        { bicep:0.9, forearm:0.45 },
+  "JM Press":                      { tricep:1.0, chest:0.3 },
+  "Tate Press":                    { tricep:1.0, forearm:0.2 },
+  "Reverse Grip Tricep Pushdown":  { tricep:0.95, forearm:0.35 },
+  "Single-Arm Tricep Pushdown":    { tricep:1.0, forearm:0.2 },
+  "Machine Tricep Press":          { tricep:1.0, chest:0.2 },
+  // CORE new
+  "Reverse Crunch":                { lower_abs:1.0, hip_flexor:0.7, upper_abs:0.4 },
+  "Toe Touches":                   { upper_abs:0.85, lower_abs:0.7 },
+  "Superman":                      { lower_back:1.0, glute:0.65, hamstring:0.4 },
+  "Bird Dog":                      { lower_back:0.8, glute:0.55, upper_abs:0.5, oblique:0.4 },
+  "Copenhagen Plank":              { oblique:0.9, hip_flexor:0.7, lower_abs:0.5 },
+  "Medicine Ball Slam":            { upper_abs:0.9, lower_abs:0.6, front_delt:0.55, lat:0.5 },
+  "Weighted Sit-Up":               { upper_abs:0.95, lower_abs:0.65, hip_flexor:0.55 },
+  // CARDIO new
+  "Elliptical":                    { quad:0.65, glute:0.55, hamstring:0.45, calf:0.5 },
+  "Stationary Bike":               { quad:0.8, glute:0.65, hamstring:0.4, calf:0.55 },
+  "Incline Walk":                  { quad:0.6, glute:0.8, hamstring:0.5, calf:0.6 },
+  "Echo Bike":                     { quad:0.8, glute:0.55, front_delt:0.4, upper_abs:0.4 },
+  "Cycling":                       { quad:0.85, glute:0.7, hamstring:0.45, calf:0.6 },
+  "Versa Climber":                 { quad:0.7, glute:0.6, lat:0.5, front_delt:0.45 },
+  // KETTLEBELL new
+  "Kettlebell Farmers Carry":      { trap:0.95, forearm:0.85, lower_back:0.65, glute:0.4 },
+  "Bottoms-Up Press":              { front_delt:0.8, mid_delt:0.55, tricep:0.5, forearm:0.6 },
+  "Kettlebell Sumo Deadlift":      { glute:0.9, quad:0.75, hamstring:0.6, lower_back:0.55 },
+  "Kettlebell Jump Squat":         { quad:0.9, glute:0.85, calf:0.55, hamstring:0.4 },
 };
 
 const MUSCLE_LABELS = {
@@ -1270,6 +1358,12 @@ const BODYWEIGHT_EXERCISES = new Set([
   "Russian Twists", "Bicycle Crunches", "Crunch", "Decline Crunches", "Sit-Ups",
   "V-Ups", "Dragon Flag", "Dead Bug", "Flutter Kicks", "Mountain Climbers",
   "Hollow Body Hold", "Toes-to-Bar", "Windshield Wipers",
+  // New bodyweight exercises
+  "Wide-Grip Push-Ups", "Diamond Push-Ups", "Incline Push-Ups", "Decline Push-Ups",
+  "Inverted Row", "Neutral Grip Pull-Ups",
+  "Pike Push-Ups", "Handstand Push-Ups",
+  "Jump Lunge",
+  "Reverse Crunch", "Toe Touches", "Superman", "Bird Dog", "Copenhagen Plank",
 ]);
 function getLoggedBodyWeight() {
   try {
@@ -1347,6 +1441,16 @@ const EXERCISE_MET = {
   "Kettlebell Halo":5.5,"Kettlebell Clean and Press":8.0,"Kettlebell Front Squat":6.5,
   "Kettlebell Lunge":6.5,"Kettlebell Figure Eight":7.0,"Kettlebell Thruster":9.0,
   "Kettlebell Renegade Row":7.0,
+  // New exercises
+  "Smith Machine Bench Press":5.5,"Smith Machine Incline Press":5.0,
+  "Wide-Grip Push-Ups":4.0,"Diamond Push-Ups":4.0,"Incline Push-Ups":3.5,"Decline Push-Ups":4.0,"Hex Press":4.0,
+  "Inverted Row":4.5,"Seal Row":4.5,"Cable Pullover":3.5,"Deficit Deadlift":6.0,"Neutral Grip Pull-Ups":5.0,"Single-Arm Lat Pulldown":4.0,
+  "Smith Machine Squat":5.5,"Pause Squat":6.0,"Zercher Squat":5.5,"Lateral Lunge":4.5,"Curtsy Lunge":4.5,"Jump Lunge":7.0,"Single-Leg Romanian Deadlift":4.5,"Leg Adductor Machine":3.0,"Donkey Calf Raise":3.0,
+  "Pike Push-Ups":4.0,"Handstand Push-Ups":5.0,"Machine Lateral Raise":3.0,"Plate Front Raise":3.0,"Cable Front Raise":3.0,"Dumbbell Y-Raise":3.0,
+  "Cable Hammer Curl":3.5,"Drag Curl":3.5,"Scott Curl":3.5,"Wide-Grip Barbell Curl":3.5,"JM Press":4.0,"Tate Press":3.5,"Reverse Grip Tricep Pushdown":3.5,"Single-Arm Tricep Pushdown":3.5,"Machine Tricep Press":3.5,
+  "Reverse Crunch":3.5,"Toe Touches":3.5,"Superman":3.5,"Bird Dog":3.0,"Copenhagen Plank":3.5,"Medicine Ball Slam":8.0,"Weighted Sit-Up":4.0,
+  "Elliptical":6.0,"Stationary Bike":7.0,"Incline Walk":5.0,"Echo Bike":10.0,"Cycling":8.0,"Versa Climber":9.0,
+  "Kettlebell Farmers Carry":5.5,"Bottoms-Up Press":5.0,"Kettlebell Sumo Deadlift":6.0,"Kettlebell Jump Squat":8.0,
 };
 const DEFAULT_MET = 4.5; // fallback for unlisted exercises
 const SECS_PER_REP = 3.5; // avg time-under-tension per rep (resistance training)
