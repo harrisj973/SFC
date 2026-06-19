@@ -2951,13 +2951,19 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
       {pickerFor && <ExercisePicker onSelect={name=>{ selectExercise(pickerFor, name); }} onClose={()=>setPickerFor(null)}/>}
       {restSec && <RestTimer sec={restSec} onDone={() => { setRestSec(null); showToast("✓ REST COMPLETE"); }}/>}
       {plateCalcOpen && <PlateCalculatorModal initialWeight={plateCalcWeight} onClose={() => setPlateCalcOpen(false)}/>}
-      {selectedProgram && <ProgramDetailModal program={selectedProgram} onClose={()=>setSelectedProgram(null)} onStartDay={(prog, dayIdx) => {
+      {selectedProgram && <ProgramDetailModal program={selectedProgram} sessions={sessions} onClose={()=>setSelectedProgram(null)} onStartDay={(prog, dayIdx) => {
         const day = prog.days[dayIdx];
         setSessName(`${prog.name} — DAY ${dayIdx+1}`);
         setExs(day.exs.map((ex, i) => ({ id: i+1, name: ex.name, sets:[{r:"",w:"",type:"working"}], rest:60, q:ex.name, sugg:false })));
         setSubTab("track");
         setSelectedProgram(null);
         showToast(`✓ ${day.name} loaded — add your weights!`);
+      }} onStartGuided={(name, exs) => {
+        setSessName(name);
+        setExs(exs);
+        setSubTab("track");
+        setSelectedProgram(null);
+        showToast("✓ Guided workout done — review and save!");
       }}/>}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:16 }}>
         <div>
@@ -4550,9 +4556,203 @@ const PROGRAMS_DATA = [
   },
 ];
 
-function ProgramDetailModal({ program, onClose, onStartDay }) {
+function GuidedWorkoutModal({ program, day, sessions, onClose, onFinish }) {
+  useScrollLock();
+  const totalExs = day.exs.length;
+  const [exIdx, setExIdx] = useState(0);
+  const [phase, setPhase] = useState("set"); // "set" | "resting" | "done"
+  const [restSec, setRestSec] = useState(90);
+  const [loggedSets, setLoggedSets] = useState(() => day.exs.map(() => []));
+  const [inputW, setInputW] = useState(() => {
+    const last = getLastExercisePerformance(day.exs[0]?.name, sessions);
+    const best = last?.sets.find(s => s.w);
+    return best ? String(progressWeight(best.w)) : "";
+  });
+  const [inputR, setInputR] = useState(() => String(day.exs[0]?.reps || ""));
+  const [voiceOn, setVoiceOn] = useState(() => "speechSynthesis" in window);
+  const timerRef = useRef(null);
+
+  const curEx = day.exs[exIdx];
+  const curSets = loggedSets[exIdx] || [];
+  const curSetNum = curSets.length + 1;
+  const totalSets = curEx?.sets || 3;
+  const overallPct = Math.round(((exIdx * (curEx?.sets || 3) + curSets.length) / day.exs.reduce((s,e)=>s+e.sets,0)) * 100);
+  const lastPerf = curEx ? getLastExercisePerformance(curEx.name, sessions) : null;
+
+  const speak = (text) => {
+    if (!voiceOn || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.92;
+    window.speechSynthesis.speak(u);
+  };
+
+  useEffect(() => {
+    if (phase !== "resting") return;
+    if (restSec <= 0) {
+      setPhase("set");
+      speak("Rest complete — next set!");
+      return;
+    }
+    timerRef.current = setTimeout(() => setRestSec(s => s - 1), 1000);
+    return () => clearTimeout(timerRef.current);
+  }, [phase, restSec]);
+
+  const completeSet = () => {
+    const w = parseFloat(inputW) || 0;
+    const r = parseInt(inputR) || (curEx?.reps || 0);
+    const newSets = [...curSets, { r: String(r), w: String(w), type: "working" }];
+    const newLoggedSets = loggedSets.map((s, i) => i === exIdx ? newSets : s);
+    setLoggedSets(newLoggedSets);
+
+    const isLastSet = newSets.length >= totalSets;
+    const isLastEx  = exIdx >= totalExs - 1;
+
+    if (isLastSet && isLastEx) {
+      speak("Amazing work — workout complete!");
+      setPhase("done");
+    } else if (isLastSet) {
+      const nextEx = day.exs[exIdx + 1];
+      speak(`${curEx.name} done. Next up: ${nextEx?.name}.`);
+      const nextLast = getLastExercisePerformance(nextEx?.name, sessions);
+      const nextBest = nextLast?.sets.find(s => s.w);
+      setInputW(nextBest ? String(progressWeight(nextBest.w)) : "");
+      setInputR(String(nextEx?.reps || ""));
+      setExIdx(i => i + 1);
+      setPhase("set");
+    } else {
+      speak(`Set ${curSetNum} complete. Rest ${Math.round(90/60)} minute.`);
+      setRestSec(90);
+      setPhase("resting");
+    }
+  };
+
+  const skipRest = () => {
+    clearTimeout(timerRef.current);
+    setPhase("set");
+  };
+
+  const saveWorkout = () => {
+    const exs = day.exs.map((ex, i) => ({
+      id: i + 1, name: ex.name, q: ex.name, sugg: false, rest: 90,
+      sets: loggedSets[i].length > 0
+        ? loggedSets[i]
+        : Array.from({ length: ex.sets }, () => ({ r: String(ex.reps), w: "", type: "working" }))
+    }));
+    onFinish(`${program.name} — ${day.name}`, exs);
+  };
+
+  const col = program.col;
+  const mins = Math.floor(restSec / 60);
+  const secs = String(restSec % 60).padStart(2, "0");
+
+  if (phase === "done") {
+    const totalLogged = loggedSets.reduce((s, sets) => s + sets.length, 0);
+    return (
+      <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.98)", zIndex:700, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"24px 24px calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
+        <div style={{ fontSize:52, marginBottom:12 }}>🏆</div>
+        <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:G.gold, textTransform:"uppercase", marginBottom:6 }}>WORKOUT DONE</div>
+        <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginBottom:24 }}>{totalExs} exercises · {totalLogged} sets completed</div>
+        <div style={{ width:"100%", maxWidth:420, marginBottom:20 }}>
+          {day.exs.map((ex, i) => (
+            <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", marginBottom:6, background:"rgba(255,255,255,0.04)", borderRadius:8 }}>
+              <div style={{ fontFamily:FONT.body, fontSize:12, color:"#fff", letterSpacing:0.5, textTransform:"uppercase", flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{ex.name}</div>
+              <div style={{ fontFamily:FONT.display, fontSize:12, color:col, letterSpacing:1, flexShrink:0, marginLeft:10 }}>
+                {loggedSets[i].map(s => `${s.r}×${s.w||"BW"}`).join("  ")}
+              </div>
+            </div>
+          ))}
+        </div>
+        <button onClick={saveWorkout} style={{ width:"100%", maxWidth:420, padding:"16px", background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", borderRadius:12, color:"#0A0810", fontFamily:FONT.display, fontSize:15, letterSpacing:3, cursor:"pointer", textTransform:"uppercase", marginBottom:10 }}>
+          SAVE SESSION ◆
+        </button>
+        <button onClick={onClose} style={{ background:"none", border:"none", color:G.textDim, fontFamily:FONT.body, fontSize:11, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>DISCARD</button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.98)", zIndex:700, display:"flex", flexDirection:"column" }}>
+      {/* Header */}
+      <div style={{ paddingTop:"calc(env(safe-area-inset-top,0px) + 14px)", padding:"calc(env(safe-area-inset-top,0px) + 14px) 18px 12px", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
+        <button onClick={onClose} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:7, color:G.textDim, cursor:"pointer", fontSize:14, padding:"5px 10px", flexShrink:0 }}>✕</button>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ height:4, background:"rgba(255,255,255,0.08)", borderRadius:2, overflow:"hidden" }}>
+            <div style={{ height:"100%", width:`${Math.max(2, overallPct)}%`, background:`linear-gradient(90deg,${col},${col}cc)`, borderRadius:2, transition:"width 0.4s" }}/>
+          </div>
+          <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginTop:4 }}>EX {exIdx+1}/{totalExs} · {overallPct}% COMPLETE</div>
+        </div>
+        <button onClick={()=>setVoiceOn(v=>!v)} style={{ background:voiceOn?`${col}22`:"transparent", border:`1px solid ${voiceOn?col:G.borderB}`, borderRadius:7, color:voiceOn?col:G.textDim, cursor:"pointer", fontSize:14, padding:"5px 10px", flexShrink:0 }}>
+          {voiceOn?"🔊":"🔇"}
+        </button>
+      </div>
+
+      {/* Main content */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"0 24px calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
+        {phase === "resting" ? (
+          <>
+            <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:4, color:G.textMid, textTransform:"uppercase", marginBottom:16 }}>REST</div>
+            <div style={{ fontFamily:FONT.display, fontSize:72, color:col, letterSpacing:2, lineHeight:1, textShadow:`0 0 40px ${col}66`, marginBottom:8 }}>{mins}:{secs}</div>
+            <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:32 }}>
+              NEXT: SET {curSets.length + 1} · {curEx?.name}
+            </div>
+            <button onClick={skipRest} style={{ background:"transparent", border:`1px solid ${G.borderB}`, borderRadius:10, padding:"12px 32px", color:G.textMid, fontFamily:FONT.display, fontSize:13, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>
+              SKIP REST →
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:4, color:col, textTransform:"uppercase", marginBottom:10 }}>
+              SET {curSetNum} OF {totalSets}
+            </div>
+            <div style={{ fontFamily:FONT.display, fontSize:28, letterSpacing:3, color:"#fff", textTransform:"uppercase", textAlign:"center", lineHeight:1.2, marginBottom:16 }}>{curEx?.name}</div>
+
+            {lastPerf && (
+              <div style={{ background:`${col}12`, border:`1px solid ${col}33`, borderRadius:8, padding:"6px 14px", marginBottom:20, flexShrink:0 }}>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:col, letterSpacing:1.5, textTransform:"uppercase", textAlign:"center" }}>
+                  LAST: {lastPerf.sets.slice(0,3).map(s=>`${s.r}×${s.w}`).join("  ·  ")}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display:"flex", gap:16, marginBottom:28, width:"100%", maxWidth:300 }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:6, textAlign:"center" }}>WEIGHT (LBS)</div>
+                <input type="number" inputMode="decimal" value={inputW} onChange={e=>setInputW(e.target.value)}
+                  placeholder="—"
+                  style={{ width:"100%", boxSizing:"border-box", background:"rgba(0,0,0,0.5)", border:`1px solid ${col}55`, borderRadius:10, padding:"14px 12px", color:"#fff", fontFamily:FONT.display, fontSize:26, letterSpacing:2, textAlign:"center", outline:"none" }}/>
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:6, textAlign:"center" }}>REPS</div>
+                <input type="number" inputMode="numeric" value={inputR} onChange={e=>setInputR(e.target.value)}
+                  style={{ width:"100%", boxSizing:"border-box", background:"rgba(0,0,0,0.5)", border:`1px solid ${col}55`, borderRadius:10, padding:"14px 12px", color:"#fff", fontFamily:FONT.display, fontSize:26, letterSpacing:2, textAlign:"center", outline:"none" }}/>
+              </div>
+            </div>
+
+            <button onClick={completeSet} style={{ width:"100%", maxWidth:360, padding:"18px", background:`linear-gradient(135deg,${col},${col}bb)`, border:"none", borderRadius:14, color:"#0A0810", fontFamily:FONT.display, fontSize:16, letterSpacing:3, cursor:"pointer", textTransform:"uppercase", boxShadow:`0 6px 28px ${col}55`, marginBottom:16 }}>
+              ✓ SET COMPLETE
+            </button>
+
+            {curSets.length > 0 && (
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"center" }}>
+                {curSets.map((s, i) => (
+                  <div key={i} style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, background:"rgba(255,255,255,0.06)", borderRadius:5, padding:"3px 8px", letterSpacing:1 }}>
+                    {s.r}×{s.w||"BW"}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProgramDetailModal({ program, onClose, onStartDay, onStartGuided, sessions = [] }) {
   useScrollLock();
   const [activeDay, setActiveDay] = useState(0);
+  const [guidedOpen, setGuidedOpen] = useState(false);
   const day = program.days[activeDay];
 
   return (
@@ -4653,10 +4853,25 @@ function ProgramDetailModal({ program, onClose, onStartDay }) {
 
         {/* CTA */}
         <button onClick={()=>onStartDay(program, activeDay)}
-          style={{ width:"100%", padding:"15px", background:`linear-gradient(135deg,${program.col},${program.col}cc)`, border:"none", borderRadius:10, color:"#0A0810", fontFamily:FONT.display, fontSize:15, letterSpacing:3, textTransform:"uppercase", cursor:"pointer", boxShadow:`0 4px 20px ${program.col}55` }}>
+          style={{ width:"100%", padding:"15px", background:`linear-gradient(135deg,${program.col},${program.col}cc)`, border:"none", borderRadius:10, color:"#0A0810", fontFamily:FONT.display, fontSize:15, letterSpacing:3, textTransform:"uppercase", cursor:"pointer", boxShadow:`0 4px 20px ${program.col}55`, marginBottom:10 }}>
           LOG DAY {activeDay+1} WORKOUT ◆
         </button>
+        {onStartGuided && (
+          <button onClick={()=>setGuidedOpen(true)}
+            style={{ width:"100%", padding:"14px", background:"transparent", border:`1px solid ${program.col}66`, borderRadius:10, color:program.col, fontFamily:FONT.display, fontSize:14, letterSpacing:3, textTransform:"uppercase", cursor:"pointer" }}>
+            🎯 GUIDED MODE
+          </button>
+        )}
       </div>
+      {guidedOpen && (
+        <GuidedWorkoutModal
+          program={program}
+          day={day}
+          sessions={sessions}
+          onClose={()=>setGuidedOpen(false)}
+          onFinish={(name, exs) => { setGuidedOpen(false); onStartGuided(name, exs); onClose(); }}
+        />
+      )}
     </div>
   );
 }
