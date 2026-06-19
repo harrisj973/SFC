@@ -8746,6 +8746,140 @@ function MacroCoachModal({ onClose }) {
   );
 }
 
+// ─── Achievement Badges ───────────────────────────────────────────────────────
+const ACHIEVEMENTS = [
+  // TRAINING
+  { id:"first_session",  cat:"TRAINING", ico:"🏋️", name:"First Rep",       desc:"Log your first session",           check:({sc})=>sc>=1 },
+  { id:"sessions_10",    cat:"TRAINING", ico:"💪", name:"10 Strong",         desc:"Complete 10 sessions",             check:({sc})=>sc>=10 },
+  { id:"sessions_25",    cat:"TRAINING", ico:"🔥", name:"25 Sessions",       desc:"25 sessions logged",               check:({sc})=>sc>=25 },
+  { id:"sessions_50",    cat:"TRAINING", ico:"⚡", name:"50 Grind",          desc:"50 sessions in the books",         check:({sc})=>sc>=50 },
+  { id:"sessions_100",   cat:"TRAINING", ico:"💯", name:"Century",           desc:"100 sessions — you're elite",      check:({sc})=>sc>=100 },
+  { id:"sessions_250",   cat:"TRAINING", ico:"🦁", name:"Iron 250",          desc:"250 sessions logged",              check:({sc})=>sc>=250 },
+  // VOLUME
+  { id:"vol_10k",        cat:"VOLUME",   ico:"📦", name:"10K Club",          desc:"Lift 10,000 lbs total",            check:({vol})=>vol>=10000 },
+  { id:"vol_100k",       cat:"VOLUME",   ico:"🚛", name:"100K Club",         desc:"100,000 lbs lifted",               check:({vol})=>vol>=100000 },
+  { id:"vol_1m",         cat:"VOLUME",   ico:"🌍", name:"1M Club",           desc:"1,000,000 lbs — legendary",        check:({vol})=>vol>=1000000 },
+  { id:"vol_10m",        cat:"VOLUME",   ico:"🌌", name:"10M Club",          desc:"10 million lbs — immortal",        check:({vol})=>vol>=10000000 },
+  // STREAKS
+  { id:"streak_7",       cat:"STREAKS",  ico:"🔥", name:"Week Warrior",      desc:"Hit a 7-day streak",               check:({streak})=>streak>=7 },
+  { id:"streak_14",      cat:"STREAKS",  ico:"⚡", name:"2 Weeks Strong",    desc:"Maintain a 14-day streak",         check:({streak})=>streak>=14 },
+  { id:"streak_30",      cat:"STREAKS",  ico:"🗓️", name:"Monthly Machine",  desc:"30-day streak",                    check:({streak})=>streak>=30 },
+  { id:"streak_60",      cat:"STREAKS",  ico:"💎", name:"60-Day Diamond",    desc:"60 consecutive days",              check:({streak})=>streak>=60 },
+  { id:"streak_100",     cat:"STREAKS",  ico:"👑", name:"100-Day Legend",    desc:"100-day streak — unstoppable",     check:({streak})=>streak>=100 },
+  // STRENGTH
+  { id:"first_pr",       cat:"STRENGTH", ico:"🎯", name:"PR Hunter",         desc:"Set your first personal record",   check:({prs})=>prs>=1 },
+  { id:"prs_5",          cat:"STRENGTH", ico:"🏅", name:"5 PRs",             desc:"5 personal records logged",        check:({prs})=>prs>=5 },
+  { id:"prs_10",         cat:"STRENGTH", ico:"🥇", name:"PR Machine",        desc:"10 personal records",              check:({prs})=>prs>=10 },
+  { id:"prs_25",         cat:"STRENGTH", ico:"🏆", name:"PR Royalty",        desc:"25 personal records",              check:({prs})=>prs>=25 },
+  // POINTS
+  { id:"pts_1k",         cat:"POINTS",   ico:"⭐", name:"Point Scorer",      desc:"Earn 1,000 points",                check:({pts})=>pts>=1000 },
+  { id:"pts_5k",         cat:"POINTS",   ico:"💫", name:"High Scorer",       desc:"Earn 5,000 points",                check:({pts})=>pts>=5000 },
+  { id:"pts_10k",        cat:"POINTS",   ico:"🌟", name:"Elite Scorer",      desc:"Earn 10,000 points",               check:({pts})=>pts>=10000 },
+  { id:"pts_25k",        cat:"POINTS",   ico:"👑", name:"Point Legend",      desc:"Earn 25,000 points",               check:({pts})=>pts>=25000 },
+  // BODY
+  { id:"first_checkin",  cat:"BODY",     ico:"📏", name:"Check-In",          desc:"Complete your first body check-in",check:({bodyLog})=>bodyLog.length>=1 },
+  { id:"checkins_5",     cat:"BODY",     ico:"📈", name:"Transformer",       desc:"5 body check-ins logged",          check:({bodyLog})=>bodyLog.length>=5 },
+  { id:"checkins_photo", cat:"BODY",     ico:"📷", name:"Progress Photo",    desc:"Log a check-in with a photo",      check:({bodyLog})=>bodyLog.some(e=>e.photo) },
+  // NUTRITION
+  { id:"first_food",     cat:"NUTRITION",ico:"🥗", name:"First Log",         desc:"Log your first meal",              check:({foods})=>foods>=1 },
+  { id:"first_water",    cat:"NUTRITION",ico:"💧", name:"Hydrated",          desc:"Track your water intake",          check:({water})=>water>=1 },
+  { id:"foods_100",      cat:"NUTRITION",ico:"🍱", name:"Meal Prep Pro",     desc:"Log 100 food items total",         check:({foods})=>foods>=100 },
+];
+
+function getUnlockedBadges(sessions=[], profile={}, extraData={}) {
+  const { bodyLog=[], foods=0, water=0 } = extraData;
+  const sc = profile?.sessions_count || sessions.length;
+  const streak = profile?.streak || 0;
+  const pts = profile?.points || 0;
+  const vol = sessions.reduce((sum,s)=>{
+    const sv = (s.exs||[]).reduce((a,ex)=>{
+      return a + (ex.sets||[]).filter(st=>st.type!=="warmup").reduce((b,st)=>{
+        const w=parseFloat(st.w)||0, r=parseFloat(st.r)||0;
+        return b + (w>0&&r>0 ? w*r : 0);
+      },0);
+    },0);
+    return sum+sv;
+  }, 0);
+  // Count unique PRs: best est1rm per exercise across all sessions
+  const prMap = {};
+  sessions.forEach(s=>{
+    (s.exs||[]).forEach(ex=>{
+      if (!ex.name) return;
+      (ex.sets||[]).filter(st=>st.type!=="warmup").forEach(st=>{
+        const w=parseFloat(st.w)||0, r=parseFloat(st.r)||0;
+        if (w>0&&r>0) {
+          const e1 = w*(1+r/30);
+          if (!prMap[ex.name]||e1>prMap[ex.name]) prMap[ex.name]=e1;
+        }
+      });
+    });
+  });
+  const prs = Object.keys(prMap).length;
+  const ctx = { sc, streak, pts, vol, prs, bodyLog, foods, water };
+  return new Set(ACHIEVEMENTS.filter(a=>a.check(ctx)).map(a=>a.id));
+}
+
+function AchievementsModal({ sessions=[], profile={}, onClose }) {
+  useScrollLock();
+  const [cat, setCat] = useState("ALL");
+  const extraData = (() => {
+    try {
+      const bodyLog = JSON.parse(localStorage.getItem("sfc_body_log")||"[]");
+      const nl = JSON.parse(localStorage.getItem("sfc_nutrition_log")||"[]");
+      const foods = Array.isArray(nl) ? nl.reduce((s,d)=>s+(d.items?.length||0),0) : 0;
+      const wl = JSON.parse(localStorage.getItem("sfc_water_log")||"null");
+      const water = (wl?.entries||[]).length;
+      return { bodyLog: Array.isArray(bodyLog)?bodyLog:[], foods, water };
+    } catch { return { bodyLog:[], foods:0, water:0 }; }
+  })();
+  const unlocked = getUnlockedBadges(sessions, profile, extraData);
+  const cats = ["ALL", ...new Set(ACHIEVEMENTS.map(a=>a.cat))];
+  const filtered = ACHIEVEMENTS.filter(a=>cat==="ALL"||a.cat===cat);
+  const unlockedCount = ACHIEVEMENTS.filter(a=>unlocked.has(a.id)).length;
+  const CAT_COLOR = { TRAINING:"#a78bfa", VOLUME:"#FDB927", STREAKS:"#F97316", STRENGTH:"#F43F5E", POINTS:"#FDB927", BODY:"#4ADE80", NUTRITION:"#38BDF8" };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"#06060E", zIndex:900, display:"flex", flexDirection:"column" }}>
+      <div style={{ padding:"calc(env(safe-area-inset-top,0px) + 16px) 18px 0", flexShrink:0 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+          <div>
+            <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>
+              MY <span style={{ color:G.gold, textShadow:`0 0 12px ${G.gold}` }}>BADGES</span>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
+              <div style={{ width:7, height:7, borderRadius:"50%", background:G.gold }}/>
+              <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>{unlockedCount} / {ACHIEVEMENTS.length} unlocked</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background:"rgba(255,255,255,0.07)", border:"none", borderRadius:20, padding:"6px 14px", color:"#fff", fontFamily:FONT.display, fontSize:12, letterSpacing:1, cursor:"pointer" }}>✕ CLOSE</button>
+        </div>
+        {/* Category filter */}
+        <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:10 }}>
+          {cats.map(c=>(
+            <button key={c} onClick={()=>setCat(c)} style={{ flexShrink:0, background:cat===c?`linear-gradient(135deg,${G.purple},${G.purpleBright})`:"rgba(255,255,255,0.05)", border:"none", borderRadius:20, padding:"5px 12px", fontFamily:FONT.display, fontSize:10, letterSpacing:1.5, color:cat===c?"#fff":G.textMid, cursor:"pointer", textTransform:"uppercase" }}>{c}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ flex:1, overflowY:"auto", padding:"0 18px", paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 100px)" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, paddingTop:4 }}>
+          {filtered.map(a=>{
+            const got = unlocked.has(a.id);
+            const col = CAT_COLOR[a.cat] || G.purple;
+            return (
+              <div key={a.id} style={{ background: got ? `linear-gradient(135deg,${col}18,${col}08)` : "rgba(255,255,255,0.03)", border:`1px solid ${got?col+"44":"rgba(255,255,255,0.06)"}`, borderRadius:14, padding:"14px 12px", display:"flex", flexDirection:"column", alignItems:"center", gap:6, textAlign:"center", opacity: got?1:0.45 }}>
+                <div style={{ fontSize:30, filter: got?"none":"grayscale(1)" }}>{a.ico}</div>
+                <div style={{ fontFamily:FONT.display, fontSize:12, letterSpacing:1.5, color: got?col:"#fff", textTransform:"uppercase", lineHeight:1.2 }}>{a.name}</div>
+                <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1, textTransform:"uppercase", lineHeight:1.4 }}>{a.desc}</div>
+                {got && <div style={{ background:col+"22", borderRadius:10, padding:"2px 8px", fontFamily:FONT.display, fontSize:9, letterSpacing:1.5, color:col, marginTop:2 }}>✓ UNLOCKED</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, muscleScores, isAdmin, userId, unit = "lbs", onUnitToggle }) {
   const [aiCoachOpen, setAiCoachOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
@@ -8758,6 +8892,7 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
   const [profileOpen, setProfileOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [achievementsOpen, setAchievementsOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(null);
   const [moreViewingUser, setMoreViewingUser] = useState(null);
   const [followerCount, setFollowerCount] = useState(null);
@@ -8776,6 +8911,7 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
     });
   }, [userId]);
   const FEATURES = [
+    {id:"badges", l:"MY BADGES", ico:"🏆", desc:"Achievements & milestone trophies", col:G.gold, hot:true},
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
     {id:"units", l:"UNITS", ico:"⚖️", desc: unit === "lbs" ? "Switch to kg" : "Switch to lbs", col:G.textMid},
     {id:"reports", l:"WEEKLY REPORTS", ico:"📋", desc:"Personalized coaching notes", col:G.purpleLight, hot:true},
@@ -8789,6 +8925,7 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
 
   const handleTile = (id) => {
     if (id === "units") { onUnitToggle?.(); return; }
+    if (id === "badges") { setAchievementsOpen(true); return; }
     if (id === "ai") setAiCoachOpen(true);
     else if (id === "goals") setGoalsOpen(true);
     else if (id === "reports") setReportsOpen(true);
@@ -8923,6 +9060,7 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
         <span style={{ color:G.textDim, fontSize:13, opacity:0.6 }}>›</span>
       </div>
       {deleteOpen && <DeleteAccountModal onClose={()=>setDeleteOpen(false)} onDeleted={onSignOut}/>}
+      {achievementsOpen && <AchievementsModal sessions={sessions} profile={profile} onClose={()=>setAchievementsOpen(false)}/>}
 
       {followOpen && userId && (
         <FollowListModal
@@ -9775,7 +9913,30 @@ function SocialFitClubInner() {
     // This also guards against the visibility-change handler racing loadSessions
     // during the insert and wiping the optimistic state before the insert completes.
     await loadSessions(user.id);
-    showToast(`🏆 SESSION SAVED · +${sess.pts} POINTS`);
+    // Check for newly unlocked badges
+    try {
+      const seenKey = "sfc_seen_badges";
+      const seen = new Set(JSON.parse(localStorage.getItem(seenKey)||"[]"));
+      const extraData = (() => {
+        const bodyLog = JSON.parse(localStorage.getItem("sfc_body_log")||"[]");
+        const nl = JSON.parse(localStorage.getItem("sfc_nutrition_log")||"[]");
+        const foods = Array.isArray(nl)?nl.reduce((s,d)=>s+(d.items?.length||0),0):0;
+        const wl = JSON.parse(localStorage.getItem("sfc_water_log")||"null");
+        const water = (wl?.entries||[]).length;
+        return { bodyLog:Array.isArray(bodyLog)?bodyLog:[], foods, water };
+      })();
+      const updatedProfile = { points: newPts, sessions_count: newSessionsCount, streak: newStreak };
+      const now = getUnlockedBadges([{ ...sess, createdAt: new Date().toISOString() }, ...sessions], updatedProfile, extraData);
+      const newBadges = [...now].filter(id=>!seen.has(id));
+      if (newBadges.length) {
+        const badge = ACHIEVEMENTS.find(a=>a.id===newBadges[0]);
+        if (badge) showToast(`${badge.ico} BADGE UNLOCKED: ${badge.name}!`);
+        newBadges.forEach(id=>seen.add(id));
+        localStorage.setItem(seenKey, JSON.stringify([...seen]));
+      } else {
+        showToast(`🏆 SESSION SAVED · +${sess.pts} POINTS`);
+      }
+    } catch { showToast(`🏆 SESSION SAVED · +${sess.pts} POINTS`); }
     return true;
   };
 
