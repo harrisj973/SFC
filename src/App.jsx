@@ -5256,6 +5256,7 @@ function MuscleHeatMap({ sessions }) {
 
 function ProgressScreen({ showToast, sessions = [], profile, unit = "lbs" }) {
   const [activeTab, setActiveTab] = useState("stats");
+  const [chartsEx, setChartsEx] = useState(null);
   const streak = profile?.streak || 0;
   const [freezes, setFreezes] = useState(() => {
     try { return Number(localStorage.getItem("sfc_streak_freezes") ?? 2); } catch { return 2; }
@@ -5310,11 +5311,11 @@ function ProgressScreen({ showToast, sessions = [], profile, unit = "lbs" }) {
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:4 }}>
           <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple, boxShadow:`0 0 8px ${G.purple}` }}/>
-          <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>Stats · Streak · Heat Map</div>
+          <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>Stats · Charts · Streak · Heat Map</div>
         </div>
       </div>
       <div style={{ display:"flex", background:"rgba(0,0,0,0.5)", borderRadius:7, padding:3, gap:3, marginBottom:18, border:`1px solid ${G.borderB}` }}>
-        {[{id:"stats",l:"STATS"},{id:"streak",l:"STREAK"},{id:"heatmap",l:"HEAT MAP"}].map(t=>(
+        {[{id:"stats",l:"STATS"},{id:"streak",l:"STREAK"},{id:"charts",l:"CHARTS"},{id:"heatmap",l:"MAP"}].map(t=>(
           <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{ flex:1, padding:"8px 2px", borderRadius:5, border:"none", background:activeTab===t.id?`linear-gradient(135deg,${G.purple},${G.purpleBright})`:"transparent", color:activeTab===t.id?"#fff":G.textMid, fontFamily:FONT.display, fontSize:10, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{t.l}</button>
         ))}
       </div>
@@ -5600,6 +5601,129 @@ function ProgressScreen({ showToast, sessions = [], profile, unit = "lbs" }) {
       {activeTab==="heatmap" && (
         <MuscleHeatMap sessions={sessions}/>
       )}
+
+      {activeTab==="charts" && (() => {
+        const exFreq = {};
+        sessions.forEach(s => (s.exs||[]).forEach(e => { if (e.name) exFreq[e.name] = (exFreq[e.name]||0) + 1; }));
+        const trackedExs = Object.entries(exFreq).filter(([,c]) => c >= 2).sort(([,a],[,b]) => b-a).map(([n]) => n);
+
+        const bestHistory = chartsEx ? getExerciseHistory(chartsEx, sessions) : [];
+        const volHistory = chartsEx ? (() => {
+          const out = [];
+          const chrono = [...sessions].reverse();
+          for (const sess of chrono) {
+            const ex = (sess.exs||[]).find(e => e.name === chartsEx);
+            if (!ex) continue;
+            let vol = 0;
+            for (const set of (ex.sets||[])) {
+              if (set.type === "warmup") continue;
+              const w = parseFloat(set.w)||0, r = parseInt(set.r)||0;
+              if (w && r) vol += w * r;
+            }
+            if (vol > 0) out.push({ date: sess.date || (sess.createdAt||"").slice(0,10), vol });
+          }
+          return out;
+        })() : [];
+
+        const ExChart = ({ data, valueKey, label, color, fmt }) => {
+          const vals = data.map(d => d[valueKey]);
+          if (vals.length < 2) return null;
+          const minV = Math.min(...vals); const maxV = Math.max(...vals);
+          const range = maxV - minV || 1;
+          const W = 300; const H = 90;
+          const coords = data.map((d, i) => ({
+            x: (i / (data.length - 1)) * W,
+            y: H - ((d[valueKey] - minV) / range) * (H - 16) - 8,
+            val: d[valueKey], date: d.date,
+          }));
+          const poly = coords.map(c => `${c.x},${c.y}`).join(" ");
+          const months = [];
+          let lastMo = null;
+          data.forEach((d, i) => {
+            if (!d.date) return;
+            const mo = new Date(d.date + "T12:00:00").toLocaleString("en-US", { month: "short" }).toUpperCase();
+            if (mo !== lastMo) { months.push({ mo, pct: (i/(data.length-1))*100 }); lastMo = mo; }
+          });
+          const fmtVal = v => fmt ? fmt(v) : Math.round(v);
+          return (
+            <ChromeCard style={{ padding:"14px 16px", marginBottom:12 }}>
+              <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>{label}</div>
+              <div style={{ position:"relative" }}>
+                <div style={{ position:"absolute", right:0, top:0, bottom:16, display:"flex", flexDirection:"column", justifyContent:"space-between", pointerEvents:"none" }}>
+                  <div style={{ fontFamily:FONT.mono, fontSize:9, color:G.textDim, letterSpacing:0.5 }}>{fmtVal(maxV)}</div>
+                  <div style={{ fontFamily:FONT.mono, fontSize:9, color:G.textDim, letterSpacing:0.5 }}>{fmtVal(minV)}</div>
+                </div>
+                <svg width="100%" viewBox={`-4 0 ${W+8} ${H}`} style={{ overflow:"visible", display:"block" }}>
+                  <defs>
+                    <linearGradient id={`grad-${label}`} x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stopColor={color} stopOpacity="0.25"/>
+                      <stop offset="100%" stopColor={color} stopOpacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  {[0.25, 0.5, 0.75].map(f => <line key={f} x1="0" y1={H*f} x2={W} y2={H*f} stroke="rgba(255,255,255,0.04)" strokeWidth="1"/>)}
+                  {coords.length > 1 && <polygon points={`${coords[0].x},${H} ${poly} ${coords[coords.length-1].x},${H}`} fill={`url(#grad-${label})`}/>}
+                  {coords.length > 1 && <polyline points={poly} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ filter:`drop-shadow(0 0 4px ${color}88)` }}/>}
+                  {coords.map((c, i) => (
+                    <circle key={i} cx={c.x} cy={c.y} r={i===coords.length-1?5:3} fill={color} stroke="#0A0810" strokeWidth="1.5" style={{ filter:i===coords.length-1?`drop-shadow(0 0 5px ${color})`:"none" }}/>
+                  ))}
+                </svg>
+                <div style={{ position:"relative", height:14, marginTop:2 }}>
+                  {months.slice(0,4).map((m, i) => (
+                    <div key={i} style={{ position:"absolute", left:`${m.pct}%`, transform:"translateX(-50%)", fontFamily:FONT.mono, fontSize:9, color:G.textDim, letterSpacing:0.5, whiteSpace:"nowrap" }}>{m.mo}</div>
+                  ))}
+                </div>
+              </div>
+            </ChromeCard>
+          );
+        };
+
+        if (sessions.length === 0) return (
+          <div style={{ textAlign:"center", padding:"40px 0" }}>
+            <div style={{ fontSize:40, marginBottom:12 }}>📊</div>
+            <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:G.textMid }}>LOG SESSIONS TO SEE CHARTS</div>
+          </div>
+        );
+
+        return (
+          <div>
+            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>SELECT EXERCISE</div>
+            <div style={{ display:"flex", gap:7, overflowX:"auto", paddingBottom:12, WebkitOverflowScrolling:"touch", marginBottom:4 }}>
+              {trackedExs.length === 0
+                ? <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:1 }}>Log 2+ sessions with the same exercise to unlock charts.</div>
+                : trackedExs.map(ex => (
+                  <button key={ex} onClick={() => setChartsEx(ex)} style={{ flexShrink:0, padding:"6px 13px", borderRadius:20, border:`1px solid ${chartsEx===ex ? G.purple : G.borderB}`, background:chartsEx===ex ? `linear-gradient(135deg,${G.purple},${G.purpleBright})` : "transparent", color:chartsEx===ex ? "#fff" : G.textMid, fontFamily:FONT.display, fontSize:10, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase", whiteSpace:"nowrap" }}>{ex}</button>
+                ))
+              }
+            </div>
+
+            {chartsEx && bestHistory.length < 2 && (
+              <ChromeCard style={{ padding:"18px", textAlign:"center", marginTop:8 }}>
+                <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase" }}>Log at least 2 sessions with {chartsEx} to see your charts.</div>
+              </ChromeCard>
+            )}
+
+            {chartsEx && bestHistory.length >= 2 && (
+              <>
+                <div style={{ fontFamily:FONT.display, fontSize:15, letterSpacing:2, color:"#fff", textTransform:"uppercase", marginBottom:12, marginTop:4 }}>
+                  {chartsEx} <span style={{ color:G.purple, textShadow:`0 0 10px ${G.purple}` }}>· ANALYTICS</span>
+                </div>
+                <ExChart data={bestHistory} valueKey="weight" label="BEST SET WEIGHT (LBS)" color={G.purple}/>
+                <ExChart data={bestHistory} valueKey="est1rm" label="ESTIMATED 1RM TREND" color={G.gold}/>
+                <ExChart data={volHistory} valueKey="vol" label="TOTAL SESSION VOLUME (LBS)" color="#4ADE80"
+                  fmt={v => v >= 1000 ? `${(v/1000).toFixed(1)}K` : Math.round(v)}/>
+              </>
+            )}
+
+            {!chartsEx && trackedExs.length > 0 && (
+              <div style={{ textAlign:"center", padding:"32px 0" }}>
+                <div style={{ fontSize:36, marginBottom:10 }}>📈</div>
+                <div style={{ fontFamily:FONT.display, fontSize:14, letterSpacing:2, color:G.textMid, textTransform:"uppercase" }}>TAP AN EXERCISE ABOVE</div>
+                <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textDim, letterSpacing:1, marginTop:6 }}>to see your Best Set, 1RM trend,<br/>and volume over time</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {photoLightbox && (
         <div onClick={()=>setPhotoLightbox(null)} style={{ position:"fixed", inset:0, zIndex:999, background:"rgba(0,0,0,0.92)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
