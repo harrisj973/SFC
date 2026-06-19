@@ -2547,13 +2547,75 @@ function PlateCalculatorModal({ onClose, initialWeight = "" }) {
   );
 }
 
-function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQuickStart, sessions = [] }) {
+function TrainingMaxModal({ onClose }) {
+  useScrollLock();
+  const [mode, setMode] = useState("1rm");
+  const [rm, setRm] = useState("");
+  const [calcW, setCalcW] = useState("");
+  const [calcR, setCalcR] = useState("");
+  const est1rm = mode === "calc" && calcW && calcR
+    ? Math.round(parseFloat(calcW) * (1 + parseInt(calcR)/30))
+    : parseFloat(rm) || 0;
+  const pcts = [50,55,60,65,70,75,80,85,90,92,95];
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(6,6,14,0.92)", zIndex:700, display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
+      <div style={{ background:G.bg2, border:`1px solid ${G.borderB}`, borderRadius:"16px 16px 0 0", width:"100%", maxWidth:480, maxHeight:"85vh", overflowY:"auto", padding:"20px 18px", paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+          <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:2, color:G.gold }}>⚡ TRAINING MAX CALC</div>
+          <button onClick={onClose} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:6, color:G.textMid, cursor:"pointer", fontSize:14, padding:"4px 9px" }}>✕</button>
+        </div>
+        <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+          {[["1rm","ENTER 1RM"],["calc","ESTIMATE FROM SET"]].map(([m,l]) => (
+            <button key={m} onClick={()=>setMode(m)} style={{ flex:1, padding:"8px", borderRadius:8, border:`1px solid ${mode===m?G.gold:G.borderB}`, background:mode===m?`${G.gold}18`:"transparent", color:mode===m?G.gold:G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1, cursor:"pointer", textTransform:"uppercase" }}>{l}</button>
+          ))}
+        </div>
+        {mode === "1rm" ? (
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>YOUR 1RM (LBS)</div>
+            <input type="number" inputMode="decimal" value={rm} onChange={e=>setRm(e.target.value)} placeholder="e.g. 315"
+              style={{ width:"100%", boxSizing:"border-box", background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"11px 13px", color:"#fff", fontFamily:FONT.body, fontSize:18, outline:"none" }}/>
+          </div>
+        ) : (
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:16 }}>
+            {[["calcW","WEIGHT (LBS)","e.g. 275"],["calcR","REPS","e.g. 3"]].map(([st,l,ph]) => (
+              <div key={st}>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>{l}</div>
+                <input type="number" inputMode="decimal" value={st==="calcW"?calcW:calcR} onChange={e=>st==="calcW"?setCalcW(e.target.value):setCalcR(e.target.value)} placeholder={ph}
+                  style={{ width:"100%", boxSizing:"border-box", background:"rgba(0,0,0,0.4)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"11px 13px", color:"#fff", fontFamily:FONT.body, fontSize:16, outline:"none" }}/>
+              </div>
+            ))}
+          </div>
+        )}
+        {est1rm > 0 && (
+          <>
+            <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>
+              {mode==="calc" ? `EST. 1RM: ${est1rm} LBS · ` : ""}PERCENTAGE TARGETS
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+              {pcts.map(pct => (
+                <ChromeCard key={pct} style={{ padding:"10px 12px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <div style={{ fontFamily:FONT.body, fontSize:12, color:G.textMid, letterSpacing:1 }}>{pct}%</div>
+                  <div style={{ fontFamily:FONT.display, fontSize:16, color:G.gold, letterSpacing:1 }}>{Math.round(est1rm * pct/100 / 2.5) * 2.5} lbs</div>
+                </ChromeCard>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQuickStart, sessions = [], onShareSession, unit = "lbs" }) {
   const [subTab, setSubTab] = useState("track");
   const [sessName, setSessName] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sfc_wip_session") || "{}").name || ""; } catch { return ""; }
   });
   const [sessTag, setSessTag] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sfc_wip_session") || "{}").tag || null; } catch { return null; }
+  });
+  const [sessNotes, setSessNotes] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sfc_wip_session") || "{}").notes || ""; } catch { return ""; }
   });
   const [historyFilter, setHistoryFilter] = useState(null);
   const [exs, setExs] = useState(() => {
@@ -2577,11 +2639,13 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
   const [plateCalcWeight, setPlateCalcWeight] = useState("");
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [progFilter, setProgFilter] = useState("ALL");
+  const [autoRest, setAutoRest] = useState(() => localStorage.getItem("sfc_auto_rest") === "1");
+  const [tmCalcOpen, setTmCalcOpen] = useState(false);
   const nextIdRef = useRef(2);
 
   useEffect(() => {
-    localStorage.setItem("sfc_wip_session", JSON.stringify({ name: sessName, exs, tag: sessTag }));
-  }, [sessName, exs, sessTag]);
+    localStorage.setItem("sfc_wip_session", JSON.stringify({ name: sessName, exs, tag: sessTag, notes: sessNotes }));
+  }, [sessName, exs, sessTag, sessNotes]);
 
   useEffect(() => {
     if (quickStart) {
@@ -2697,11 +2761,11 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
     const valid = exs.filter(e => e.name && e.sets.some(s=>s.r||s.w));
     if (!valid.length) { showToast("Add at least one exercise."); return; }
     setSaving(true);
-    const ok = await onSave({ name:sessName||"CUSTOM SESSION", exs:valid, sets:totSets, vol:totVol, pts, tag: sessTag, date: new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}) });
+    const ok = await onSave({ name:sessName||"CUSTOM SESSION", exs:valid, sets:totSets, vol:totVol, pts, tag: sessTag, notes: sessNotes, date: new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}) });
     setSaving(false);
     if (ok !== false) {
       setExs([{id:1,name:"",sets:[{r:"",w:"",type:"working"}],rest:60,q:"",sugg:false}]);
-      setSessName(""); setSessTag(null);
+      setSessName(""); setSessTag(null); setSessNotes("");
       localStorage.removeItem("sfc_wip_session");
       setSubTab("log");
     }
@@ -2712,6 +2776,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
 
   return (
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
+      {tmCalcOpen && <TrainingMaxModal onClose={()=>setTmCalcOpen(false)}/>}
       {pickerFor && <ExercisePicker onSelect={name=>{ selectExercise(pickerFor, name); }} onClose={()=>setPickerFor(null)}/>}
       {restSec && <RestTimer sec={restSec} onDone={() => { setRestSec(null); showToast("✓ REST COMPLETE"); }}/>}
       {plateCalcOpen && <PlateCalculatorModal initialWeight={plateCalcWeight} onClose={() => setPlateCalcOpen(false)}/>}
@@ -2733,9 +2798,12 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
             <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>Track · Log · Progress</div>
           </div>
         </div>
-        <button onClick={() => { setPlateCalcWeight(""); setPlateCalcOpen(true); }} style={{ background:`${G.purple}15`, border:`1px solid ${G.purple}44`, borderRadius:8, padding:"8px 12px", color:G.purple, fontFamily:FONT.display, fontSize:11, letterSpacing:2, cursor:"pointer", display:"flex", alignItems:"center", gap:5, textTransform:"uppercase", flexShrink:0, marginBottom:2 }}>
-          ⚖️ PLATES
-        </button>
+        <div style={{ display:"flex", gap:7, alignItems:"center" }}>
+          <button onClick={()=>setTmCalcOpen(true)} style={{ background:"transparent", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"5px 10px", color:G.textMid, fontFamily:FONT.display, fontSize:11, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase" }}>⚡ TM</button>
+          <button onClick={() => { setPlateCalcWeight(""); setPlateCalcOpen(true); }} style={{ background:`${G.purple}15`, border:`1px solid ${G.purple}44`, borderRadius:8, padding:"8px 12px", color:G.purple, fontFamily:FONT.display, fontSize:11, letterSpacing:2, cursor:"pointer", display:"flex", alignItems:"center", gap:5, textTransform:"uppercase", flexShrink:0, marginBottom:2 }}>
+            ⚖️ PLATES
+          </button>
+        </div>
       </div>
       <div style={{ display:"flex", background:"rgba(0,0,0,0.5)", borderRadius:7, padding:3, gap:3, marginBottom:18, border:`1px solid ${G.borderB}` }}>
         {SUB_TABS.map(t => (
@@ -2759,6 +2827,13 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
             </div>
           </div>
 
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10, padding:"8px 12px", background:"rgba(255,255,255,0.03)", borderRadius:8, border:`1px solid ${G.borderB}` }}>
+            <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>AUTO REST TIMER</div>
+            <button onClick={() => { const v = !autoRest; setAutoRest(v); localStorage.setItem("sfc_auto_rest", v ? "1" : "0"); }}
+              style={{ background: autoRest ? `linear-gradient(135deg,${G.purple},${G.purpleBright})` : "rgba(255,255,255,0.05)", border:`1px solid ${autoRest ? G.purple : G.borderB}`, borderRadius:12, padding:"4px 12px", color: autoRest ? "#fff" : G.textDim, fontFamily:FONT.body, fontSize:10, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>
+              {autoRest ? "ON" : "OFF"}
+            </button>
+          </div>
           {!restWarnDismissed && overloadedMuscles.length > 0 && (
             <div style={{ background:"linear-gradient(135deg,rgba(255,107,0,0.12),rgba(255,23,68,0.12))", border:"1px solid rgba(255,107,0,0.45)", borderRadius:10, padding:"12px 14px", marginBottom:16, display:"flex", alignItems:"flex-start", gap:10 }}>
               <span style={{ fontSize:18, flexShrink:0 }}>🔥</span>
@@ -2776,7 +2851,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
             <ChromeCard gold style={{ padding:"11px 14px", marginBottom:16, display:"flex" }}>
               {[
                 {l:"SETS",v:String(totSets)},
-                {l:"VOLUME",v:`${totVol.toLocaleString()} LBS`},
+                {l:"VOLUME",v:`${totVol.toLocaleString()} ${unit.toUpperCase()}`},
                 {l:"PTS",v:`+${pts}`},
                 ...(totKcal > 0 ? [{l:"KCAL 🔥",v:`~${totKcal}`}] : []),
               ].map((s,i,arr) => (
@@ -2885,10 +2960,10 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                 {(() => {
                   const cardioConf = CARDIO_SET_CONFIG[ex.name];
                   const hA = cardioConf ? `${cardioConf.a.label}${cardioConf.a.unit ? ` (${cardioConf.a.unit})` : ""}` : "REPS";
-                  const hB = cardioConf ? `${cardioConf.b.label}${cardioConf.b.unit ? ` (${cardioConf.b.unit})` : ""}` : (BODYWEIGHT_EXERCISES.has(ex.name) ? "WEIGHT (LBS) ⚖️" : "WEIGHT (LBS)");
+                  const hB = cardioConf ? `${cardioConf.b.label}${cardioConf.b.unit ? ` (${cardioConf.b.unit})` : ""}` : (BODYWEIGHT_EXERCISES.has(ex.name) ? `WEIGHT (${unit.toUpperCase()}) ⚖️` : `WEIGHT (${unit.toUpperCase()})`);
                   return (
-                    <div style={{ display:"grid", gridTemplateColumns:"30px 1fr 1fr 30px", gap:6, padding:"6px 12px 3px", alignItems:"center" }}>
-                      {["TYPE", hA, hB, ""].map((h,i)=>(
+                    <div style={{ display:"grid", gridTemplateColumns:"30px 1fr 1fr auto 30px", gap:6, padding:"6px 12px 3px", alignItems:"center" }}>
+                      {["TYPE", hA, hB, "", ""].map((h,i)=>(
                         <div key={i} style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase" }}>{h}</div>
                       ))}
                     </div>
@@ -2910,10 +2985,11 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                   const inputColor = cardioConf ? G.purpleLight : setType==="warmup" ? "#74B9FF" : setType==="drop" ? "#FF7675" : (set.r||set.w) ? G.gold : G.textDim;
                   return (
                     <div key={si}>
-                      <div style={{ display:"grid", gridTemplateColumns:"30px 1fr 1fr 30px", gap:6, padding:"3px 12px", alignItems:"center" }}>
+                      <div style={{ display:"grid", gridTemplateColumns:"30px 1fr 1fr auto 30px", gap:6, padding:"3px 12px", alignItems:"center" }}>
                         <button onClick={()=>updSet(ex.id,si,"type",nextType)} title={`Tap to change: ${nextType}`} style={{ width:24, height:24, borderRadius:4, background:badgeCfg.bg, border:`1px solid ${badgeCfg.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT.display, fontSize:11, color:badgeCfg.color, cursor:"pointer", padding:0 }}>{badgeCfg.label}</button>
                         <input type="number" inputMode={cardioConf ? cardioConf.a.mode : "numeric"} placeholder={cardioConf ? "0" : (prevSet ? String(prevSet.r) : "—")} value={set.r} onChange={e=>updSet(ex.id,si,"r",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color:inputColor }}/>
                         <input type="number" inputMode={cardioConf ? cardioConf.b.mode : "decimal"} placeholder={cardioConf ? "0" : (prevSet ? String(progressWeight(prevSet.w)) : (BODYWEIGHT_EXERCISES.has(ex.name) ? String(getLoggedBodyWeight() || "BW") : "—"))} value={set.w} onChange={e=>updSet(ex.id,si,"w",e.target.value)} style={{ ...inp, padding:"8px 8px", fontFamily:FONT.display, fontSize:15, letterSpacing:1, textAlign:"center", color:inputColor }}/>
+                        <button onClick={() => { const rpeVals = [null,6,7,8,9,10]; const cur = set.rpe ?? null; const idx = rpeVals.indexOf(cur); const next = rpeVals[(idx + 1) % rpeVals.length]; updSet(ex.id,si,"rpe",next); }} title="RPE" style={{ background: set.rpe ? `${G.purple}33` : "transparent", border:`1px solid ${set.rpe ? G.purple : G.borderB}`, borderRadius:4, padding:"2px 5px", color: set.rpe ? G.purpleLight : G.textDim, fontFamily:FONT.body, fontSize:9, letterSpacing:1, cursor:"pointer", flexShrink:0, minWidth:38, textAlign:"center" }}>{set.rpe ? `@${set.rpe}` : "RPE"}</button>
                         <button onClick={()=>{if(ex.sets.length>1)setExs(p=>p.map(e=>e.id!==ex.id?e:{...e,sets:e.sets.filter((_,j)=>j!==si)}));}} style={{ background:"none", border:"none", color:G.textDim, cursor:"pointer", fontSize:13 }}>✕</button>
                       </div>
                       {!cardioConf && setType==="warmup" && <div style={{ paddingLeft:48, paddingBottom:1, fontFamily:FONT.body, fontSize:9, color:"#74B9FF", letterSpacing:1.5, textTransform:"uppercase" }}>warm-up · not counted in volume</div>}
@@ -2923,7 +2999,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                 })}
 
                 <div style={{ padding:"9px 12px 12px" }}>
-                  <button onClick={()=>{ const last=ex.sets[ex.sets.length-1]; setExs(p=>p.map(e=>e.id===ex.id?{...e,sets:[...e.sets,{r:"",w:"",type:"working"}]}:e)); if(last.r&&last.w) setRestSec(ex.rest); }} style={{ background:"transparent", border:`1px dashed ${G.borderB}`, borderRadius:5, padding:"6px", width:"100%", color:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:2, cursor:"pointer", marginBottom:9, textTransform:"uppercase" }}>+ ADD SET</button>
+                  <button onClick={()=>{ const last=ex.sets[ex.sets.length-1]; setExs(p=>p.map(e=>e.id===ex.id?{...e,sets:[...e.sets,{r:"",w:"",type:"working"}]}:e)); if(autoRest && last.r&&last.w) setRestSec(ex.rest); }} style={{ background:"transparent", border:`1px dashed ${G.borderB}`, borderRadius:5, padding:"6px", width:"100%", color:G.textMid, fontFamily:FONT.body, fontSize:11, letterSpacing:2, cursor:"pointer", marginBottom:9, textTransform:"uppercase" }}>+ ADD SET</button>
                   <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                     <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1.5, flexShrink:0, textTransform:"uppercase" }}>Rest:</div>
                     <div style={{ display:"flex", gap:4, flex:1 }}>
@@ -2944,13 +3020,20 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
               <div>
                 <div style={{ fontFamily:FONT.display, fontSize:16, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>Save Session</div>
-                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{totSets} sets{totVol > 0 ? ` · ${totVol.toLocaleString()} lbs` : ""}{totCardioMin > 0 ? ` · ${totCardioMin} min cardio` : ""}{totKcal > 0 ? ` · ~${totKcal} kcal` : ""}</div>
+                <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{totSets} sets{totVol > 0 ? ` · ${totVol.toLocaleString()} ${unit}` : ""}{totCardioMin > 0 ? ` · ${totCardioMin} min cardio` : ""}{totKcal > 0 ? ` · ~${totKcal} kcal` : ""}</div>
               </div>
               <div style={{ textAlign:"right" }}>
                 <div style={{ fontFamily:FONT.display, fontSize:28, color:G.gold, textShadow:G.goldGlow2, letterSpacing:1 }}>+{pts}</div>
                 <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>POINTS</div>
               </div>
             </div>
+            <textarea
+              value={sessNotes}
+              onChange={e => setSessNotes(e.target.value)}
+              placeholder="SESSION NOTES (OPTIONAL)..."
+              rows={2}
+              style={{ width:"100%", boxSizing:"border-box", background:"rgba(0,0,0,0.3)", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"9px 11px", color:G.textMid, fontFamily:FONT.body, fontSize:12, letterSpacing:1, resize:"none", outline:"none", marginBottom:10 }}
+            />
             <NeonBtn onClick={doSave} full disabled={saving}>{saving ? "SAVING..." : "SAVE & EARN POINTS ◆"}</NeonBtn>
           </ChromeCard>
         </div>
@@ -3014,6 +3097,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                         {s.date} · {s.sets} sets · {(s.vol||0).toLocaleString()} lbs
                         {(() => { const k = calcSessionCalories(s.exs, getLoggedBodyWeight()); return k > 0 ? ` · 🔥 ~${k} kcal` : ""; })()}
                       </div>
+                      {s.notes && <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:0.5, marginTop:4, fontStyle:"italic", lineHeight:1.4 }}>"{s.notes}"</div>}
                     </div>
                     <div style={{ textAlign:"right", flexShrink:0 }}>
                       <div style={{ fontFamily:FONT.display, fontSize:16, color:G.gold, letterSpacing:1 }}>+{s.pts}</div>
@@ -3022,6 +3106,7 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
                     {canAct && (
                       <div style={{ display:"flex", flexDirection:"column", gap:5, flexShrink:0 }}>
                         <button onClick={()=>repeatSession(s)} style={{ background:`${G.purple}22`, border:`1px solid ${G.purple}66`, borderRadius:5, color:G.purpleLight, cursor:"pointer", fontSize:12, padding:"4px 7px", lineHeight:1 }} title="Repeat this session">🔄</button>
+                        <button onClick={()=>{ const lines = [`💪 ${s.name}`, `${s.date} · ${s.sets} sets · ${(s.vol||0).toLocaleString()} lbs`]; if(s.exs?.length) lines.push(s.exs.map(e=>e.name).join(", ")); onShareSession?.(lines.join("\n")); }} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:5, color:G.textMid, cursor:"pointer", fontSize:12, padding:"4px 7px", lineHeight:1 }} title="Share to Squad">🔗</button>
                         <button onClick={()=>saveTemplate(s)} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:5, color:G.textMid, cursor:"pointer", fontSize:12, padding:"4px 7px", lineHeight:1 }} title="Save as template">📋</button>
                         <button onClick={()=>{ setEditingId(sid); setEditName(s.name); }} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:5, color:G.textMid, cursor:"pointer", fontSize:12, padding:"4px 7px", lineHeight:1 }} title="Rename">✏️</button>
                         <button onClick={()=>setDeletingId(sid)} style={{ background:"none", border:`1px solid ${G.borderB}`, borderRadius:5, color:G.textMid, cursor:"pointer", fontSize:12, padding:"4px 7px", lineHeight:1 }} title="Delete">🗑️</button>
@@ -4734,7 +4819,7 @@ function MuscleHeatMap({ sessions }) {
   );
 }
 
-function ProgressScreen({ showToast, sessions = [], profile }) {
+function ProgressScreen({ showToast, sessions = [], profile, unit = "lbs" }) {
   const [activeTab, setActiveTab] = useState("stats");
   const streak = profile?.streak || 0;
   const [freezes, setFreezes] = useState(() => {
@@ -4749,16 +4834,20 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
   const [logPhoto, setLogPhoto] = useState(null);
   const [logPhotoLoading, setLogPhotoLoading] = useState(false);
   const [photoLightbox, setPhotoLightbox] = useState(null);
+  const [logMeas, setLogMeas] = useState({ chest:"", waist:"", hips:"", arms:"", thighs:"", calves:"" });
+  const [showMeasForm, setShowMeasForm] = useState(false);
 
   const saveBodyEntry = () => {
     const w = parseFloat(logWeight);
     if (isNaN(w) || w <= 0) { showToast("⚠️ Enter a valid weight"); return; }
     const bf = parseFloat(logBf) || null;
-    const entry = { date: new Date().toISOString().slice(0, 10), weight: w, bf, photo: logPhoto || undefined };
+    const hasMeas = Object.values(logMeas).some(v => v);
+    const entry = { date: new Date().toISOString().slice(0, 10), weight: w, bf, photo: logPhoto || undefined, ...(hasMeas ? { meas: logMeas } : {}) };
     const next = [entry, ...bodyLog];
     setBodyLog(next);
     localStorage.setItem("sfc_body_log", JSON.stringify(next));
     setLogWeight(""); setLogBf(""); setLogPhoto(null); setShowLogForm(false);
+    setLogMeas({ chest:"", waist:"", hips:"", arms:"", thighs:"", calves:"" }); setShowMeasForm(false);
     showToast("📊 CHECK-IN SAVED!");
   };
 
@@ -4835,7 +4924,7 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
             })();
             const stats2 = [
               { l:"AVG SETS/SESSION", v:avgSets,              ico:"💪" },
-              { l:"AVG VOL/SESSION",  v:`${avgVol} lbs`,      ico:"⚡" },
+              { l:"AVG VOL/SESSION",  v:`${avgVol} ${unit}`,      ico:"⚡" },
               { l:"THIS MONTH",       v:`${monthSessions} sessions`, ico:"📅" },
               { l:"TOP EXERCISE",     v:topEx,                ico:"🏋️" },
               { l:"TODAY'S CALS",     v:todayCal>0?`${todayCal} kcal`:"—", ico:"🔥" },
@@ -4910,6 +4999,17 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
                   <button onClick={()=>setLogPhoto(null)} style={{ position:"absolute", top:6, right:6, background:"rgba(0,0,0,0.7)", border:"none", borderRadius:4, padding:"2px 7px", color:"#fff", fontFamily:FONT.body, fontSize:11, cursor:"pointer" }}>✕</button>
                 </div>
               )}
+              <button onClick={()=>setShowMeasForm(v=>!v)} style={{ width:"100%", background:"transparent", border:`1px solid ${G.borderB}`, borderRadius:6, padding:"7px", color:G.textMid, fontFamily:FONT.body, fontSize:10, letterSpacing:1.5, cursor:"pointer", textTransform:"uppercase", marginBottom:8 }}>{showMeasForm ? "▲ HIDE MEASUREMENTS" : "▼ ADD MEASUREMENTS (OPT)"}</button>
+              {showMeasForm && (
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7, marginBottom:8 }}>
+                  {[["chest","CHEST (IN)"],["waist","WAIST (IN)"],["hips","HIPS (IN)"],["arms","ARMS (IN)"],["thighs","THIGHS (IN)"],["calves","CALVES (IN)"]].map(([k,l]) => (
+                    <div key={k}>
+                      <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase", marginBottom:4 }}>{l}</div>
+                      <input type="number" inputMode="decimal" placeholder="—" value={logMeas[k]} onChange={e=>setLogMeas(p=>({...p,[k]:e.target.value}))} style={{ ...inp, padding:"8px 10px", fontSize:13 }}/>
+                    </div>
+                  ))}
+                </div>
+              )}
               <button onClick={saveBodyEntry} style={{ width:"100%", background:`linear-gradient(135deg,${G.gold},${G.goldDark})`, border:"none", borderRadius:6, padding:"10px", color:"#0A0810", fontFamily:FONT.display, fontSize:14, letterSpacing:2, cursor:"pointer", textTransform:"uppercase" }}>SAVE</button>
             </ChromeCard>
           )}
@@ -4956,7 +5056,14 @@ function ProgressScreen({ showToast, sessions = [], profile }) {
               <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>HISTORY</div>
               {bodyLog.slice(0, 4).map((entry, i) => (
                 <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 10px", background:i===0?`${G.gold}08`:"transparent", borderRadius:5, marginBottom:3, border:`1px solid ${i===0?G.borderB:"transparent"}` }}>
-                  <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1 }}>{entry.date}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1 }}>{entry.date}</div>
+                    {entry.meas && Object.values(entry.meas).some(v=>v) && (
+                      <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textDim, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>
+                        {Object.entries(entry.meas).filter(([,v])=>v).map(([k,v])=>`${k}: ${v}"`).join("  ·  ")}
+                      </div>
+                    )}
+                  </div>
                   <div style={{ display:"flex", gap:10, alignItems:"center" }}>
                     <div style={{ fontFamily:FONT.display, fontSize:13, color:i===0?G.gold:"#fff", letterSpacing:1 }}>{entry.weight} lbs</div>
                     {entry.bf != null && <div style={{ fontFamily:FONT.display, fontSize:13, color:i===0?G.purpleLight:G.textMid, letterSpacing:1 }}>{entry.bf}% BF</div>}
@@ -5094,6 +5201,16 @@ function NutritionScreen({ showToast }) {
   const [suppSearch, setSuppSearch] = useState("");
   const [suppTypeFilter, setSuppTypeFilter] = useState("ALL");
   const [scanTarget, setScanTarget] = useState("food");
+  const [foodFavs, setFoodFavs] = useState(() => { try { return JSON.parse(localStorage.getItem("sfc_food_favorites") || "[]"); } catch { return []; } });
+
+  const toggleFoodFav = (food) => {
+    setFoodFavs(prev => {
+      const exists = prev.some(f => f.name === food.name);
+      const next = exists ? prev.filter(f => f.name !== food.name) : [food, ...prev].slice(0, 30);
+      localStorage.setItem("sfc_food_favorites", JSON.stringify(next));
+      return next;
+    });
+  };
 
   const savedWater = (() => {
     try {
@@ -5685,6 +5802,24 @@ function NutritionScreen({ showToast }) {
           <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textDim, letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>
             {filteredFoods.length} RESULTS{catFilter!=="ALL"?` · ${catFilter}`:""}
           </div>
+          {foodFavs.length > 0 && (
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2.5, color:G.gold, textTransform:"uppercase", marginBottom:8 }}>★ FAVORITES</div>
+              {foodFavs.map(food => (
+                <ChromeCard key={food.name} style={{ padding:"10px 12px", marginBottom:7, display:"flex", alignItems:"center", gap:10 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                      <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:1.5, color:"#fff", textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{food.name}</div>
+                      {food.cat && <span style={{ background:`${G.purpleLight}15`, border:`1px solid ${G.purpleLight}33`, borderRadius:3, padding:"1px 6px", fontFamily:FONT.body, fontSize:8, color:G.purpleLight, letterSpacing:1, textTransform:"uppercase", flexShrink:0 }}>{food.cat}</span>}
+                    </div>
+                    <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase" }}>{food.cal} CAL · P:{food.pro}G · C:{food.carb}G · F:{food.fat}G</div>
+                  </div>
+                  <button onClick={() => toggleFoodFav(food)} style={{ background:"none", border:"none", fontSize:16, cursor:"pointer", padding:"4px 6px", color:G.gold }}>★</button>
+                  <NeonBtn onClick={()=>openFoodAdd(food)} small>+</NeonBtn>
+                </ChromeCard>
+              ))}
+            </div>
+          )}
           {filteredFoods.slice(0,25).map((f)=>(
             <ChromeCard key={f.name} style={{ padding:"10px 12px", marginBottom:7, display:"flex", alignItems:"center", gap:10 }}>
               <div style={{ flex:1, minWidth:0 }}>
@@ -5694,6 +5829,9 @@ function NutritionScreen({ showToast }) {
                 </div>
                 <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:1, textTransform:"uppercase" }}>{f.cal} CAL · P:{f.pro}G · C:{f.carb}G · F:{f.fat}G</div>
               </div>
+              <button onClick={() => toggleFoodFav(f)} style={{ background:"none", border:"none", fontSize:16, cursor:"pointer", padding:"4px 6px", color: foodFavs.some(fv=>fv.name===f.name) ? G.gold : G.textDim }}>
+                {foodFavs.some(fv=>fv.name===f.name) ? "★" : "☆"}
+              </button>
               <NeonBtn onClick={()=>openFoodAdd(f)} small>+</NeonBtn>
             </ChromeCard>
           ))}
@@ -6442,7 +6580,7 @@ function UserSearchModal({ userId, followingIds, onFollowChange, onViewProfile, 
   );
 }
 
-function FeedScreen({ showToast, profile, sessions = [], userId }) {
+function FeedScreen({ showToast, profile, sessions = [], userId, sharedSession, onClearSharedSession }) {
   const [feedTab, setFeedTab] = useState("following");
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -6471,6 +6609,16 @@ function FeedScreen({ showToast, profile, sessions = [], userId }) {
   const postFileInputRef = useRef(null);
 
   useEffect(() => { return () => { if (postImgUrlRef.current) URL.revokeObjectURL(postImgUrlRef.current); }; }, []);
+
+  useEffect(() => {
+    if (sharedSession) {
+      setTimeout(() => {
+        setNewTxt(sharedSession);
+        setShowCompose(true);
+        onClearSharedSession?.();
+      }, 0);
+    }
+  }, [sharedSession]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { localStorage.setItem("sfc_challenges", JSON.stringify(challenges)); }, [challenges]);
 
@@ -8145,7 +8293,7 @@ function MacroCoachModal({ onClose }) {
   );
 }
 
-function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, muscleScores, isAdmin, userId }) {
+function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, muscleScores, isAdmin, userId, unit = "lbs", onUnitToggle }) {
   const [aiCoachOpen, setAiCoachOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
@@ -8176,6 +8324,7 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
   }, [userId]);
   const FEATURES = [
     {id:"merch", l:"SFC MERCH", ico:"👕", desc:"Official gear & member drops", col:G.gold},
+    {id:"units", l:"UNITS", ico:"⚖️", desc: unit === "lbs" ? "Switch to kg" : "Switch to lbs", col:G.textMid},
     {id:"reports", l:"WEEKLY REPORTS", ico:"📋", desc:"Personalized coaching notes", col:G.purpleLight, hot:true},
     {id:"macro", l:"MACRO COACH", ico:"⚡", desc:"Adaptive calorie & macro targets", col:G.gold, hot:true},
     {id:"health", l:"HEALTH CONNECT", ico:"⌚", desc:"BLE heart rate & fitness devices", col:G.blue, hot:true},
@@ -8186,6 +8335,7 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
   ];
 
   const handleTile = (id) => {
+    if (id === "units") { onUnitToggle?.(); return; }
     if (id === "ai") setAiCoachOpen(true);
     else if (id === "goals") setGoalsOpen(true);
     else if (id === "reports") setReportsOpen(true);
@@ -8635,7 +8785,7 @@ function DeleteAccountModal({ onClose, onDeleted }) {
       const { error: e } = await supabase.functions.invoke("delete-account");
       if (e) throw e;
       // Clear all local data
-      const keys = ["sfc_nutrition_log","sfc_wip_session","sfc_feed","sfc_streak_freezes","sfc_goals","sfc_body_log","sfc_ble_device","sfc_supplement_log","sfc_notif_prefs","sfc_session_tags","sfc_water_log","sfc_water_goal","sfc_macro_coach","sfc_challenges","sfc_meal_templates","sfc_templates","sfc_daily_motiv","sfc_remembered_email","sfc_onboarded","sfc_profile_setup_done","sfc_tour_done"];
+      const keys = ["sfc_nutrition_log","sfc_wip_session","sfc_feed","sfc_streak_freezes","sfc_goals","sfc_body_log","sfc_ble_device","sfc_supplement_log","sfc_notif_prefs","sfc_session_tags","sfc_session_notes","sfc_water_log","sfc_water_goal","sfc_macro_coach","sfc_challenges","sfc_meal_templates","sfc_templates","sfc_daily_motiv","sfc_remembered_email","sfc_onboarded","sfc_profile_setup_done","sfc_tour_done"];
       keys.forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
       onDeleted();
     } catch {
@@ -8899,6 +9049,8 @@ function SocialFitClubInner() {
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [viewingUser, setViewingUser] = useState(null);
+  const [feedShareText, setFeedShareText] = useState(null);
+  const [unit, setUnit] = useState(() => localStorage.getItem("sfc_unit") || "lbs");
   const profileSetupChecked = useRef(false);
   const toastTimer = useRef(null);
 
@@ -8930,7 +9082,8 @@ function SocialFitClubInner() {
       .order("created_at", { ascending: false });
     if (data) {
       const tagMap = (() => { try { return JSON.parse(localStorage.getItem("sfc_session_tags") || "{}"); } catch { return {}; } })();
-      const mapped = data.map(s => ({ id:s.id, name:s.name, exs:s.exercises, sets:s.sets, vol:s.volume, pts:s.points, date:s.date, createdAt:s.created_at, tag: tagMap[s.id] || undefined }));
+      const notesMap = (() => { try { return JSON.parse(localStorage.getItem("sfc_session_notes") || "{}"); } catch { return {}; } })();
+      const mapped = data.map(s => ({ id:s.id, name:s.name, exs:s.exercises, sets:s.sets, vol:s.volume, pts:s.points, date:s.date, createdAt:s.created_at, tag: tagMap[s.id] || undefined, notes: notesMap[s.id] || undefined }));
       // Prune stale tag entries for sessions that no longer exist
       const validIds = new Set(data.map(s => String(s.id)));
       const pruned = Object.fromEntries(Object.entries(tagMap).filter(([k]) => validIds.has(k)));
@@ -9116,6 +9269,13 @@ function SocialFitClubInner() {
         localStorage.setItem("sfc_session_tags", JSON.stringify(tagMap));
       } catch { /* ignore */ }
     }
+    if (sData?.id && sess.notes) {
+      try {
+        const notesMap = JSON.parse(localStorage.getItem("sfc_session_notes") || "{}");
+        notesMap[sData.id] = sess.notes;
+        localStorage.setItem("sfc_session_notes", JSON.stringify(notesMap));
+      } catch { /* ignore */ }
+    }
     // Sync from DB — replaces the optimistic entry with the real row (including id).
     // This also guards against the visibility-change handler racing loadSessions
     // during the insert and wiping the optimistic state before the insert completes.
@@ -9213,11 +9373,11 @@ function SocialFitClubInner() {
 
       <main style={{ paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 82px)", position:"relative", zIndex:2, minHeight:"100vh" }}>
         {tab==="home" && (user?.email?.toLowerCase()===ADMIN_EMAIL ? <AdminHomeScreen/> : <HomeScreen sessions={sessions} leaderboard={leaderboard} onQuickStart={handleQuickStart} showToast={showToast} profile={profile} onViewProfile={u => setViewingUser({ ...u, isMe: false })}/>)}
-        {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions}/>}
-        {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile}/>}
+        {tab==="train" && <TrainScreen showToast={showToast} onSave={handleSave} onDelete={handleDeleteSession} onEdit={handleEditSession} quickStart={quickStartWorkout} onClearQuickStart={()=>setQuickStartWorkout(null)} sessions={sessions} onShareSession={(text) => { setFeedShareText(text); setTab("feed"); }} unit={unit}/>}
+        {tab==="progress" && <ProgressScreen showToast={showToast} sessions={sessions} profile={profile} unit={unit}/>}
         {tab==="nutrition" && <NutritionScreen showToast={showToast}/>}
-        {tab==="feed" && <FeedScreen showToast={showToast} profile={profile} sessions={sessions} userId={user?.id}/>}
-        {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut} onProfileUpdate={p => setProfile(p)} userId={user?.id} sessions={sessions} muscleScores={calcMuscleScores(sessions)} isAdmin={user?.email?.toLowerCase()===ADMIN_EMAIL}/>}
+        {tab==="feed" && <FeedScreen showToast={showToast} profile={profile} sessions={sessions} userId={user?.id} sharedSession={feedShareText} onClearSharedSession={() => setFeedShareText(null)}/>}
+        {tab==="more" && <MoreScreen showToast={showToast} profile={profile} onSignOut={handleSignOut} onProfileUpdate={p => setProfile(p)} userId={user?.id} sessions={sessions} muscleScores={calcMuscleScores(sessions)} isAdmin={user?.email?.toLowerCase()===ADMIN_EMAIL} unit={unit} onUnitToggle={() => { const u = unit === "lbs" ? "kg" : "lbs"; setUnit(u); localStorage.setItem("sfc_unit", u); }}/>}
       </main>
 
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, zIndex:50 }}>
