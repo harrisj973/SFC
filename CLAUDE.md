@@ -41,7 +41,7 @@ A legacy GitHub Actions workflow (`/.github/workflows/deploy.yml`) also exists �
 
 ## Architecture
 
-The entire app lives in a **single file**: `src/App.jsx` (~7200 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+The entire app lives in a **single file**: `src/App.jsx` (~9900 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
 
 `SocialFitClubInner` contains all app logic and is wrapped by an `ErrorBoundary` class component (exported as `SocialFitClub`). Unhandled render errors show a styled "SOMETHING WENT WRONG" screen with a reload button.
 
@@ -185,11 +185,11 @@ Root state passed as props:
 | Component | Key props |
 |---|---|
 | `HomeScreen` | `sessions`, `leaderboard`, `profile`, `onQuickStart`, `showToast`, `onViewProfile` |
-| `TrainScreen` | `sessions`, `onSave`, `onDelete`, `onEdit`, `quickStart`, `onClearQuickStart`, `showToast` |
-| `ProgressScreen` | `sessions`, `profile`, `showToast` |
-| `NutritionScreen` | `showToast` |
-| `FeedScreen` | `profile`, `sessions`, `showToast`, `userId` |
-| `MoreScreen` | `profile`, `sessions`, `muscleScores`, `onSignOut`, `onProfileUpdate`, `userId`, `showToast`, `isAdmin` |
+| `TrainScreen` | `sessions`, `onSave`, `onDelete`, `onEdit`, `quickStart`, `onClearQuickStart`, `showToast`, `onShareSession`, `onShareTemplate`, `unit` |
+| `ProgressScreen` | `sessions`, `profile`, `showToast`, `unit` |
+| `NutritionScreen` | `showToast`, `sessions` |
+| `FeedScreen` | `profile`, `sessions`, `showToast`, `userId`, `sharedSession`, `onClearSharedSession` |
+| `MoreScreen` | `profile`, `sessions`, `muscleScores`, `onSignOut`, `onProfileUpdate`, `userId`, `showToast`, `isAdmin`, `unit`, `onUnitToggle` |
 
 `isAdmin` is computed as `user?.email?.toLowerCase() === ADMIN_EMAIL` (module-level constant `"harrisj1025@gmail.com"`) and passed from `SocialFitClubInner`.
 
@@ -204,8 +204,10 @@ Root state passed as props:
 `handleSave` in `SocialFitClubInner`:
 1. Optimistic update: prepend `{ ...sess, createdAt: new Date().toISOString() }` to `sessions`, bump `profile.points` + `profile.sessions_count`, re-sort leaderboard
 2. Parallel Supabase writes: `sessions.insert(...).select("id").single()` + `profiles.update`
-3. After insert resolves, if `sess.tag` is set, save `{ [supabaseId]: tag }` to `sfc_session_tags` in localStorage
-4. Real-time subscription on `profiles` triggers `loadLeaderboard` for all connected clients
+3. After insert resolves, if `sess.tag` is set, save `{ [supabaseId]: tag }` to `sfc_session_tags`; if `sess.notes` is set, save `{ [supabaseId]: notes }` to `sfc_session_notes`
+4. Calls `loadSessions(user.id)` to replace the optimistic entry with the real DB row
+5. Calls `getUnlockedBadges()` and compares against `sfc_seen_badges` — shows a badge-unlock toast for any newly earned badge, then persists the updated seen set
+6. Real-time subscription on `profiles` triggers `loadLeaderboard` for all connected clients
 
 `loadSessions` merges tags from `sfc_session_tags` and prunes stale entries for deleted sessions.
 
@@ -218,7 +220,7 @@ Root state passed as props:
 | Key | Content | Expires |
 |---|---|---|
 | `sfc_nutrition_log` | `[{ date: "YYYY-MM-DD", items: [] }, ...]` — rolling 30-day history array, newest first. Migrates old single-day object format automatically on load. | Never (30-day rolling) |
-| `sfc_wip_session` | `{ name, exs, tag }` in-progress workout | Cleared on save |
+| `sfc_wip_session` | `{ name, exs, tag, notes }` in-progress workout | Cleared on save |
 | `sfc_streak_freezes` | string-encoded integer | Never |
 | `sfc_goals` | `{ weekly, volume, streak }` — user-set numeric targets | Never |
 | `sfc_body_log` | `[{ date, weight, bf, photo? }]` body check-in history, newest first | Never |
@@ -237,6 +239,12 @@ Root state passed as props:
 | `sfc_profile_setup_done` | `"1"` — set after user completes or skips the profile setup modal | Never (persists across sign-outs) |
 | `sfc_tour_done` | `"1"` — set after user completes or skips the guided feature tour | Never (persists across sign-outs) |
 | `sfc_remembered_email` | email string — pre-fills sign-in when Remember Me was checked | Cleared on delete-account; persists across sign-outs |
+| `sfc_session_notes` | `{ [supabaseSessionId]: string }` per-session free-text notes | Never (pruned on loadSessions) |
+| `sfc_last_deload` | ISO timestamp — date deload was last confirmed or dismissed | Suppresses deload banner for 28 days |
+| `sfc_seen_badges` | `string[]` — IDs of badges already toasted, avoids repeat notifications | Never |
+| `sfc_auto_rest` | `"1"` when auto-rest timer is enabled in TrainScreen | Never |
+| `sfc_food_favorites` | `[{ name, cal, pro, carb, fat, brand? }]` pinned food items | Never |
+| `sfc_unit` | `"lbs"` or `"kg"` — weight unit preference | Never |
 
 Note: `sfc_feed` is a legacy key from the old localStorage-backed feed. The current `FeedScreen` is fully Supabase-backed and does not use this key.
 
@@ -259,6 +267,7 @@ Note: `sfc_feed` is a legacy key from the old localStorage-backed feed. The curr
 - **`getActiveMacroTargets()`** → returns Macro Coach targets if setup complete, else falls back to `MACROS_GOAL`. Used by `NutritionScreen` daily summary.
 - **`getChallengeProgress(ch, sessions)`** → `{ current, pct, unit }`. Computes progress for a challenge since its `created` date: `"pr"` type uses best est1rm, `"vol"` uses cumulative volume, `"sessions"` uses session count.
 - **`timeAgo(ts)`** → Instagram-style relative timestamp string (e.g. `"3H AGO"`, `"2D AGO"`). Used by FeedScreen post cards and comment threads.
+- **`getUnlockedBadges(sessions, profile, extraData)`** → `Set<string>` of unlocked achievement IDs. `extraData` is `{ bodyLog, foods, water }` — all read from localStorage at call time. Used by `AchievementsModal` to render locked/unlocked state and by `handleSave` to detect new unlocks after a session is saved.
 
 ### TrainScreen sub-tabs and set types
 
@@ -269,6 +278,18 @@ Four sub-tabs: `TRACK`, `HISTORY`, `PRs`, `PROGRAMS`.
 `ProgramDetailModal` is `position:fixed, inset:0` and renders over the bottom nav bar. Its header uses `paddingTop:"calc(env(safe-area-inset-top, 0px) + 16px)"` to push the ✕ close button below the iOS status bar/notch. The scrollable content area uses `paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 100px)"` — the 100px (not 32px) clears both the fixed bottom nav bar (~82px) and the iOS home indicator.
 
 **Recovery alert** — inside the TRACK sub-tab, `overloadedMuscles` is derived each render: for each exercise in the current session, look up `EXERCISE_MUSCLE_MAP[ex.name]` and collect muscles with `factor >= 0.6`; filter those where `calcMuscleScores(sessions)[muscle] > 80`. If any are found and `restWarnDismissed` is false, an orange banner is shown above the exercise list. Dismissed per-session via local `restWarnDismissed` state.
+
+**Deload detection** — `deloadNeeded` is a computed boolean: walks backwards 5 weeks from today checking whether any session falls in each Mon–Sun window; if 4+ consecutive weeks have at least one session, the deload banner appears (purple, above the recovery alert). Dismissal sets `sfc_last_deload` to the current ISO timestamp; `deloadDismissed` state initialises from localStorage and suppresses the banner for 28 days. Clicking VIEW DELOAD PLAN ◆ opens `DeloadModal`, which shows 5 principle cards and a confirm button that also sets `sfc_last_deload`.
+
+**Auto-rest timer** — toggled by a switch in the TRACK sub-tab header, persisted to `sfc_auto_rest`. When enabled, completing a set with non-empty reps and weight auto-starts `RestTimer` with `ex.rest` seconds — **but only if the completed set's `type` is not `"warmup"`**. Warmup sets never trigger auto-rest.
+
+**Session notes** — a collapsible notes field (`sessNotes` state) appears below the session name in the TRACK tab. Persisted inside `sfc_wip_session` as `notes`. Saved alongside the session in `sfc_session_notes` keyed by the Supabase session ID. Shown as a grey italic line on HISTORY cards.
+
+**Exercise form demos** — `EXERCISE_TIPS` is a module-level constant with 35 exercises, each having `{ cues: [string, string, string], err: string }`. A 📹 button appears next to each exercise name in the TRACK tab and beside each row in `ExercisePicker`. Tapping it opens `ExerciseDemoModal` (bottom sheet): numbered form cues, an orange COMMON MISTAKE panel, and a YouTube search link. Both `trainDemoEx` state in `TrainScreen` and `demoEx` state in `ExercisePicker` control which modal is open.
+
+**Template sharing** — workout templates on the PROGRAMS sub-tab now have a 📤 button (only rendered when `onShareTemplate` prop is provided). `handleShareTemplate(tmpl)` in `SocialFitClubInner` inserts a `type: "template"` post with the template JSON encoded in `txt`. `FeedScreen` renders these posts as a green card with exercise chips and an IMPORT TO MY TEMPLATES button that writes to `sfc_templates`. `typeConfig` in FeedScreen includes `template: { color: "#4ADE80", ico: "📋", label: "TEMPLATE" }`.
+
+**Guided workout mode** — `ProgramDetailModal` has a 🎯 GUIDED MODE button (alongside LOG DAY X WORKOUT) when `onStartGuided` prop is provided. Tapping it opens `GuidedWorkoutModal` (full-screen, zIndex above ProgramDetailModal). The modal walks the athlete set-by-set through the day's exercises: shows exercise name, set counter, last-session performance hint, weight/reps inputs, and a ✓ SET COMPLETE button. After each completed set (except the last), the rest timer counts down with a SKIP REST button. When all sets are done, a summary screen shows SAVE SESSION ◆ (calls `onFinish(name, exs)` → hands off to TrainScreen) and DISCARD. Voice cues via Web Speech API are toggleable. `GuidedWorkoutModal` is defined immediately before `ProgramDetailModal` in the file.
 
 **Plate calculator** — `PlateCalculatorModal` is opened by the ⚖️ PLATES button in the Training Hub header. Greedy algorithm: for a given target weight and bar weight, iterates `[45, 35, 25, 10, 5, 2.5]` lb plates and assigns as many of each as fit per side. Renders a visual bar diagram and per-side plate list. Bar presets: STANDARD (45 lb), WOMEN'S (35 lb), TRAP/HEX (60 lb), EZ-CURL (25 lb).
 
@@ -351,6 +372,7 @@ Tooltip position is computed each step via a `useEffect` that calls `getBounding
 | `WeeklyReportModal` | WEEKLY REPORTS | — | `sessions`, `muscleScores`, `onClose` |
 | `HealthConnectModal` | HEALTH CONNECT | `sfc_ble_device` | `onClose` |
 | `MacroCoachModal` | MACRO COACH | `sfc_macro_coach` | `onClose` |
+| `AchievementsModal` | MY BADGES | reads `sfc_body_log`, `sfc_nutrition_log`, `sfc_water_log` | `sessions`, `profile`, `onClose` |
 | `AdminDashboardModal` | ADMIN DASHBOARD (admin only) | — | `onClose` |
 | `NotificationsModal` | NOTIFICATIONS | `sfc_notif_prefs` | `sessions`, `onClose` |
 | `FormCheckModal` | FORM CHECK | — | `onClose` |
@@ -363,6 +385,10 @@ Tooltip position is computed each step via a `useEffect` that calls `getBounding
 `FormCheckModal` — video file picker (`accept="video/*" capture="environment"`, max 100 MB), calls `extractFrames()` to get 3 frames, shows a thumbnail strip, then calls the `form-check` Edge Function. Results view: colour-coded score ring (green ≥8, gold ≥6, red <6), optional safety warning, strengths list, correction cards (`{ issue, fix }`), and purple coaching-cue chips.
 
 `HelpSupportModal` — includes a LEGAL section (`ChromeCard`) with links to `/privacy.html` (Privacy Policy) and `/terms.html` (Terms of Service).
+
+The MY BADGES tile opens `AchievementsModal`: 29 unlockable badges across 7 categories (TRAINING, VOLUME, STREAKS, STRENGTH, POINTS, BODY, NUTRITION). Each badge has `{ id, cat, ico, name, desc, check(ctx) }`. The modal shows a 2-column grid with category filter chips; unlocked cards glow in the category colour, locked cards are dimmed and greyscale. New unlocks are detected in `handleSave` by comparing the current unlocked set against `sfc_seen_badges`; the first new badge fires a toast and the IDs are persisted. Each badge only notifies once.
+
+The EXPORT MY DATA row (above Sign Out) exports all sessions and localStorage data as a timestamped JSON file via `URL.createObjectURL` + programmatic `<a download>`.
 
 The SFC MERCH tile shows a "COMING SOON" toast. The profile card at the top of MoreScreen is tappable and opens `ProfileModal` directly (bypassing the tile grid). Below the profile card, two tappable purple pills show the logged-in user's **FOLLOWERS** and **FOLLOWING** counts — tapping either opens `FollowListModal`. A **DELETE ACCOUNT** button lives below the Sign Out button; it opens `DeleteAccountModal` which requires the user to type "DELETE" to confirm, then calls the `delete-account` Edge Function and clears all `sfc_*` localStorage keys (including `sfc_remembered_email`).
 
@@ -394,6 +420,8 @@ The feed is fully **Supabase-backed** — posts, likes, and comments are all sto
 
 **Photo posts** — compose sheet has a 📷 ADD PHOTO button that opens a hidden `<input type="file" accept="image/*" capture="environment">`. Selected file is previewed via `URL.createObjectURL`; object URL is managed by `postImgUrlRef` and revoked on new selection, compose close, and successful submit. On submit, `compressImage(file)` → base64 → `Uint8Array` blob → upload to `post-images/{userId}/{uuid}.jpg` → `getPublicUrl` → stored as `image_url` on the post. Uses `crypto.randomUUID()` for the path (not `Date.now()`, which triggers the `react-hooks/purity` lint rule). Image is optional — text-only or image-only posts are both allowed.
 
+**Template posts** — posts with `type: "template"` encode the workout template as JSON in `txt`. The feed card renders a green card with exercise name chips and an IMPORT TO MY TEMPLATES button; it does **not** render `post.txt` as plain text (that would show raw JSON). `typeConfig` includes `template: { color: "#4ADE80", ico: "📋", label: "TEMPLATE" }`. Importing writes to `sfc_templates`.
+
 **Compose sheet** — `newType` state (`"post"` | `"pr"` | `"milestone"` | `"challenge"`). Challenge type has its own flow via `submitChallenge()`. All other types go through `submitPost()`. Backdrop `onClick` clears the image state via `clearImage()`.
 
 **`submitPost` error handling** — captures `error` from the Supabase `.insert()` call. On failure: shows an error toast and returns early without clearing the compose form (user can retry). On success: optimistically prepends the returned row to `posts`, shows the success toast, clears the compose, then calls `loadPosts(feedTab)` as a safety net to ensure the feed stays in sync with the DB. The toast must not fire before checking for errors — do not move `showToast` above the error check. `image_url` is only included in the insert payload when non-null — do not revert to always passing `image_url: null`, as that breaks inserts when the `image_url` column hasn't been added to the DB yet (Postgres error 42703). The insert also retries without `image_url` on a 42703 error as a fallback.
@@ -413,6 +441,8 @@ The feed is fully **Supabase-backed** — posts, likes, and comments are all sto
 ### NutritionScreen — calorie ring and meal templates
 
 **Calorie budget ring** — the summary card is centred on a `RingMeter` (size 140, strokeW 10). Ring color: gold when <85% of daily budget, orange at 85–99%, red when over. Shows calories remaining (or over) inside the ring; "consumed / target KCAL" label below. Uses `getActiveMacroTargets()` for the budget, showing an `⚡ ADAPTIVE` badge when Macro Coach is active.
+
+**Workout calorie adjustment** — `NutritionScreen` receives `sessions` as a prop. Each render computes `todayWorkoutKcal` by filtering sessions to today's date and summing `calcSessionCalories(s.exs, getLoggedBodyWeight())`. When non-zero, the daily calorie budget is increased by that amount and a 🔥 banner appears below the ring: "Workout burned ~X kcal · Budget adjusted to Y". Requires body weight to be logged in `sfc_body_log`; hidden when `getLoggedBodyWeight()` returns null.
 
 **Recent Foods strip** — a `RECENT FOODS` section appears at the top of the LOG tab (above meal templates) when there are past food entries. Derived each render from `nutritionHistory` (last 14 days, excluding today): all food items are deduplicated by name, sorted by frequency (most-logged first), limited to 20. Each purple card shows name, brand (if any), kcal, protein, and a `+ ADD` button that calls `openFoodAdd(f)`. Designed for meal preppers who eat the same foods daily.
 
@@ -521,7 +551,11 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 
 ### Module-level constants
 
-`ADMIN_EMAIL`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `EXERCISE_SUBCATS`, `EQUIPMENT_CATS`, `CARDIO_SET_CONFIG`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `REST_OPTIONS`, `MACRO_COACH_KEY`, `DAILY_MESSAGES`, `PROGRAMS_DATA`, `EXERCISE_MET`, `BODYWEIGHT_EXERCISES`.
+`ADMIN_EMAIL`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `EXERCISE_SUBCATS`, `EQUIPMENT_CATS`, `CARDIO_SET_CONFIG`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `REST_OPTIONS`, `MACRO_COACH_KEY`, `DAILY_MESSAGES`, `PROGRAMS_DATA`, `EXERCISE_MET`, `BODYWEIGHT_EXERCISES`, `EXERCISE_TIPS`, `ACHIEVEMENTS`.
+
+`EXERCISE_TIPS` maps 35 exercise names → `{ cues: [string, string, string], err: string }`. Used by `ExerciseDemoModal`. Adding a new exercise tip: add an entry here; no other constant needs updating.
+
+`ACHIEVEMENTS` is an array of 29 badge definitions: `{ id, cat, ico, name, desc, check(ctx) }` where `ctx` is `{ sc, streak, pts, vol, prs, bodyLog, foods, water }`. Categories: `TRAINING`, `VOLUME`, `STREAKS`, `STRENGTH`, `POINTS`, `BODY`, `NUTRITION`. Adding a new badge: append to `ACHIEVEMENTS` with a unique `id` and a `check` function — no other code needs changing.
 
 `EXERCISE_CATS` is an object keyed by muscle group (`CHEST`, `BACK`, `ARMS`, `LEGS`, `SHOULDERS`, `CORE`, `CARDIO`, `KETTLEBELL`) with 160+ exercises total. `EXERCISES = Object.values(EXERCISE_CATS).flat()`. `EX_CAT_LOOKUP` maps each exercise name → its muscle-group category (auto-built from `EXERCISE_CATS`). Adding a new exercise: put it in the right `EXERCISE_CATS` array — `EX_CAT_LOOKUP` and `EXERCISES` are derived automatically. Also add it to `EXERCISE_MET` (or it falls back to `DEFAULT_MET = 4.5`), and to `BODYWEIGHT_EXERCISES` if relevant, and to `EXERCISE_MUSCLE_MAP` for heat map tracking.
 
@@ -547,6 +581,7 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 ### Known implementation invariants
 
 - **Stable callback refs**: `RestTimer` uses `useRef` + `useEffect(() => { ref.current = onDone; })` (no deps) to keep the `onDone` callback current without restarting the interval on every parent re-render. Do not replace with a direct dependency.
+- **Warmup sets never auto-start rest timer**: the auto-rest logic in TrainScreen's set-complete handler guards with `last.type !== "warmup"` before calling `setRestSec(ex.rest)`. Do not remove this guard — warmup sets are intentionally excluded so athletes can flow through warm-ups without a countdown interruption.
 - **Streak calculation in `handleSave`**: compares the most recent existing session's `createdAt` date against today/yesterday to decide whether to extend or reset the streak. This must remain before the optimistic state update.
 - **Sign-out cleanup**: `handleSignOut` calls `supabase.auth.signOut()`, then immediately sets `setUser(null)` directly (in addition to the async `onAuthStateChange` callback) so the LoginScreen renders without waiting for the auth event. Only four session-ephemeral keys are cleared: `sfc_daily_motiv`, `sfc_wip_session`, `sfc_session_tags`, `sfc_feed`. All personal data keys (`sfc_nutrition_log`, `sfc_supplement_log`, `sfc_macro_coach`, `sfc_body_log`, `sfc_water_log`, `sfc_water_goal`, `sfc_goals`, `sfc_meal_templates`, `sfc_challenges`, `sfc_notif_prefs`, `sfc_streak_freezes`) are intentionally preserved across sign-out so users don't lose history when logging back in. `sfc_onboarded`, `sfc_profile_setup_done`, `sfc_tour_done` are preserved across sign-out (device-level state) but are cleared by `DeleteAccountModal` so re-signup gets a clean onboarding flow. `sfc_remembered_email` persists by design but is cleared by `DeleteAccountModal`. `DeleteAccountModal` clears all `sfc_*` keys including `sfc_templates`, `sfc_onboarded`, `sfc_profile_setup_done`, and `sfc_tour_done`.
 - **Body scroll lock**: `useScrollLock()` is a module-level hook called at the top of every modal component. It sets `document.body.style.overflow = "hidden"` on mount and restores the previous value on unmount, preventing iOS Safari background scroll bleed-through.
