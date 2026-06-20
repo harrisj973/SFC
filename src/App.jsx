@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Component } from "react";
+import { useState, useEffect, useRef, useCallback, Component } from "react";
 import logoImg from "./assets/logo.jpg";
 import { createClient } from "@supabase/supabase-js";
 
@@ -1443,7 +1443,7 @@ const EXERCISE_MET = {
   "Kettlebell Renegade Row":7.0,
   // New exercises
   "Smith Machine Bench Press":5.5,"Smith Machine Incline Press":5.0,
-  "Wide-Grip Push-Ups":4.0,"Diamond Push-Ups":4.0,"Incline Push-Ups":3.5,"Decline Push-Ups":4.0,"Hex Press":4.0,
+  "Wide-Grip Push-Ups":4.0,"Incline Push-Ups":3.5,"Decline Push-Ups":4.0,"Hex Press":4.0,
   "Inverted Row":4.5,"Seal Row":4.5,"Cable Pullover":3.5,"Deficit Deadlift":6.0,"Neutral Grip Pull-Ups":5.0,"Single-Arm Lat Pulldown":4.0,
   "Smith Machine Squat":5.5,"Pause Squat":6.0,"Zercher Squat":5.5,"Lateral Lunge":4.5,"Curtsy Lunge":4.5,"Jump Lunge":7.0,"Single-Leg Romanian Deadlift":4.5,"Leg Adductor Machine":3.0,"Donkey Calf Raise":3.0,
   "Pike Push-Ups":4.0,"Handstand Push-Ups":5.0,"Machine Lateral Raise":3.0,"Plate Front Raise":3.0,"Cable Front Raise":3.0,"Dumbbell Y-Raise":3.0,
@@ -4828,24 +4828,24 @@ function GuidedWorkoutModal({ program, day, sessions, onClose, onFinish }) {
   const overallPct = Math.round(((exIdx * (curEx?.sets || 3) + curSets.length) / day.exs.reduce((s,e)=>s+e.sets,0)) * 100);
   const lastPerf = curEx ? getLastExercisePerformance(curEx.name, sessions) : null;
 
-  const speak = (text) => {
+  const speak = useCallback((text) => {
     if (!voiceOn || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 0.92;
     window.speechSynthesis.speak(u);
-  };
+  }, [voiceOn]);
 
   useEffect(() => {
     if (phase !== "resting") return;
     if (restSec <= 0) {
-      setPhase("set");
+      setTimeout(() => setPhase("set"), 0);
       speak("Rest complete — next set!");
       return;
     }
     timerRef.current = setTimeout(() => setRestSec(s => s - 1), 1000);
     return () => clearTimeout(timerRef.current);
-  }, [phase, restSec]);
+  }, [phase, restSec, speak]);
 
   const completeSet = () => {
     const w = parseFloat(inputW) || 0;
@@ -9534,8 +9534,7 @@ function ProfileSetupModal({ userId, onDone }) {
     if (sex) updates.sex = sex;
     if (location.trim()) updates.location = location.trim();
     if (Object.keys(updates).length > 0 && userId) {
-      const { error: saveErr } = await supabase.from("profiles").update(updates).eq("id", userId);
-      // saveErr is non-fatal here — profile can be updated later via MoreScreen
+      await supabase.from("profiles").update(updates).eq("id", userId);
     }
     setSaving(false);
     onDone(Object.keys(updates).length > 0 ? updates : null);
@@ -10137,7 +10136,7 @@ function SocialFitClubInner() {
         const suffix = Math.floor(1000 + Math.random() * 9000);
         const unique = (base || "ATHLETE").slice(0, 16) + suffix;
         const uInitials = unique.split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2) || "ME";
-        const { data: retryData, error: retryErr } = await supabase.from("profiles").insert({ id: u.id, username: unique, avatar_initials: uInitials, points: 0, streak: 0, sessions_count: 0 }).select().single();
+        const { data: retryData } = await supabase.from("profiles").insert({ id: u.id, username: unique, avatar_initials: uInitials, points: 0, streak: 0, sessions_count: 0 }).select().single();
         data = retryData;
       }
       if (data) setProfile(data);
