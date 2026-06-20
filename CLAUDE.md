@@ -43,7 +43,7 @@ A legacy GitHub Actions workflow (`/.github/workflows/deploy.yml`) also exists �
 
 ## Architecture
 
-The entire app lives in a **single file**: `src/App.jsx` (~9900 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
+The entire app lives in a **single file**: `src/App.jsx` (~10,500 lines). There are no separate component files, no routing library, no state management library, and no CSS modules — all styling is inline CSS-in-JS.
 
 `SocialFitClubInner` contains all app logic and is wrapped by an `ErrorBoundary` class component (exported as `SocialFitClub`). Unhandled render errors show a styled "SOMETHING WENT WRONG" screen with a reload button.
 
@@ -163,6 +163,8 @@ All three functions are deployed. Deploy with `supabase functions deploy <name>`
 Render guards (in order): blank screen while `authReady` is false → `<ResetPasswordScreen/>` when `passwordRecovery` is true → `<LoginScreen/>` when no user → "CONNECTION ERROR" screen with Retry button when `!profile && dataLoadFailed` (network errors in `loadProfile`/`loadSessions` set this flag; a missing profile row — Postgres error `PGRST116` — does not) → blank while profile loads → main app with overlay stack: `OnboardingModal` (zIndex 850) → `ProfileSetupModal` (zIndex 820) → `DailyMotivModal` (zIndex 800) → `GuidedTourOverlay` (triggered after ProfileSetupModal completes/skips). `DailyMotivModal` is suppressed while onboarding or profile setup is active. `GuidedTourOverlay` fires once per device (guarded by `sfc_tour_done`), triggered with a 400ms delay after ProfileSetupModal's onDone callback.
 
 `loadProfile` uses a **cascading fallback** SELECT: tries the full column set first (`avatar_url`, `sessions_count`, `age`, `sex`, `location`, etc.), then retries with progressively simpler queries if a column doesn't exist yet. This prevents CONNECTION ERROR when the database schema is behind the code. Only sets `dataLoadFailed` if the minimal baseline query also fails.
+
+**PWA cold-start / auth timing** — `authReady` is initialised synchronously via `useState(() => { try { return !localStorage.getItem("sb-hcrhoccdgdelmbsmbrba-auth-token"); } catch { return false; } })`. This lets logged-out users skip the async `getSession()` call and reach `LoginScreen` instantly. For logged-in users, `getSession()` is called with a 3-second timeout (`clearTimeout(authTimeout)` on success) and a `.catch()` that also calls `setAuthReady(true)` — preventing the blank screen if the token-refresh network request hangs. `onAuthStateChange` also calls `setAuthReady(true)` as a backup path. While `authReady` is false, a branded purple splash screen (SFC logo + animated dots) is shown instead of a blank screen.
 
 **Demo mode** — appending `?demo=1` to the URL bypasses Supabase auth entirely and seeds the app with hardcoded sessions, profile, and leaderboard. Controlled by the module-level `_D` constant. The auth useEffect and real-time leaderboard subscription both guard with `if (_D) return`. Used by `test-bugcheck.mjs` to run headless tests without a live backend.
 
@@ -287,7 +289,7 @@ Four sub-tabs: `TRACK`, `HISTORY`, `PRs`, `PROGRAMS`.
 
 **Session notes** — a collapsible notes field (`sessNotes` state) appears below the session name in the TRACK tab. Persisted inside `sfc_wip_session` as `notes`. Saved alongside the session in `sfc_session_notes` keyed by the Supabase session ID. Shown as a grey italic line on HISTORY cards.
 
-**Exercise form demos** — `EXERCISE_TIPS` is a module-level constant with 35 exercises, each having `{ cues: [string, string, string], err: string }`. A 📹 button appears next to each exercise name in the TRACK tab and beside each row in `ExercisePicker`. Tapping it opens `ExerciseDemoModal` (bottom sheet): numbered form cues, an orange COMMON MISTAKE panel, and a YouTube search link. Both `trainDemoEx` state in `TrainScreen` and `demoEx` state in `ExercisePicker` control which modal is open.
+**Exercise form demos** — `EXERCISE_TIPS` is a module-level constant with 239 entries covering all exercises in `EXERCISE_CATS`, each having `{ cues: [string, string, string], err: string }`. Keys must exactly match the strings in `EXERCISE_CATS` — mismatched keys silently show "No form guide available". A 📹 button appears next to each exercise name in the TRACK tab and beside each row in `ExercisePicker`. Tapping it opens `ExerciseDemoModal` (bottom sheet): numbered form cues, an orange COMMON MISTAKE panel, and a YouTube search link. Both `trainDemoEx` state in `TrainScreen` and `demoEx` state in `ExercisePicker` control which modal is open.
 
 **Template sharing** — workout templates on the PROGRAMS sub-tab now have a 📤 button (only rendered when `onShareTemplate` prop is provided). `handleShareTemplate(tmpl)` in `SocialFitClubInner` inserts a `type: "template"` post with the template JSON encoded in `txt`. `FeedScreen` renders these posts as a green card with exercise chips and an IMPORT TO MY TEMPLATES button that writes to `sfc_templates`. `typeConfig` in FeedScreen includes `template: { color: "#4ADE80", ico: "📋", label: "TEMPLATE" }`.
 
@@ -555,9 +557,11 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 
 ### Module-level constants
 
+React import: `useState, useEffect, useRef, useCallback, Component`. Add to this list if new hooks are needed — do not import from a separate path.
+
 `ADMIN_EMAIL`, `EXERCISES`, `EXERCISE_CATS`, `EX_CAT_LOOKUP`, `EXERCISE_SUBCATS`, `EQUIPMENT_CATS`, `CARDIO_SET_CONFIG`, `FOODS`, `FOOD_CATS`, `BARCODE_DB`, `SUPPLEMENTS_DB`, `SUPP_TYPES`, `SUPP_TYPE_COLOR`, `MACROS_GOAL`, `SESSION_TYPES`, `DAYS_SHORT`, `EXERCISE_MUSCLE_MAP`, `MUSCLE_LABELS`, `MUSCLE_SUGGEST`, `REST_OPTIONS`, `MACRO_COACH_KEY`, `DAILY_MESSAGES`, `PROGRAMS_DATA`, `EXERCISE_MET`, `BODYWEIGHT_EXERCISES`, `EXERCISE_TIPS`, `ACHIEVEMENTS`.
 
-`EXERCISE_TIPS` maps 35 exercise names → `{ cues: [string, string, string], err: string }`. Used by `ExerciseDemoModal`. Adding a new exercise tip: add an entry here; no other constant needs updating.
+`EXERCISE_TIPS` maps 239 exercise names → `{ cues: [string, string, string], err: string }`. Used by `ExerciseDemoModal`. Keys must exactly match the strings in `EXERCISE_CATS` (case-sensitive). Backward-compat aliases are at the bottom for old mismatched names. Adding a new exercise tip: add an entry here; no other constant needs updating.
 
 `ACHIEVEMENTS` is an array of 29 badge definitions: `{ id, cat, ico, name, desc, check(ctx) }` where `ctx` is `{ sc, streak, pts, vol, prs, bodyLog, foods, water }`. Categories: `TRAINING`, `VOLUME`, `STREAKS`, `STRENGTH`, `POINTS`, `BODY`, `NUTRITION`. Adding a new badge: append to `ACHIEVEMENTS` with a unique `id` and a `check` function — no other code needs changing.
 
@@ -579,8 +583,10 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 - `react-hooks/static-components` — component definitions must not be inside another component's render function.
 - `react-hooks/exhaustive-deps` — all state variables referenced inside `useEffect` must be in the dependency array.
 - `react-hooks/refs` — prohibits `ref.current = value` directly in render; wrap in `useEffect`.
-- `no-unused-vars` — unused destructured parameters (e.g. `(s, i)` where `i` is unused) must be removed. Unused catch variables must be omitted entirely (`catch {` not `catch (e) {`).
+- `no-unused-vars` — unused destructured parameters (e.g. `(s, i)` where `i` is unused) must be removed. Unused catch variables must be omitted entirely (`catch {` not `catch (e) {`). Unused Supabase error returns should be dropped from destructuring entirely rather than kept as `_e`.
+- `no-empty` — empty `catch {}` blocks are allowed via `allowEmptyCatch: true` in `eslint.config.js`. Do not add `/* ignore */` comments inside catch blocks.
 - `react-hooks/set-state-in-effect` — calling `setState` synchronously inside a `useEffect` body triggers cascading renders. Wrap in `setTimeout(..., 0)` to defer out of the effect body.
+- Functions used inside `useEffect` must be stable references. Wrap them in `useCallback` with correct deps and add to the effect's dep array — or the `react-hooks/exhaustive-deps` rule will error.
 
 ### Known implementation invariants
 
@@ -591,7 +597,7 @@ Never use the gold gradient (`G.gold → G.goldDark`) for tab selectors.
 - **Body scroll lock**: `useScrollLock()` is a module-level hook called at the top of every modal component. It sets `document.body.style.overflow = "hidden"` on mount and restores the previous value on unmount, preventing iOS Safari background scroll bleed-through.
 - **Screen top padding**: Every screen root div uses `padding: "calc(env(safe-area-inset-top, 0px) + Xpx) 18px 0"` to clear the iOS status bar. Never use a fixed pixel top padding on screen containers.
 - **Bottom sheet modals**: All bottom sheet containers use `maxHeight: "80vh"` and `paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 72px)"` with `overflowY: "auto"`. The 80vh (not 93vh) is intentional — mobile Safari measures `vh` against the full screen including its own chrome, so 80vh gives enough clearance when running as a website (not a PWA).
-- **Scroll-container layout**: The outer app div uses `height:100dvh, display:flex, flexDirection:column, overflow:hidden`. `<main>` is `flex:1, overflowY:auto, paddingBottom:24` — it is the scroll container, not the body. The bottom nav bar is a `flexShrink:0` sibling below `<main>`, **not** `position:fixed`. This prevents iOS Safari's URL-bar-resize from causing fixed elements to jump during scroll. Do not revert the nav to `position:fixed` or restore `minHeight:100vh` on the outer div — both break scroll on mobile Safari.
+- **Scroll-container layout**: The outer app div uses `height:100dvh, display:flex, flexDirection:column, overflow:hidden`. `<main>` is `flex:1, overflowY:auto, paddingBottom:24` with **no `position` or `zIndex`** — it is the scroll container, not the body. The bottom nav bar is a `flexShrink:0, position:"relative", zIndex:1` sibling below `<main>`, **not** `position:fixed`. Critical: adding `position:relative` + any `zIndex` to `<main>` creates a stacking context that traps all `position:fixed` modals (Plate Calc, TM Calc, etc.) below the nav bar's `backdropFilter` layer — do not add them. Do not revert the nav to `position:fixed` or restore `minHeight:100vh` on the outer div — both break scroll on mobile Safari.
 - **Main content bottom padding**: The `<main>` scroll container uses `paddingBottom:24` (not 82px) since the nav bar is a flex sibling below it, not a fixed overlay. `LoginScreen` and all its conditional render paths also use `<main>` as the root element for accessibility landmark compliance.
 - **Blob URL lifecycle in `FormCheckModal`**: uses `previewUrlRef` to revoke the previous object URL both when a new file is picked and on unmount, preventing memory leaks.
 - **Blob URL lifecycle in FeedScreen compose**: `postImgUrlRef` tracks the current post image object URL. `clearImage()` revokes it. The backdrop `onClick` calls `clearImage()` before closing the compose sheet. The URL is also revoked when a new file replaces the previous one in `handleImagePick`, and a `useEffect` cleanup revokes it when `FeedScreen` unmounts (prevents leak when user navigates away mid-compose).
