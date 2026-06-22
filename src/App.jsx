@@ -311,9 +311,9 @@ function GuidedTourOverlay({ onDone }) {
     { sel: null,                    ico: "🏋️",  title: "WELCOME TO SFC",   body: "Let us walk you through the key features. It'll only take a minute." },
     { sel: "[data-tour='nav']",     ico: "⌂",   title: "NAVIGATION",       body: "These 6 tabs are your home base — tap any icon to switch sections.", pad: 8 },
     { sel: "[data-tour='tab-train']",     ico: "⊞",  title: "TRAIN",       body: "Log workouts, track every set, hit personal records, and follow structured programs.", pad: 10 },
-    { sel: "[data-tour='tab-progress']",  ico: "⤴",  title: "STATS",       body: "See your progress over time, view your streak, and explore the muscle heat map.", pad: 10 },
-    { sel: "[data-tour='tab-nutrition']", ico: "◉",  title: "FUEL",        body: "Log meals, scan barcodes, and hit your daily calorie and macro targets.", pad: 10 },
+    { sel: "[data-tour='tab-progress']",  ico: "⤴",  title: "PROGRESS",    body: "See your progress over time, view your streak, and explore the muscle heat map.", pad: 10 },
     { sel: "[data-tour='tab-feed']",      ico: "⚇",  title: "SQUAD",       body: "Share your PRs, post updates, send challenges, and connect with your crew.", pad: 10 },
+    { sel: "[data-tour='tab-nutrition']", ico: "◉",  title: "NUTRITION",   body: "Log meals, scan barcodes, and hit your daily calorie and macro targets.", pad: 10 },
     { sel: "[data-tour='tab-more']",      ico: "···", title: "MORE TOOLS",  body: "Get your AI Coach report, set weekly goals, check weekly reports, and much more.", pad: 10 },
   ];
 
@@ -2409,6 +2409,12 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile, o
   const [qsExpanded, setQsExpanded] = useState(true);
   const [badgesOpen, setBadgesOpen] = useState(false);
   const unlockedBadges = getUnlockedBadges(sessions, profile);
+  const [nowMs] = useState(() => Date.now());
+  const hour = new Date(nowMs).getHours();
+  const greeting = hour < 5 ? "LET'S GET IT" : hour < 12 ? "GOOD MORNING" : hour < 17 ? "GOOD AFTERNOON" : "GOOD EVENING";
+  const todayLabel = new Date(nowMs).toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric" }).toUpperCase();
+  const dayOfYear = Math.floor((new Date(nowMs) - new Date(new Date(nowMs).getFullYear(), 0, 0)) / 86400000);
+  const dailyMsg = DAILY_MESSAGES[dayOfYear % DAILY_MESSAGES.length];
 
   const WORKOUTS = [
     { name:"PUSH DAY", ico:"⊞", iconBg:"#4A2BE2", sub:"Chest · Shoulders · Tris", exs:["Barbell Bench Press","Incline Dumbbell Press","Lateral Raises","Tricep Pushdown"] },
@@ -2422,67 +2428,51 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile, o
   return (
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 10px) 0 0", minHeight:"100vh" }}>
 
-      {/* ── Header ── */}
-      <div style={{ display:"flex", alignItems:"center", padding:"0 18px", marginBottom:12 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10, flex:1 }}>
-          <img src={logoImg} alt="SFC" style={{ width:46, height:46, borderRadius:"50%", objectFit:"cover", objectPosition:"center top", border:`2px solid ${P}66`, boxShadow:`0 0 14px ${P}55` }}/>
+      {/* ── Hero Banner ── */}
+      <div style={{ margin:"0 16px 12px", background:"rgba(14,12,32,0.98)", border:`1px solid ${P}44`, borderRadius:16, padding:"18px 18px 16px", position:"relative", overflow:"hidden" }}>
+        <div style={{ position:"absolute", top:-50, right:-30, width:160, height:160, borderRadius:"50%", background:`${P}14`, pointerEvents:"none" }}/>
+        <div style={{ position:"absolute", bottom:-40, left:-20, width:110, height:110, borderRadius:"50%", background:`${P}0A`, pointerEvents:"none" }}/>
+
+        {/* top row: greeting / name on left, date + avatar on right */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16, position:"relative" }}>
           <div>
-            <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:3, color:"#fff", lineHeight:1, textTransform:"uppercase" }}>SOCIAL</div>
-            <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:1 }}>
-              <div style={{ flex:1, height:1, background:`linear-gradient(90deg,${P},transparent)`, width:14 }}/>
-              <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:3, color:P, textTransform:"uppercase" }}>FIT CLUB</div>
-              <div style={{ flex:1, height:1, background:`linear-gradient(90deg,transparent,${P})`, width:14 }}/>
-            </div>
+            <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:3, color:G.textMid, textTransform:"uppercase", marginBottom:3 }}>{greeting} ◆</div>
+            <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:2, color:"#fff", textTransform:"uppercase", lineHeight:1 }}>{profile?.username || profile?.avatar_initials || "ATHLETE"}</div>
+            <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:1.5, color:P, textTransform:"uppercase", marginTop:3 }}>{todayLabel}</div>
           </div>
-        </div>
-        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-          <div style={{ width:38, height:38, border:`1.5px solid ${P}66`, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, position:"relative", background:`${P}15` }}>
-            🔔
-            {sessions.length === 0 && <div style={{ position:"absolute", top:2, right:2, width:8, height:8, borderRadius:"50%", background:P, boxShadow:`0 0 6px ${P}` }}/>}
-          </div>
-          <div style={{ width:38, height:38, border:`1.5px solid ${P}88`, borderRadius:"50%", overflow:"hidden", background:`linear-gradient(135deg,${P},${G.purpleBright})`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ width:42, height:42, borderRadius:"50%", border:`2px solid ${P}66`, overflow:"hidden", background:`linear-gradient(135deg,${P}44,${G.purpleBright}44)`, flexShrink:0 }}>
             {profile?.avatar_url
               ? <img src={profile.avatar_url} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
-              : <span style={{ fontFamily:FONT.display, fontSize:16, color:"#fff", letterSpacing:1 }}>{(profile?.avatar_initials||"ME")[0]}</span>
+              : <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}><span style={{ fontFamily:FONT.display, fontSize:18, color:"#fff" }}>{(profile?.avatar_initials||"ME")[0]}</span></div>
             }
           </div>
         </div>
+
+        {/* streak hero */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, padding:"14px 0", borderTop:`1px solid ${P}22`, borderBottom:`1px solid ${P}22`, marginBottom:14 }}>
+          <span style={{ fontSize:32, filter:`drop-shadow(0 0 10px ${G.gold})` }}>🔥</span>
+          <div style={{ textAlign:"center" }}>
+            <div style={{ fontFamily:FONT.display, fontSize:56, color:G.gold, letterSpacing:2, lineHeight:1, textShadow:G.goldGlow2 }}>{profile?.streak||0}</div>
+            <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:3, color:G.textMid, textTransform:"uppercase", marginTop:2 }}>DAY STREAK</div>
+          </div>
+          <span style={{ fontSize:32, filter:`drop-shadow(0 0 10px ${G.gold})` }}>🔥</span>
+        </div>
+
+        {/* daily motivational quote */}
+        <div style={{ textAlign:"center", padding:"0 8px" }}>
+          <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:0.5, lineHeight:1.55, fontStyle:"italic" }}>"{dailyMsg?.msg}"</div>
+        </div>
       </div>
 
-      {/* Tagline */}
-      <div style={{ padding:"0 18px", marginBottom:14, display:"flex", alignItems:"center", gap:7 }}>
-        <div style={{ width:7, height:7, borderRadius:"50%", background:P, boxShadow:`0 0 8px ${P}` }}/>
-        <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>Strength in Community</div>
-      </div>
-
-      {/* ── Stats Card ── */}
-      <div style={{ margin:"0 16px 12px", background:"rgba(20,18,40,0.95)", border:`1px solid ${P}33`, borderRadius:14, padding:"16px", position:"relative", overflow:"hidden" }}>
-        <div style={{ position:"absolute", top:-30, right:-30, width:120, height:120, borderRadius:"50%", background:`${P}15`, pointerEvents:"none" }}/>
-        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
-          <div style={{ width:50, height:50, borderRadius:"50%", border:`2px solid ${P}66`, overflow:"hidden", background:`linear-gradient(135deg,${P}44,${G.purpleBright}44)`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-            {profile?.avatar_url
-              ? <img src={profile.avatar_url} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
-              : <span style={{ fontFamily:FONT.display, fontSize:20, color:"#fff" }}>{(profile?.avatar_initials||"ME")[0]}</span>
-            }
+      {/* ── Stats Row ── */}
+      <div style={{ margin:"0 16px 12px", display:"flex", gap:6 }}>
+        {[{l:"RANK",v:`#${myRank}`,ico:"👑"},{l:"POINTS",v:myPts.toLocaleString(),ico:"⭐"},{l:"SESSIONS",v:`${sessions.length}`,ico:"💪"},{l:"THIS WEEK",v:`${thisWeekSessions}`,ico:"📅"}].map(s=>(
+          <div key={s.l} style={{ flex:1, background:"rgba(20,18,40,0.95)", border:`1px solid ${P}22`, borderRadius:10, padding:"10px 4px", textAlign:"center" }}>
+            <div style={{ fontSize:13, marginBottom:3 }}>{s.ico}</div>
+            <div style={{ fontFamily:FONT.display, fontSize:17, color:"#fff", letterSpacing:1 }}>{s.v}</div>
+            <div style={{ fontFamily:FONT.body, fontSize:7.5, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{s.l}</div>
           </div>
-          <div style={{ flex:1 }}>
-            <div style={{ fontFamily:FONT.display, fontSize:18, letterSpacing:2, color:"#fff", textTransform:"uppercase" }}>YOUR STATS</div>
-            <div style={{ fontFamily:FONT.body, fontSize:11, color:G.textMid, letterSpacing:1 }}>{sessions.length} sessions logged</div>
-          </div>
-          <div style={{ textAlign:"right" }}>
-            <div style={{ fontFamily:FONT.display, fontSize:30, color:P, letterSpacing:1, lineHeight:1, textShadow:`0 0 16px ${P}` }}>{myPts.toLocaleString()}</div>
-            <div style={{ fontFamily:FONT.body, fontSize:9, color:G.textMid, letterSpacing:2, textTransform:"uppercase" }}>POINTS</div>
-          </div>
-        </div>
-        <div style={{ display:"flex", gap:6 }}>
-          {[{l:"RANK",v:`#${myRank}`,ico:"👑"},{l:"DAY STREAK",v:`${profile?.streak||0}`,ico:"🔥"},{l:"THIS WEEK",v:`${thisWeekSessions}`,ico:"💪"}].map(s=>(
-            <div key={s.l} style={{ flex:1, background:"rgba(0,0,0,0.35)", borderRadius:9, padding:"10px 4px", textAlign:"center", border:`1px solid ${P}22` }}>
-              <div style={{ fontSize:14, marginBottom:4 }}>{s.ico}</div>
-              <div style={{ fontFamily:FONT.display, fontSize:19, color:"#fff", letterSpacing:1 }}>{s.v}</div>
-              <div style={{ fontFamily:FONT.body, fontSize:8, color:G.textMid, letterSpacing:1, textTransform:"uppercase", marginTop:2 }}>{s.l}</div>
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
 
       {/* ── Weekly Volume ── */}
@@ -3216,8 +3206,8 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
       }}/>}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:16 }}>
         <div>
-          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
-            TRAINING <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>HUB</span>
+          <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+            🏋️ TRAINING <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>HUB</span>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:4 }}>
             <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple, boxShadow:`0 0 8px ${G.purple}` }}/>
@@ -5520,8 +5510,8 @@ function ProgressScreen({ showToast, sessions = [], profile, unit = "lbs" }) {
   return (
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       <div style={{ marginBottom:16 }}>
-        <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
-          PROGRESS <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>VAULT</span>
+        <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+          📈 PROGRESS <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>VAULT</span>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:4 }}>
           <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple, boxShadow:`0 0 8px ${G.purple}` }}/>
@@ -6353,8 +6343,8 @@ function NutritionScreen({ showToast, sessions = [] }) {
     <>
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       <div style={{ marginBottom:16 }}>
-        <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
-          NUTRITION <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>LAB</span>
+        <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+          🥗 NUTRITION <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>LAB</span>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:4 }}>
           <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple, boxShadow:`0 0 8px ${G.purple}` }}/>
@@ -7657,8 +7647,8 @@ function FeedScreen({ showToast, profile, sessions = [], userId, sharedSession, 
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"0 18px", marginBottom:4 }}>
         <div>
-          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase", lineHeight:1 }}>
-            SQUAD <span style={{ color:P, textShadow:`0 0 12px ${P}` }}>FEED</span>
+          <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", textTransform:"uppercase", lineHeight:1 }}>
+            ⚔️ SQUAD <span style={{ color:P, textShadow:`0 0 12px ${P}` }}>FEED</span>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
             <div style={{ width:7, height:7, borderRadius:"50%", background:P }}/>
@@ -9313,8 +9303,8 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
   return (
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       <div style={{ marginBottom:18 }}>
-        <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
-          MORE <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>TOOLS</span>
+        <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+          ⚙️ MORE <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>TOOLS</span>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:4 }}>
           <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple, boxShadow:`0 0 8px ${G.purple}` }}/>
@@ -10356,12 +10346,12 @@ function SocialFitClubInner() {
   };
 
   const TABS = [
-    { id:"home",      ico:"⌂",  l:"HOME"  },
-    { id:"train",     ico:"⊞",  l:"TRAIN" },
-    { id:"progress",  ico:"⤴",  l:"STATS" },
-    { id:"nutrition", ico:"◉",  l:"FUEL"  },
-    { id:"feed",      ico:"⚇",  l:"SQUAD" },
-    { id:"more",      ico:"···", l:"MORE"  },
+    { id:"home",      ico:"⌂",   l:"HOME"      },
+    { id:"train",     ico:"⊞",   l:"TRAIN"     },
+    { id:"progress",  ico:"⤴",   l:"PROGRESS"  },
+    { id:"feed",      ico:"⚇",   l:"SQUAD"     },
+    { id:"nutrition", ico:"◉",   l:"NUTRITION" },
+    { id:"more",      ico:"···", l:"MORE"       },
   ];
 
   if (!authReady) return (
