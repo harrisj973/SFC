@@ -28,7 +28,7 @@ All scripts pre-set `sfc_onboarded`, `sfc_profile_setup_done`, `sfc_tour_done`, 
 - **Nav tab buttons** — use `page.locator("[data-tour='tab-train']")` etc. (not text-based selectors). Each nav button has two child spans (emoji + label), so `innerText.trim()` returns `"🏋️\nTRAIN"` — hasText matchers fail. Use the `data-tour` attribute.
 - Sub-tab clicks in `ProgressScreen` must use `page.locator("button", { hasText: /^LABEL$/i })` — `page.click("text=LABEL")` hits the screen tagline div first because CSS `text-transform: uppercase` makes it match before the actual button.
 - Exercise picker item clicks require `page.evaluate()` JS dispatch — the picker's scroll-container backdrop intercepts pointer events and causes Playwright's `locator.click()` to time out: `await page.evaluate(() => { const el = [...document.querySelectorAll("div")].find(d => d.textContent.trim() === "Exercise Name"); el?.click(); })`.
-- Water quick-add buttons (`+8`, `+12`, `+16`, `+20 oz`) are in **NutritionScreen (FUEL)**, not ProgressScreen (STATS). STATS only shows a "TODAY'S WATER" stat pill.
+- Water quick-add buttons (`+8`, `+12`, `+16`, `+20 oz`) are in **NutritionScreen (NUTR tab)**, not ProgressScreen (PROGRESS tab). PROGRESS only shows a "TODAY'S WATER" stat pill.
 - Food search results render as `ChromeCard` divs, not `<button>` elements — look for divs with food name text, not buttons.
 - Compose post type buttons have emoji prefixes: `"📢 POST"`, `"🏆 PR"`, `"⭐ MILESTONE"`, `"⚔️ CHALLENGE"`. Use `/POST|PR|MILESTONE|CHALLENGE/i` without `^` anchors.
 - GoalsModal inputs are only visible **after** clicking the "✏️ EDIT TARGET" button (edit mode is off by default).
@@ -170,7 +170,7 @@ Render guards (in order): blank screen while `authReady` is false → `<ResetPas
 
 ### Navigation model
 
-`SocialFitClubInner` owns all top-level state and renders one screen at a time based on a `tab` string (`home`, `train`, `progress`, `nutrition`, `feed`, `more`). No router. Tab switching calls `setTab(id)`. Bottom nav labels: HOME, TRAIN, STATS, FUEL, SQUAD, MORE (not the screen names).
+`SocialFitClubInner` owns all top-level state and renders one screen at a time based on a `tab` string (`home`, `train`, `progress`, `nutrition`, `feed`, `more`). No router. Tab switching calls `setTab(id)`. Bottom nav order and labels: HOME, TRAIN, PROGRESS, SQUAD, NUTR, MORE — note SQUAD comes before NUTRITION, and the nav label is abbreviated to `"NUTR"` to avoid overflow on narrow phones (the screen title still reads "NUTRITION LAB" in full).
 
 Root state passed as props:
 
@@ -325,15 +325,14 @@ Four tabs via `activeTab` state:
 
 ### HomeScreen layout
 
-The HomeScreen was redesigned with a purple-dominant theme. Layout (top to bottom):
+The HomeScreen uses a motivational hero banner design. Layout (top to bottom):
 
-1. **Header bar** — small SFC logo (46px circle) + "SOCIAL / FIT CLUB" text branding on the left; bell icon + avatar circle on the right.
-2. **Tagline** — purple dot + "Strength in Community".
-3. **Stats card** — avatar, "YOUR STATS", session count, points (purple); three mini stat tiles: RANK, DAY STREAK, THIS WEEK.
-4. **Weekly volume** — SVG line chart with dots (purple), day labels below. Today's dot is highlighted and larger.
-5. **MY BADGES card** — tappable `ChromeCard` showing unlock count ("X of 29 unlocked") and up to 9 unlocked badge emoji tiles (or 5 locked placeholders for new users). Tapping opens `AchievementsModal`. State: `badgesOpen` + `unlockedBadges` (computed from `getUnlockedBadges(sessions, profile)` each render).
-6. **Leaderboard row** — tappable, expands (`lbExpanded` state) to show top-5 ranked users inline. Non-self rows are tappable and call `onViewProfile(u)` to open `UserProfileModal` via `SocialFitClubInner`.
-7. **Quick Start row** — tappable, expands (`qsExpanded` state, default open) to reveal a 2×2 grid of workout cards.
+1. **Hero banner** — full-width dark card with: time-of-day greeting (GOOD MORNING / AFTERNOON / EVENING / LET'S GET IT) + username + today's date on top row with avatar; a centred streak section (🔥 large gold streak number 🔥 when `profile.streak > 0`, or a 🎯 "START YOUR STREAK / Log a workout today to begin" CTA when streak is 0); and the day's `DAILY_MESSAGES` quote below. Uses `const [nowMs] = useState(() => Date.now())` for the greeting/date computation.
+2. **Stats row** — four compact tiles in a horizontal row: RANK (👑), POINTS (⭐), SESSIONS (💪), THIS WEEK (📅).
+3. **Weekly volume** — SVG line chart with dots (purple), day labels below. Today's dot is highlighted and larger.
+4. **MY BADGES card** — tappable showing unlock count ("X of 29 unlocked") and up to 9 unlocked badge emoji tiles (or 5 locked placeholders for new users). Tapping opens `AchievementsModal`. State: `badgesOpen` + `unlockedBadges` (computed from `getUnlockedBadges(sessions, profile)` each render).
+5. **Leaderboard row** — tappable, expands (`lbExpanded` state) to show top-5 ranked users inline. Non-self rows are tappable and call `onViewProfile(u)` to open `UserProfileModal` via `SocialFitClubInner`.
+6. **Quick Start row** — tappable, expands (`qsExpanded` state, default open) to reveal a 2×2 grid of workout cards.
 
 ### Onboarding Flow
 
@@ -511,26 +510,30 @@ Never hardcode colours or fonts — always reference `G` and `FONT`.
 
 ### Screen header pattern
 
-Every screen uses a **consistent header block** immediately inside the root padding div:
+Every screen uses a **consistent header block** immediately inside the root padding div. All five screens now have a small **22×22 purple gradient square badge** to the left of the title (replaces the old emoji prefix — emoji rendering causes font baseline mismatches on some devices):
 
 ```jsx
 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
   <div>
-    <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>
-      SCREEN <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>WORD</span>
+    <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+      <div style={{ width:22, height:22, borderRadius:5, background:`linear-gradient(135deg,${G.purple},${G.purpleBright})`, boxShadow:`0 0 8px ${G.purple}55`, flexShrink:0 }}/>
+      <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+        SCREEN <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>WORD</span>
+      </div>
     </div>
-    <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
-      <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple }}/>
-      <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>Tagline here</div>
+    <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:4 }}>
+      <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple, boxShadow:`0 0 8px ${G.purple}` }}/>
+      <div style={{ fontFamily:FONT.body, fontSize:10, letterSpacing:2.5, color:G.textMid, textTransform:"uppercase" }}>Tagline here</div>
     </div>
   </div>
   {/* optional right-side button */}
 </div>
 ```
 
-- Title is 22px `FONT.display`, white base + **purple** highlighted word (not gold)
+- Title is **22px** `FONT.display` on screens with sub-tabs (Train, Progress, Nutrition) — sub-tabs need the vertical space. **26px** on Squad Feed and More Tools (no sub-tabs).
+- Purple square badge (22×22, `borderRadius:5`) + 9px gap to the left of the title text — do not use emoji prefixes.
 - Purple dot (7px circle) + short tagline below
-- Gold is reserved for points, PR badges, achievements, and the calorie ring — not for screen chrome
+- White base text + **purple** highlighted second word — gold is reserved for points, PR badges, achievements, and the calorie ring
 
 ### Sub-tab pill pattern
 
@@ -565,7 +568,7 @@ React import: `useState, useEffect, useRef, useCallback, Component`. Add to this
 
 `ACHIEVEMENTS` is an array of 29 badge definitions: `{ id, cat, ico, name, desc, check(ctx) }` where `ctx` is `{ sc, streak, pts, vol, prs, bodyLog, foods, water }`. Categories: `TRAINING`, `VOLUME`, `STREAKS`, `STRENGTH`, `POINTS`, `BODY`, `NUTRITION`. Adding a new badge: append to `ACHIEVEMENTS` with a unique `id` and a `check` function — no other code needs changing.
 
-`EXERCISE_CATS` is an object keyed by muscle group (`CHEST`, `BACK`, `ARMS`, `LEGS`, `SHOULDERS`, `CORE`, `CARDIO`, `KETTLEBELL`) with 160+ exercises total. `EXERCISES = Object.values(EXERCISE_CATS).flat()`. `EX_CAT_LOOKUP` maps each exercise name → its muscle-group category (auto-built from `EXERCISE_CATS`). Adding a new exercise: put it in the right `EXERCISE_CATS` array — `EX_CAT_LOOKUP` and `EXERCISES` are derived automatically. Also add it to `EXERCISE_MET` (or it falls back to `DEFAULT_MET = 4.5`), and to `BODYWEIGHT_EXERCISES` if relevant, and to `EXERCISE_MUSCLE_MAP` for heat map tracking.
+`EXERCISE_CATS` is an object keyed by muscle group (`CHEST`, `BACK`, `ARMS`, `LEGS`, `SHOULDERS`, `CORE`, `CARDIO`, `KETTLEBELL`) with 232 exercises total. `EXERCISES = Object.values(EXERCISE_CATS).flat()`. `EX_CAT_LOOKUP` maps each exercise name → its muscle-group category (auto-built from `EXERCISE_CATS`). Adding a new exercise: put it in the right `EXERCISE_CATS` array — `EX_CAT_LOOKUP` and `EXERCISES` are derived automatically. Also add it to `EXERCISE_MET` (must use the **exact same string** as in `EXERCISE_CATS` or the key will never match and calorie estimates silently fall back to `DEFAULT_MET = 4.5`), and to `BODYWEIGHT_EXERCISES` if relevant, and to `EXERCISE_MUSCLE_MAP` for heat map tracking. `EXERCISE_MET` currently has 232 entries with perfect 1:1 alignment to `EXERCISE_CATS` — verify this alignment when adding exercises using the cross-check script pattern in the session history.
 
 `EXERCISE_SUBCATS` provides sub-filters within a category: `{ LEGS: { QUADS: [...], HAMSTRINGS: [...] }, BACK: { LATS: [...], "MID BACK": [...] } }`. Used by `ExercisePicker` to show a FOCUS chip row when LEGS or BACK is selected.
 
