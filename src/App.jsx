@@ -2449,13 +2449,23 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile, o
         </div>
 
         {/* streak hero */}
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, padding:"14px 0", borderTop:`1px solid ${P}22`, borderBottom:`1px solid ${P}22`, marginBottom:14 }}>
-          <span style={{ fontSize:32, filter:`drop-shadow(0 0 10px ${G.gold})` }}>🔥</span>
-          <div style={{ textAlign:"center" }}>
-            <div style={{ fontFamily:FONT.display, fontSize:56, color:G.gold, letterSpacing:2, lineHeight:1, textShadow:G.goldGlow2 }}>{profile?.streak||0}</div>
-            <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:3, color:G.textMid, textTransform:"uppercase", marginTop:2 }}>DAY STREAK</div>
-          </div>
-          <span style={{ fontSize:32, filter:`drop-shadow(0 0 10px ${G.gold})` }}>🔥</span>
+        <div style={{ padding:"14px 0", borderTop:`1px solid ${P}22`, borderBottom:`1px solid ${P}22`, marginBottom:14 }}>
+          {(profile?.streak || 0) > 0 ? (
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12 }}>
+              <span style={{ fontSize:32, filter:`drop-shadow(0 0 10px ${G.gold})` }}>🔥</span>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontFamily:FONT.display, fontSize:56, color:G.gold, letterSpacing:2, lineHeight:1, textShadow:G.goldGlow2 }}>{profile.streak}</div>
+                <div style={{ fontFamily:FONT.body, fontSize:9, letterSpacing:3, color:G.textMid, textTransform:"uppercase", marginTop:2 }}>DAY STREAK</div>
+              </div>
+              <span style={{ fontSize:32, filter:`drop-shadow(0 0 10px ${G.gold})` }}>🔥</span>
+            </div>
+          ) : (
+            <div style={{ textAlign:"center" }}>
+              <div style={{ fontSize:28, marginBottom:6 }}>🎯</div>
+              <div style={{ fontFamily:FONT.display, fontSize:20, letterSpacing:3, color:"#fff", textTransform:"uppercase" }}>START YOUR STREAK</div>
+              <div style={{ fontFamily:FONT.body, fontSize:10, color:G.textMid, letterSpacing:2, textTransform:"uppercase", marginTop:4 }}>Log a workout today to begin</div>
+            </div>
+          )}
         </div>
 
         {/* daily motivational quote */}
@@ -3206,8 +3216,11 @@ function TrainScreen({ showToast, onSave, onDelete, onEdit, quickStart, onClearQ
       }}/>}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:16 }}>
         <div>
-          <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
-            🏋️ TRAINING <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>HUB</span>
+          <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+            <div style={{ width:22, height:22, borderRadius:5, background:`linear-gradient(135deg,${G.purple},${G.purpleBright})`, boxShadow:`0 0 8px ${G.purple}55`, flexShrink:0 }}/>
+            <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+              TRAINING <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>HUB</span>
+            </div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:4 }}>
             <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple, boxShadow:`0 0 8px ${G.purple}` }}/>
@@ -5510,8 +5523,11 @@ function ProgressScreen({ showToast, sessions = [], profile, unit = "lbs" }) {
   return (
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       <div style={{ marginBottom:16 }}>
-        <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
-          📈 PROGRESS <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>VAULT</span>
+        <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+          <div style={{ width:22, height:22, borderRadius:5, background:`linear-gradient(135deg,${G.purple},${G.purpleBright})`, boxShadow:`0 0 8px ${G.purple}55`, flexShrink:0 }}/>
+          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+            PROGRESS <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>VAULT</span>
+          </div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:4 }}>
           <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple, boxShadow:`0 0 8px ${G.purple}` }}/>
@@ -6343,8 +6359,11 @@ function NutritionScreen({ showToast, sessions = [] }) {
     <>
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       <div style={{ marginBottom:16 }}>
-        <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
-          🥗 NUTRITION <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>LAB</span>
+        <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+          <div style={{ width:22, height:22, borderRadius:5, background:`linear-gradient(135deg,${G.purple},${G.purpleBright})`, boxShadow:`0 0 8px ${G.purple}55`, flexShrink:0 }}/>
+          <div style={{ fontFamily:FONT.display, fontSize:22, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+            NUTRITION <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>LAB</span>
+          </div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:4 }}>
           <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple, boxShadow:`0 0 8px ${G.purple}` }}/>
@@ -7647,8 +7666,11 @@ function FeedScreen({ showToast, profile, sessions = [], userId, sharedSession, 
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"0 18px", marginBottom:4 }}>
         <div>
-          <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", textTransform:"uppercase", lineHeight:1 }}>
-            ⚔️ SQUAD <span style={{ color:P, textShadow:`0 0 12px ${P}` }}>FEED</span>
+          <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+            <div style={{ width:22, height:22, borderRadius:5, background:`linear-gradient(135deg,${P},${G.purpleBright})`, boxShadow:`0 0 8px ${P}55`, flexShrink:0 }}/>
+            <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", textTransform:"uppercase", lineHeight:1 }}>
+              SQUAD <span style={{ color:P, textShadow:`0 0 12px ${P}` }}>FEED</span>
+            </div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
             <div style={{ width:7, height:7, borderRadius:"50%", background:P }}/>
@@ -9303,8 +9325,11 @@ function MoreScreen({ showToast, profile, onSignOut, onProfileUpdate, sessions, 
   return (
     <div style={{ padding:"calc(env(safe-area-inset-top, 0px) + 20px) 18px 0" }}>
       <div style={{ marginBottom:18 }}>
-        <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
-          ⚙️ MORE <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>TOOLS</span>
+        <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+          <div style={{ width:22, height:22, borderRadius:5, background:`linear-gradient(135deg,${G.purple},${G.purpleBright})`, boxShadow:`0 0 8px ${G.purple}55`, flexShrink:0 }}/>
+          <div style={{ fontFamily:FONT.display, fontSize:26, letterSpacing:4, color:"#fff", textTransform:"uppercase" }}>
+            MORE <span style={{ color:G.purple, textShadow:`0 0 12px ${G.purple}` }}>TOOLS</span>
+          </div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:4 }}>
           <div style={{ width:7, height:7, borderRadius:"50%", background:G.purple, boxShadow:`0 0 8px ${G.purple}` }}/>
@@ -10350,7 +10375,7 @@ function SocialFitClubInner() {
     { id:"train",     ico:"⊞",   l:"TRAIN"     },
     { id:"progress",  ico:"⤴",   l:"PROGRESS"  },
     { id:"feed",      ico:"⚇",   l:"SQUAD"     },
-    { id:"nutrition", ico:"◉",   l:"NUTRITION" },
+    { id:"nutrition", ico:"◉",   l:"NUTR"      },
     { id:"more",      ico:"···", l:"MORE"       },
   ];
 
