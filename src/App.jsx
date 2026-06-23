@@ -10087,6 +10087,7 @@ function SocialFitClubInner() {
   };
   const profileSetupChecked = useRef(false);
   const toastTimer = useRef(null);
+  const isSavingRef = useRef(false);
 
   const loadProfile = async (userId) => {
     const { data, error } = await supabase.from("profiles").select("id, username, avatar_initials, avatar_url, points, streak, sessions_count, age, sex, location").eq("id", userId).single();
@@ -10192,7 +10193,7 @@ function SocialFitClubInner() {
     });
     // Refresh data when app resumes from background (iOS PWA)
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === "visible" && !isSavingRef.current) {
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session?.user) {
             loadProfile(session.user.id);
@@ -10258,6 +10259,7 @@ function SocialFitClubInner() {
   };
 
   const handleSave = async (sess) => {
+    isSavingRef.current = true;
     // Calculate new streak: check if most recent prior session was today or yesterday
     const todayStr = new Date().toISOString().slice(0, 10);
     const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
@@ -10297,6 +10299,7 @@ function SocialFitClubInner() {
       supabase.from("profiles").update({ points: newPts, sessions_count: newSessionsCount, streak: newStreak }).eq("id", user.id),
     ]);
     if (sErr || pErr) {
+      isSavingRef.current = false;
       // Roll back optimistic update so nothing is lost on reload
       setSessions(p => p.filter(s => s.createdAt !== sessWithTs._optimisticAt));
       setProfile(p => ({ ...p, points: profile?.points || 0, sessions_count: profile?.sessions_count || 0, streak: profile?.streak || 0 }));
@@ -10318,9 +10321,8 @@ function SocialFitClubInner() {
       } catch { /* ignore */ }
     }
     // Sync from DB — replaces the optimistic entry with the real row (including id).
-    // This also guards against the visibility-change handler racing loadSessions
-    // during the insert and wiping the optimistic state before the insert completes.
     await loadSessions(user.id);
+    isSavingRef.current = false;
     // Check for newly unlocked badges
     try {
       const seenKey = "sfc_seen_badges";
