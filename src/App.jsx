@@ -11,21 +11,17 @@ const ADMIN_EMAIL = "harrisj1025@gmail.com";
 
 const G = {
   gold: "#FDB927",
-  goldHot: "#FFD060",
   goldDark: "#C9941A",
-  goldDim: "rgba(253,185,39,0.15)",
   goldGlow: "0 0 20px rgba(253,185,39,0.6), 0 0 40px rgba(253,185,39,0.2)",
   goldGlow2: "0 0 8px rgba(253,185,39,0.8)",
   purple: "#552583",
   purpleBright: "#7B35C4",
   purpleLight: "#9B59D0",
-  purpleDim: "rgba(85,37,131,0.3)",
   purpleGlow: "0 0 20px rgba(85,37,131,0.7), 0 0 40px rgba(85,37,131,0.3)",
   bg: "#06060E",
   bg2: "#0B0B18",
   bg3: "#100F20",
   chrome: "rgba(255,255,255,0.06)",
-  chrome2: "rgba(255,255,255,0.10)",
   border: "rgba(253,185,39,0.2)",
   borderB: "rgba(253,185,39,0.08)",
   text: "#F2E8FF",
@@ -230,7 +226,6 @@ const CARDIO_SET_CONFIG = {
   "Sled Drag":      { a:{ label:"DIST",    unit:"YDS",  mode:"numeric"  }, b:{ label:"WEIGHT",  unit:"LBS", mode:"decimal" } },
   "Prowler Push":   { a:{ label:"DIST",    unit:"YDS",  mode:"numeric"  }, b:{ label:"WEIGHT",  unit:"LBS", mode:"decimal" } },
   "Sprint Intervals":{ a:{ label:"TIME",   unit:"SEC",  mode:"numeric"  }, b:{ label:"ROUNDS",  unit:"",    mode:"numeric"  } },
-  "Suitcase Carry": { a:{ label:"DIST",    unit:"YDS",  mode:"numeric"  }, b:{ label:"WEIGHT",  unit:"LBS", mode:"decimal" } },
   "Elliptical":      { a:{ label:"TIME",    unit:"MIN",  mode:"decimal"  }, b:{ label:"RESISTANCE", unit:"LVL", mode:"numeric" } },
   "Stationary Bike": { a:{ label:"TIME",    unit:"MIN",  mode:"decimal"  }, b:{ label:"RESISTANCE", unit:"LVL", mode:"numeric" } },
   "Echo Bike":       { a:{ label:"TIME",    unit:"MIN",  mode:"decimal"  }, b:{ label:"LEVEL",      unit:"",    mode:"numeric" } },
@@ -1465,13 +1460,11 @@ const EXERCISE_TIPS = {
   // CHEST
   "Barbell Bench Press":{ cues:["Retract and depress shoulder blades into the bench","Bar touches lower chest — not your neck","Drive feet into the floor; press bar in a slight arc back toward the rack"], err:"Elbows flared 90°, bouncing bar off chest, or lifting hips off the bench" },
   "Incline Barbell Press":{ cues:["Set bench 30–45°; steeper angles shift load to front delts","Grip slightly narrower than flat bench","Controlled descent; touch upper chest, not collarbone"], err:"Bench too steep (>45°), bar drifting toward the neck" },
-  "Incline Barbell Bench Press":{ cues:["Set bench 30–45°; steeper angles shift load to front delts","Grip slightly narrower than flat bench","Controlled descent; touch upper chest, not collarbone"], err:"Bench too steep (>45°), bar drifting toward the neck" },
   "Decline Bench Press":{ cues:["Feet secured; grip slightly wider than shoulder-width","Bar descends to lower chest/sternum","Controlled eccentric — resist the urge to bounce"], err:"Excessive arch, bar crashing into chest, elbows flaring wide" },
   "Dumbbell Bench Press":{ cues:["Let elbows flare naturally — not pinned to sides","Squeeze at the top but keep a slight bend in elbows","Control the descent; don't let shoulders roll forward"], err:"Dumbbells dropping too fast or excessive lower-back arch" },
   "Incline Dumbbell Press":{ cues:["30–45° incline; keep upper back tight","Neutral or slightly pronated grip at the top","Full stretch at the bottom — feel the pec stretch"], err:"Excessive elbow flare or rushing the eccentric" },
   "Decline Dumbbell Press":{ cues:["Feet secured under pad; brace core throughout","Dumbbells lower to bottom of chest in a controlled arc","Press straight up; don't let dumbbells drift toward face"], err:"Losing core tension, dumbbells drifting too wide on descent" },
   "Cable Flyes":{ cues:["Slight forward lean; think hugging a large tree","Keep a soft bend in the elbows throughout","Lead with your elbows, not your hands"], err:"Arms going straight (turns it into a press) or using too much weight" },
-  "Cable Fly":{ cues:["Slight forward lean; think hugging a large tree","Keep a soft bend in the elbows throughout","Lead with your elbows, not your hands"], err:"Arms going straight (turns it into a press) or using too much weight" },
   "Dumbbell Flyes":{ cues:["Wide arc down; elbows stay slightly bent throughout","Feel a full stretch at the bottom without shoulder pain","Squeeze pecs at the top — don't clink the weights together"], err:"Locking elbows out or going too heavy and losing control" },
   "Incline Cable Flyes":{ cues:["Cables set low; lean back on 30–45° incline bench","Arc upward and together, squeezing pecs at the top","Keep soft elbow bend; don't turn it into a press"], err:"Straightening arms (makes it a press) or bench angle too steep" },
   "Pec Deck Machine":{ cues:["Elbows at shoulder height on the pads","Squeeze pecs to bring pads together; hold 1 sec","Slow controlled return — don't let weight slam back"], err:"Elbows dropping below pad level or using shoulder momentum" },
@@ -1534,7 +1527,6 @@ const EXERCISE_TIPS = {
   "Single Leg Press":{ cues:["One foot centered on the platform at comfortable height","Lower under control until 90° knee angle","Press through mid-foot; keep hips flat on the pad"], err:"Hip rotating off the seat or knee caving inward" },
   "Bulgarian Split Squat":{ cues:["Front foot far enough forward so shin stays vertical at bottom","Back knee drives toward the floor — not behind you","Push through the heel of the front foot to drive up"], err:"Front foot too close, knee caving inward, or leaning excessively forward" },
   "Walking Lunges":{ cues:["Step long enough so front shin stays vertical at bottom","Rear knee drives toward the floor with control","Push through front heel to drive forward into next step"], err:"Front knee shooting past toes or torso leaning excessively forward" },
-  "Lunges":{ cues:["Take a stride big enough so front shin stays vertical","Rear knee just above the floor without slamming down","Push through front heel to drive back up"], err:"Front knee shooting past toes or torso leaning forward" },
   "Reverse Lunges":{ cues:["Step back and lower rear knee toward the floor","Front shin stays vertical; knee tracks over toes","Push through front heel to return to standing"], err:"Front knee caving or stepping back too short causing forward lean" },
   "Dumbbell Lunge":{ cues:["Dumbbells at sides; step forward into lunge position","Front shin vertical; rear knee near the floor","Push through front heel to return; keep torso upright"], err:"Torso leaning forward or front knee collapsing inward" },
   "Step-Ups":{ cues:["Step onto the box with full foot contact — heel included","Drive through the heel of the working leg to stand up","Lower the trailing leg under control — don't just drop it"], err:"Pushing off the trailing foot (reduces the working-leg stimulus)" },
@@ -1572,18 +1564,15 @@ const EXERCISE_TIPS = {
   // SHOULDERS
   "Barbell Overhead Press":{ cues:["Bar starts just below chin on collarbones","Press in a vertical line; tuck chin as bar passes your face","Lock out overhead; glutes and abs braced throughout"], err:"Bar pressing forward instead of straight up or lower-back hyperextension" },
   "Seated Dumbbell Press":{ cues:["Dumbbells at ear level; neutral or slightly pronated grip","Press overhead and slightly together — don't slam at top","Control the descent back to ear level — full range"], err:"Arching lower back excessively or elbows too far forward" },
-  "Dumbbell Shoulder Press":{ cues:["Dumbbells at ear level; neutral or slightly pronated grip","Press overhead and slightly together — don't slam at top","Control the descent back to ear level — full range"], err:"Arching lower back excessively or elbows too far forward" },
   "Machine Shoulder Press":{ cues:["Adjust seat so handles are at shoulder height","Press straight overhead; don't lock out hard at the top","Slow the eccentric — control the descent back to start"], err:"Seat too low causing impingement or pressing at an angle" },
   "Arnold Press":{ cues:["Start with palms facing you at chin height; rotate as you press","At the top, palms face forward — reverse on the way down","Full range of motion; keep core braced throughout"], err:"Rushing the rotation or using too heavy a weight that limits range" },
   "Push Press":{ cues:["Slight knee dip; explode legs to initiate the press","Punch bar overhead using leg drive; lock out at the top","Receive the bar on collarbones in a controlled descent"], err:"Dipping too low (turns into a jerk) or not locking out overhead" },
   "Lateral Raises":{ cues:["Slight bend in elbows; lead with elbows, not hands","Raise to shoulder height — no higher than parallel","Slow the eccentric — 2–3 seconds down"], err:"Swinging the weight up, shrugging, or raising too high" },
-  "Lateral Raise":{ cues:["Slight bend in elbows; lead with elbows, not hands","Raise to shoulder height — no higher than parallel","Slow the eccentric — 2–3 seconds down"], err:"Swinging the weight up, shrugging, or raising too high" },
   "Cable Lateral Raises":{ cues:["Cable at floor level; arm slightly in front of body","Raise to shoulder height; slight elbow bend throughout","Slow the eccentric — cable provides constant tension"], err:"Shrugging shoulder or pulling with the elbow too close to the body" },
   "Front Raises":{ cues:["Slight elbow bend; raise directly in front to shoulder height","Avoid swinging; use strict controlled movement","Slow the eccentric — resist the weight on the way down"], err:"Swinging the torso or raising too high causing shoulder impingement" },
   "Rear Delt Flyes":{ cues:["Hinge to 45° or higher; arms hang straight down","Raise arms out to the side in a reverse-fly arc","Squeeze rear delts at the top; slow controlled descent"], err:"Bending elbows too much (engages more upper back than rear delts)" },
   "Machine Rear Delt Flyes":{ cues:["Chest against pad; grip handles with arms extended","Pull handles back in a wide arc; squeeze rear delts at peak","Slow controlled return — don't let the stack drop"], err:"Using too much trap engagement or partial range of motion" },
   "Cable Face Pulls":{ cues:["Rope at upper-chest/forehead height; pull to face level","External rotate at the end — hands end beside ears","Keep elbows high throughout the pull"], err:"Pulling too low, losing elbow height, or going too heavy" },
-  "Face Pull":{ cues:["Rope at upper-chest/forehead height; pull to face level","External rotate at the end — hands end beside ears","Keep elbows high throughout the pull"], err:"Pulling too low, losing elbow height, or going too heavy" },
   "Upright Row":{ cues:["Grip slightly wider than shoulder-width; elbows lead the pull","Pull to chin level; elbows stay higher than wrists","Lower under control; keep bar close to the body"], err:"Narrow grip increasing impingement risk; pulling too high" },
   "Barbell Shrugs":{ cues:["Grip just outside hips; shrug straight up — not forward or back","Hold at the top for 1 sec; fully lower between reps","Don't roll the shoulders — straight up and down"], err:"Rolling shoulders (increases injury risk) or using too much momentum" },
   "Dumbbell Shrugs":{ cues:["Dumbbells at sides; shrug straight up squeezing traps","Hold 1 sec at the top; full depression between reps","No shoulder roll — pure vertical movement"], err:"Rolling the shoulders or only doing a partial contraction" },
@@ -1708,8 +1697,6 @@ const EXERCISE_TIPS = {
   "Bottoms-Up Press":{ cues:["Bell flipped upside down; grip tight to stabilize it","Press overhead slowly — the instability demands shoulder control","Lower under control; grip intensity must not waver"], err:"Letting the bell tip before achieving full lockout" },
   "Kettlebell Sumo Deadlift":{ cues:["Wide stance with bell between feet; toes angled out","Hinge and grip the handle; neutral spine before the pull","Drive knees out; push floor away to stand; lockout with glutes"], err:"Knees caving inward or rounding lower back at the setup" },
   "Kettlebell Jump Squat":{ cues:["Bell held at chest or between legs; squat to parallel","Explode upward off both feet; fully extend hips and knees","Land softly with knees bent; absorb through the whole leg"], err:"Landing stiff-legged or not squatting deep enough before the jump" },
-  // ALIASES
-  "Hip Thrust (Bodyweight)":{ cues:["Bench at mid-scapula; feet flat hip-width apart","Full range of motion — all the way down","Squeeze glutes hard at the top; chin tucked throughout"], err:"Hyperextending lower back at lockout" },
 };
 
 const DEFAULT_MET = 4.5; // fallback for unlisted exercises
@@ -2417,7 +2404,14 @@ function HomeScreen({ sessions, leaderboard, onQuickStart, showToast, profile, o
   const [lbExpanded, setLbExpanded] = useState(false);
   const [qsExpanded, setQsExpanded] = useState(true);
   const [badgesOpen, setBadgesOpen] = useState(false);
-  const unlockedBadges = getUnlockedBadges(sessions, profile);
+  const unlockedBadges = (() => {
+    const bodyLog = (() => { try { return JSON.parse(localStorage.getItem("sfc_body_log")||"[]"); } catch { return []; } })();
+    const nl = (() => { try { return JSON.parse(localStorage.getItem("sfc_nutrition_log")||"[]"); } catch { return []; } })();
+    const foods = Array.isArray(nl) ? nl.reduce((s,d)=>s+(d.items?.length||0),0) : 0;
+    const wl = (() => { try { return JSON.parse(localStorage.getItem("sfc_water_log")||"null"); } catch { return null; } })();
+    const water = (wl?.entries||[]).length;
+    return getUnlockedBadges(sessions, profile, { bodyLog: Array.isArray(bodyLog)?bodyLog:[], foods, water });
+  })();
   const [nowMs] = useState(() => Date.now());
   const hour = new Date(nowMs).getHours();
   const greeting = hour < 5 ? "LET'S GET IT" : hour < 12 ? "GOOD MORNING" : hour < 17 ? "GOOD AFTERNOON" : "GOOD EVENING";
@@ -9805,7 +9799,7 @@ function DeleteAccountModal({ onClose, onDeleted }) {
       const { error: e } = await supabase.functions.invoke("delete-account");
       if (e) throw e;
       // Clear all local data
-      const keys = ["sfc_nutrition_log","sfc_wip_session","sfc_feed","sfc_streak_freezes","sfc_goals","sfc_body_log","sfc_ble_device","sfc_supplement_log","sfc_notif_prefs","sfc_session_tags","sfc_session_notes","sfc_water_log","sfc_water_goal","sfc_macro_coach","sfc_challenges","sfc_meal_templates","sfc_templates","sfc_daily_motiv","sfc_remembered_email","sfc_onboarded","sfc_profile_setup_done","sfc_tour_done"];
+      const keys = ["sfc_nutrition_log","sfc_wip_session","sfc_streak_freezes","sfc_goals","sfc_body_log","sfc_ble_device","sfc_supplement_log","sfc_notif_prefs","sfc_session_tags","sfc_session_notes","sfc_water_log","sfc_water_goal","sfc_macro_coach","sfc_challenges","sfc_meal_templates","sfc_templates","sfc_daily_motiv","sfc_remembered_email","sfc_onboarded","sfc_profile_setup_done","sfc_tour_done","sfc_food_favorites","sfc_last_deload","sfc_auto_rest","sfc_seen_badges","sfc_unit"];
       keys.forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
       onDeleted();
     } catch {
@@ -10248,7 +10242,7 @@ function SocialFitClubInner() {
     await supabase.auth.signOut();
     // Only clear session-ephemeral keys — nutrition logs, macro coach, body log, goals,
     // templates, water, challenges etc. are device-level personal data and must survive sign-out.
-    ["sfc_daily_motiv","sfc_wip_session","sfc_session_tags","sfc_feed"].forEach(k => localStorage.removeItem(k));
+    ["sfc_daily_motiv","sfc_wip_session","sfc_session_tags"].forEach(k => localStorage.removeItem(k));
     setTab("home");
     setSessions([]);
     setProfile(null);
