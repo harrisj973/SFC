@@ -10208,7 +10208,10 @@ function SocialFitClubInner() {
       if (event === "PASSWORD_RECOVERY") { setPasswordRecovery(true); return; }
       setAuthReady(true); // backup: fires on INITIAL_SESSION covering slow getSession() cases
       setUser(session?.user ?? null);
-      if (session?.user) await ensureProfile(session.user);
+      if (session?.user) {
+        setDataLoadFailed(false); // clear any stale error so TOKEN_REFRESHED retries cleanly
+        await ensureProfile(session.user);
+      }
       else { setProfile(null); setSessions([]); }
     });
     return () => { subscription.unsubscribe(); document.removeEventListener("visibilitychange", handleVisibility); };
@@ -10415,7 +10418,18 @@ function SocialFitClubInner() {
       </div>
     );
   }
-  if (!profile) return <div style={{ minHeight:"100vh", background:G.bg }}/>;
+  if (!profile) return (
+    <div style={{ height:"100dvh", background:G.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:24 }}>
+      <div style={{ width:80, height:80, borderRadius:"50%", background:`linear-gradient(135deg,${G.purple},${G.purpleBright})`, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:`0 0 36px ${G.purple}88` }}>
+        <div style={{ fontFamily:FONT.display, fontSize:30, color:"#fff", letterSpacing:3 }}>SFC</div>
+      </div>
+      <div style={{ fontFamily:FONT.display, fontSize:13, letterSpacing:5, color:G.textMid, textTransform:"uppercase" }}>SOCIAL FIT CLUB</div>
+      <div style={{ display:"flex", gap:8, marginTop:4 }}>
+        {[0,1,2].map(i => <div key={i} style={{ width:7, height:7, borderRadius:"50%", background:G.purple, animation:`sfcDot 1.2s ease-in-out ${i*0.25}s infinite` }}/>)}
+      </div>
+      <style>{`@keyframes sfcDot{0%,100%{opacity:.2;transform:scale(.7)}50%{opacity:1;transform:scale(1)}}`}</style>
+    </div>
+  );
 
   return (
     <div style={{ height:"100dvh", background:G.bg, color:G.text, fontFamily:FONT.body, maxWidth:480, margin:"0 auto", position:"relative", userSelect:"none", display:"flex", flexDirection:"column", overflow:"hidden" }}>
